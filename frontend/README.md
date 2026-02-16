@@ -346,4 +346,97 @@ frontend/
 - Tunnel mode is enabled by default for easier connection
 - Hot reloading is enabled automatically - save files to see changes instantly
 - React version: **19.1.0** (required by Expo SDK 54)
+-
+---
+
+## Expo Development Build (Android Dev Client)
+
+In addition to Expo Go, this project also supports an **Expo development build (dev client) on Android**, which runs in the Android Studio emulator. This is what the team refers to as **“Expo development”** (as opposed to Expo Go).
+
+> **Note:** This section is for **Android only**. See the next section for the current iOS status.
+
+### Android Dev Client – One‑Time Setup
+
+1. **Install Android Studio (Windows)**
+   - Download from `https://developer.android.com/studio`
+   - Run the installer and complete the default **Standard** setup (this installs the Android SDK).
+
+2. **Create an Android Virtual Device (AVD)**
+   - Open **Android Studio** → **Device Manager** (or **More Actions → Virtual Device Manager**).
+   - Click **Create Device**.
+   - Recommended: choose a **Pixel 6 / Pixel 7** (or similar ~6" phone).
+   - On the **System Image** screen:
+     - Choose a recent image (e.g. **API 36 Baklava**).
+     - Prefer **Google Play Intel x86_64 Atom System Image** (no need for the pre‑release variants).
+   - Finish the wizard.
+
+3. **Start the emulator**
+   - In **Device Manager**, click the **Play ▶** button next to your device.
+   - Wait for the Android home screen to appear.
+
+4. **Build the Android dev client with EAS**
+   - In a terminal:
+     ```bash
+     cd C:\Users\alyss\shoe_shopper\frontend
+     npx eas-cli build --profile development --platform android
+     ```
+   - Sign in with your Expo account when prompted.
+   - When the build finishes, EAS will show a **build page URL**.
+   - Open that URL in your browser.
+   - On the build page, click **Download build** to download the **.apk** file (ignore the QR‑code “Install” option; that’s for real devices).
+   -This will take about 10-25 minutes to build so do it when you have time
+
+5. **Install the APK into the emulator**
+   - Start the emulator if it isn’t already running.
+   - From Windows **File Explorer**, locate the downloaded `.apk` file.
+   - **Drag and drop the `.apk` onto the emulator window**.
+   - Android will install the app; you can find it in the **app drawer** and optionally drag it to the home screen.
+
+After this, the Android dev client is installed and can be reused for daily development.
+
+### Android Dev Client – Daily Development Workflow
+
+1. **Start the dev server (Metro) for the dev client**
+   - From the `frontend` directory:
+     ```bash
+     cd C:\Users\alyss\shoe_shopper\frontend
+     npx expo start --dev-client
+     ```
+   - Leave this terminal running.
+
+2. **Open the Android emulator**
+   - Start your AVD from Android Studio (Device Manager → Play).
+
+3. **Launch the app in the emulator**
+   - With `expo start --dev-client` running, press **`a`** in the terminal to target Android, **then**
+   - Open the installed app icon (e.g. `Shoe Shopper`) in the emulator’s app drawer / home screen.
+
+4. **Iterate**
+   - Edit code in the `frontend` project.
+   - The dev client will reload changes via Metro (fast refresh / hot reload).
+   - Use the usual shortcuts (reload, dev menu, etc.).
+
+If you see **“Unable to load script”** in the emulator, make sure:
+- `npx expo start --dev-client` is running in `frontend`, and
+- The emulator is started **after** (or while) the dev server is running.
+
+---
+
+## Current iOS Status (No Dev Client Yet)
+
+At the moment, this repo **does not use an Expo dev client for iOS**. iOS testing is still done via **Expo Go only**:
+
+- Open the project with **Expo Go** on an iPhone (see the **Expo Go Setup** and **Running the App** sections above).
+- This works on Windows because no Mac or Xcode is required.
+
+To use an **iOS Expo dev client (development build) on a real iPhone**, you must:
+
+- Enroll in the **Apple Developer Program** (currently **$99/year**), and
+- Use EAS Build for iOS with Apple signing credentials, and
+- Ideally have access to a **Mac** if you want to use the iOS Simulator (Xcode only runs on macOS).
+
+Because the current developer only has a **Windows PC** and does **not** have a paid Apple Developer account, the iOS dev‑client workflow is **not configured** here.
+
+- **Android** → uses an **Expo dev client** (development build) in the Android Studio emulator.
+- **iOS** → uses **Expo Go** for now, until someone with a paid Apple Developer account and/or a Mac sets up the iOS dev‑client pipeline.
 
