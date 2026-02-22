@@ -1,5 +1,6 @@
 {
   "expo": {
+    "owner": "shoeshopper",
     "name": "shoe_shopper",
     "slug": "shoe_shopper",
     "version": "1.0.0",

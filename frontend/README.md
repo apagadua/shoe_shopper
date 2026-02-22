@@ -9,6 +9,9 @@ This guide will help you set up and run the Expo application on both **Mac** and
 - [Running the App](#running-the-app)
 - [Connecting to the Development Server](#connecting-to-the-development-server)
 - [Troubleshooting](#troubleshooting)
+- [Expo Development Build (Android)](#expo-development-build-android-dev-client)
+- [iOS (Expo Go only)](#ios-expo-go-only)
+- [Project Structure](#project-structure)
 
 ---
 
@@ -30,9 +33,9 @@ This guide will help you set up and run the Expo application on both **Mac** and
      npm --version
      ```
 
-3. **Expo Go App** (on your mobile device)
-   - **iOS**: Download from [App Store](https://apps.apple.com/app/expo-go/id982107779)
-   - **Android**: Download from [Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
+3. **Expo Go** (for running on a physical phone via QR code)
+   - [iOS](https://apps.apple.com/app/expo-go/id982107779) · [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)  
+   - Optional if you only use the Android emulator with the dev client.
 
 ---
 
@@ -40,17 +43,11 @@ This guide will help you set up and run the Expo application on both **Mac** and
 
 ### Step 1: Navigate to Project Directory
 
-**Windows (PowerShell/Command Prompt):**
-```bash
-cd C:\Users\alyss\shoe_shopper\frontend
-```
+From the repo root, go into `frontend` (all commands in this guide run from `frontend`; there is no root `package.json`):
 
-**Mac (Terminal):**
 ```bash
-cd ~/shoe_shopper/frontend
+cd frontend
 ```
-
-**Note:** All commands must be run from the `frontend` directory. There is no root `package.json` - all project files are in the `frontend` directory.
 
 ### Step 2: Install Dependencies
 
@@ -69,63 +66,26 @@ npm install --legacy-peer-deps
 
 ### Step 3: Verify Installation
 
-Check that `node_modules` directory was created:
-
-**Windows:**
-```bash
-dir node_modules
-```
-
-**Mac:**
-```bash
-ls node_modules
-```
+Check that `node_modules` was created: run `dir node_modules` (Windows) or `ls node_modules` (Mac).
 
 ---
 
 ## Expo Go Setup
 
-### For iOS (iPhone/iPad)
-
-1. **Download Expo Go**
-   - Open the App Store on your iOS device
-   - Search for "Expo Go"
-   - Install the app (it's free)
-
-2. **Connect to Same Network**
-   - Ensure your computer and iOS device are on the **same Wi-Fi network**
-   - This is required for local development
-
-3. **Alternative: Use Tunnel Mode**
-   - If you can't use the same network, the app is configured to use tunnel mode by default
-   - This allows connection over the internet (slower but works from anywhere)
-
-### For Android
-
-1. **Download Expo Go**
-   - Open Google Play Store on your Android device
-   - Search for "Expo Go"
-   - Install the app (it's free)
-
-2. **Connect to Same Network**
-   - Ensure your computer and Android device are on the **same Wi-Fi network**
-   - Or use tunnel mode (configured by default)
+1. **Install Expo Go** on your phone: [iOS App Store](https://apps.apple.com/app/expo-go/id982107779) or [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent).
+2. **Network:** Phone and computer on the same Wi‑Fi works best. The app uses **tunnel mode** by default (`npm start`), so it can connect from different networks too (slower).
 
 ---
 
 ## Running the App
 
-**Windows:**
+From the `frontend` directory:
+
 ```bash
-cd C:\Users\alyss\shoe_shopper\frontend
 npm start
 ```
 
-**Mac:**
-```bash
-cd ~/shoe_shopper/frontend
-npm start
-```
+This starts Metro with **tunnel mode** by default (so your phone can connect even on a different network).
 
 ### What Happens Next
 
@@ -173,12 +133,9 @@ If QR code scanning doesn't work:
 2. Tap **"Enter URL manually"**
 3. Enter the URL shown in your terminal
 
-### Method 3: Using Tunnel Mode
+### Method 3: Tunnel mode
 
-The app is configured to use **tunnel mode** by default, which means:
-- Works even if devices are on different networks
-- Slower connection but more reliable
-- URL will look like: `exp://kis3qp8-anonymous-8081.exp.direct`
+`npm start` uses tunnel mode by default, so the URL will look like `exp://….exp.direct`. Works across different networks; a bit slower than LAN.
 
 ---
 
@@ -288,7 +245,7 @@ npm install
 npm install --legacy-peer-deps
 ```
 
-**Note:** React version is set to **19.1.0** as required by Expo SDK 54. If you see React version conflicts, ensure `package.json` has `"react": "19.1.0"`.
+If you see React version conflicts, ensure `package.json` has `"react": "19.1.0"` (required by Expo SDK 54).
 
 ### Issue: "expo-modules-core errors"
 
@@ -308,7 +265,7 @@ npm install
 
 ```
 frontend/
-├── .expo/            # Expo configuration (auto-generated)
+├── .expo/            # Expo cache (auto-generated, gitignored)
 ├── App.js            # Main app component
 ├── app.json          # Expo configuration
 ├── assets/           # Images, fonts, etc.
@@ -323,7 +280,7 @@ frontend/
 ├── utils/            # Utility functions (helpers, formatters, validators)
 ├── index.js          # Entry point
 ├── package.json      # Dependencies and scripts
-├── package-lock.json # Locked dependency versions (committed to git)
+├── package-lock.json # Locked dependency versions
 └── README.md         # This file
 ```
 
@@ -337,72 +294,52 @@ frontend/
 
 ---
 
-## Notes
-
-- **All commands must be run from the `frontend` directory** - there is no root `package.json`
-- The `.expo` directory is auto-generated and should not be committed to git
-- `package-lock.json` is committed to git to ensure consistent dependency versions
-- Development server runs on port **8081** by default
-- Tunnel mode is enabled by default for easier connection
-- Hot reloading is enabled automatically - save files to see changes instantly
-- React version: **19.1.0** (required by Expo SDK 54)
--
----
-
 ## Expo Development Build (Android Dev Client)
 
-In addition to Expo Go, this project also supports an **Expo development build (dev client) on Android**, which runs in the Android Studio emulator. This is what the team refers to as **“Expo development”** (as opposed to Expo Go).
+Besides Expo Go, you can run an **Expo development build (dev client)** in the **Android Studio emulator**. The project is under the **shoeshopper** Expo organization; teammates must be invited to that org to run EAS builds. **“Expo development”** (as opposed to Expo Go).
 
-> **Note:** This section is for **Android only**. See the next section for the current iOS status.
+**Android only.** iOS uses Expo Go only (see next section).
 
-### Android Dev Client – One‑Time Setup
+### One-time setup
 
-1. **Install Android Studio (Windows)**
-   - Download from `https://developer.android.com/studio`
-   - Run the installer and complete the default **Standard** setup (this installs the Android SDK).
+1. **Install Android Studio** (Windows or Mac)  
+   - [developer.android.com/studio](https://developer.android.com/studio) → Standard install (installs the Android SDK).
 
 2. **Create an Android Virtual Device (AVD)**
-   - Open **Android Studio** → **Device Manager** (or **More Actions → Virtual Device Manager**).
-   - Click **Create Device**.
-   - Recommended: choose a **Pixel 6 / Pixel 7** (or similar ~6" phone).
-   - On the **System Image** screen:
-     - Choose a recent image (e.g. **API 36 Baklava**).
-     - Prefer **Google Play Intel x86_64 Atom System Image** (no need for the pre‑release variants).
-   - Finish the wizard.
+   - Android Studio → **Device Manager** → **Create Device**.
+   - Pick a phone (e.g. Pixel 6/7), then a **System Image** (e.g. API 36, Google Play Intel x86_64). Finish the wizard.
 
 3. **Start the emulator**
    - In **Device Manager**, click the **Play ▶** button next to your device.
    - Wait for the Android home screen to appear.
 
-4. **Build the Android dev client with EAS**
-   - In a terminal:
-     ```bash
-     cd C:\Users\alyss\shoe_shopper\frontend
-     npx eas-cli build --profile development --platform android
-     ```
-   - Sign in with your Expo account when prompted.
+4. **Build the dev client with EAS**  
+   From the `frontend` directory:
+   ```bash
+   npx eas-cli build --profile development --platform android
+   ```
+   - Log in with your Expo account (must be a member of the **shoeshopper** org).
    - When the build finishes, EAS will show a **build page URL**.
    - Open that URL in your browser.
    - On the build page, click **Download build** to download the **.apk** file (ignore the QR‑code “Install” option; that’s for real devices).
-   -This will take about 10-25 minutes to build so do it when you have time
+   - Build takes about **10–25 minutes**; do it when you have time.
 
 5. **Install the APK into the emulator**
    - Start the emulator if it isn’t already running.
-   - From Windows **File Explorer**, locate the downloaded `.apk` file.
+   - Locate the downloaded `.apk` file (e.g. in your Downloads folder).
    - **Drag and drop the `.apk` onto the emulator window**.
    - Android will install the app; you can find it in the **app drawer** and optionally drag it to the home screen.
 
-After this, the Android dev client is installed and can be reused for daily development.
+You only need to run this build again if you add native dependencies or change native config. For normal JS/UI changes, no rebuild needed—use the daily workflow below.
 
-### Android Dev Client – Daily Development Workflow
+### Daily development (dev client)
 
-1. **Start the dev server (Metro) for the dev client**
-   - From the `frontend` directory:
-     ```bash
-     cd C:\Users\alyss\shoe_shopper\frontend
-     npx expo start --dev-client
-     ```
-   - Leave this terminal running.
+1. **Start the dev server**  
+   From `frontend`:
+   ```bash
+   npx expo start --dev-client
+   ```
+   Leave this running.
 
 2. **Open the Android emulator**
    - Start your AVD from Android Studio (Device Manager → Play).
@@ -422,21 +359,9 @@ If you see **“Unable to load script”** in the emulator, make sure:
 
 ---
 
-## Current iOS Status (No Dev Client Yet)
+## iOS (Expo Go only)
 
-At the moment, this repo **does not use an Expo dev client for iOS**. iOS testing is still done via **Expo Go only**:
+This repo does **not** use an Expo dev client for iOS. Use **Expo Go** on an iPhone (see Expo Go Setup and Running the App). No Mac or Xcode required.
 
-- Open the project with **Expo Go** on an iPhone (see the **Expo Go Setup** and **Running the App** sections above).
-- This works on Windows because no Mac or Xcode is required.
-
-To use an **iOS Expo dev client (development build) on a real iPhone**, you must:
-
-- Enroll in the **Apple Developer Program** (currently **$99/year**), and
-- Use EAS Build for iOS with Apple signing credentials, and
-- Ideally have access to a **Mac** if you want to use the iOS Simulator (Xcode only runs on macOS).
-
-Because the current developer only has a **Windows PC** and does **not** have a paid Apple Developer account, the iOS dev‑client workflow is **not configured** here.
-
-- **Android** → uses an **Expo dev client** (development build) in the Android Studio emulator.
-- **iOS** → uses **Expo Go** for now, until someone with a paid Apple Developer account and/or a Mac sets up the iOS dev‑client pipeline.
+To add an iOS dev client later you’d need the Apple Developer Program ($99/year), EAS Build for iOS, and ideally a Mac for the simulator.
 
