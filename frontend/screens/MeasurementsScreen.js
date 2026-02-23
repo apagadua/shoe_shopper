@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 export default function MeasurementsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
+  const imageUri = route.params?.imageUri;
 
-  // Placeholder "sample" measurements - later we can pass real data in params.
+  // Placeholder "sample" measurements; when backend exists, use imageUri to fetch real data.
   const sample = {
     length: "25.3 cm",
     width: "9.4 cm",
@@ -16,8 +17,9 @@ export default function MeasurementsScreen({ navigation, route }) {
     <View style={styles.container}>
       <Text style={styles.title}>Your measurements</Text>
       <Text style={styles.subtitle}>
-        These are example values so you can see how your fit report will look.
-        We'll replace them with real measurements after your first scan.
+        {imageUri
+          ? "We're using your photo. Example values below until we connect to the measurement service."
+          : "These are example values so you can see how your fit report will look. We'll replace them with real measurements after your first scan."}
       </Text>
 
       <View style={styles.card}>
