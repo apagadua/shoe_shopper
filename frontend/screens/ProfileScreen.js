@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { API_BASE_URL } from '../config/api';
 
 export default function ProfileScreen({ navigation }) {
   // Placeholder: no profile image yet; will wire to auth/picker later
   const profileImageUri = null;
+  const [apiStatus, setApiStatus] = useState('Not tested yet');
+  const [shoePreview, setShoePreview] = useState([]);
 
   const handleChangePhoto = () => {
     // TODO: open image picker / camera for profile photo
@@ -24,6 +27,30 @@ export default function ProfileScreen({ navigation }) {
     const root = navigation.getParent()?.getParent()?.getParent();
     if (root) {
       root.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
+    }
+  };
+
+  const handleTestBackend = async () => {
+    setApiStatus('Checking backend...');
+    try {
+      const [healthRes, shoesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/health/`),
+        fetch(`${API_BASE_URL}/api/shoes/`),
+      ]);
+
+      if (!healthRes.ok || !shoesRes.ok) {
+        setApiStatus(`API error: health ${healthRes.status}, shoes ${shoesRes.status}`);
+        return;
+      }
+
+      const healthJson = await healthRes.json();
+      const shoesJson = await shoesRes.json();
+      const preview = shoesJson.slice(0, 3).map((shoe) => `${shoe.brand} ${shoe.model}`);
+      setShoePreview(preview);
+      setApiStatus(`Connected: ${healthJson.shoe_count} shoes in DB`);
+    } catch (error) {
+      setApiStatus(`Connection failed: ${error.message}`);
+      setShoePreview([]);
     }
   };
 
@@ -73,6 +100,19 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity style={[styles.rowButton, styles.rowButtonLast]} onPress={handleSignOut}>
           <Text style={styles.rowButtonTextDanger}>Sign out</Text>
           <Ionicons name="log-out-outline" size={20} color="#B3513D" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Backend Smoke Test</Text>
+        <Text style={styles.helpText}>Base URL: {API_BASE_URL}</Text>
+        <Text style={styles.helpText}>{apiStatus}</Text>
+        {shoePreview.map((line) => (
+          <Text key={line} style={styles.helpText}>- {line}</Text>
+        ))}
+        <TouchableOpacity style={[styles.rowButton, styles.rowButtonLast]} onPress={handleTestBackend}>
+          <Text style={styles.rowButtonText}>Test /api/health and /api/shoes</Text>
+          <Ionicons name="cloud-done-outline" size={20} color="#A39380" />
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -173,5 +213,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#B3513D',
     fontWeight: '500',
+  },
+  helpText: {
+    fontSize: 14,
+    color: '#6B5F52',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
 });
