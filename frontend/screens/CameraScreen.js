@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,54 +7,105 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Accelerometer, LightSensor } from 'expo-sensors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
 const FRAME_SCALE = 0.72;
 const FRAME_BASE_WIDTH = SCREEN_WIDTH - FRAME_PADDING * 2;
-const FRAME_ASPECT = 3 / 4;
+// Portrait frame: paper vertical, foot in center
+const FRAME_ASPECT = 3 / 4; // width / height
 const FRAME_WIDTH = FRAME_BASE_WIDTH * FRAME_SCALE;
 const FRAME_HEIGHT = (FRAME_BASE_WIDTH / FRAME_ASPECT) * FRAME_SCALE;
 
+const TILT_OK_DEGREES = 10;
+const LIGHT_MIN_LUX = 50; // simple threshold for "too dark" on Android
+
 export default function CameraScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding ?? false;
-  const [phase, setPhase] = useState('guide'); // 'guide' | 'loading' | 'preview' | 'processing'
+
+  const cameraRef = useRef(null);
+  const [permission, requestPermission] = useCameraPermissions();
+
+  const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
   const [capturedUri, setCapturedUri] = useState(null);
   const [error, setError] = useState(null);
 
-  const openCamera = async () => {
-    setError(null);
-    setPhase('loading');
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Camera permission is required to capture your foot.');
-        setPhase('guide');
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 0.9,
+  const [tiltDegrees, setTiltDegrees] = useState(null);
+  const [isAligned, setIsAligned] = useState(false);
+
+  const [lightLevel, setLightLevel] = useState(null);
+  const [lightOk, setLightOk] = useState(true);
+  const [lightAvailable, setLightAvailable] = useState(false);
+
+  // Tilt guidance while camera is open
+  useEffect(() => {
+    let sub;
+    if (phase === 'camera') {
+      Accelerometer.setUpdateInterval(200);
+      sub = Accelerometer.addListener(({ x, y, z }) => {
+        const mag = Math.sqrt(x * x + y * y + z * z) || 1;
+        const nz = z / mag;
+        const clamped = Math.max(-1, Math.min(1, nz));
+        const angleRad = Math.acos(Math.abs(clamped));
+        const angleDeg = (angleRad * 180) / Math.PI;
+        const rounded = Math.round(angleDeg);
+        setTiltDegrees(rounded);
+        setIsAligned(rounded <= TILT_OK_DEGREES);
       });
-      if (result.canceled) {
-        setPhase('guide');
-        return;
-      }
-      const uri = result.assets[0].uri;
-      setCapturedUri(uri);
+    }
+    return () => {
+      sub?.remove();
+    };
+  }, [phase]);
+
+  // Light guidance (Android only) while camera is open
+  useEffect(() => {
+    let sub;
+    let mounted = true;
+
+    if (phase === 'camera' && Platform.OS === 'android') {
+      (async () => {
+        try {
+          const available = await LightSensor.isAvailableAsync();
+          if (!mounted || !available) {
+            setLightAvailable(false);
+            return;
+          }
+          setLightAvailable(true);
+          sub = LightSensor.addListener(({ illuminance }) => {
+            setLightLevel(illuminance);
+            setLightOk(illuminance == null || illuminance >= LIGHT_MIN_LUX);
+          });
+        } catch {
+          setLightAvailable(false);
+        }
+      })();
+    }
+
+    return () => {
+      mounted = false;
+      sub?.remove();
+    };
+  }, [phase]);
+
+  const handleTakePhoto = async () => {
+    if (!cameraRef.current) return;
+    setError(null);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 });
+      setCapturedUri(photo.uri);
       setPhase('preview');
-    } catch (err) {
-      setError(err.message || 'Could not open camera.');
-      setPhase('guide');
+    } catch (e) {
+      setError(e.message || 'Could not take photo.');
     }
   };
 
   const handleUsePhoto = () => {
     setPhase('processing');
-    // Simulate processing; later replace with real upload/API call
     setTimeout(() => {
       navigation.navigate('Measurements', {
         fromOnboarding,
@@ -65,27 +116,63 @@ export default function CameraScreen({ navigation, route }) {
 
   const handleRetake = () => {
     setCapturedUri(null);
-    setPhase('guide');
+    setPhase('camera');
   };
 
-  // Loading overlay: opening camera or processing
-  if (phase === 'loading' || phase === 'processing') {
+  if (!permission) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color="#C28A5B" />
-          <Text style={styles.loadingText}>
-            {phase === 'loading' ? 'Opening camera…' : 'Processing…'}
-          </Text>
-        </View>
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#C28A5B" />
       </View>
     );
   }
 
-  // Confirmation: preview + Use photo / Retake
+  if (!permission.granted) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.permissionTitle}>Allow camera access</Text>
+        <Text style={styles.permissionText}>
+          We need access to your camera so you can capture your foot on the paper.
+        </Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
+          <Text style={styles.primaryButtonText}>Enable camera</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (phase === 'processing') {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#C28A5B" />
+        <Text style={styles.loadingText}>Processing…</Text>
+      </View>
+    );
+  }
+
+  const tiltLabel = tiltDegrees == null ? 'Tilt: —' : `Tilt: ${tiltDegrees}°`;
+  const tiltStatus = isAligned ? 'Aligned' : 'Hold phone flatter';
+  const tiltStatusColor = isAligned ? '#2E7D32' : '#B33';
+
+  const canUseLight = Platform.OS === 'android' && lightAvailable;
+  let lightStatus = 'Lighting: check that foot and paper are clear';
+  let lightStatusColor = '#F5EFE6';
+  if (canUseLight) {
+    if (!lightOk) {
+      lightStatus = 'Too dark – move to brighter light';
+      lightStatusColor = '#FFCDD2';
+    } else {
+      lightStatus = 'Lighting OK';
+      lightStatusColor = '#C8E6C9';
+    }
+  }
+
+  const canCapture = isAligned; // always gate on tilt; lighting is guidance only
+
+  // Preview / confirmation
   if (phase === 'preview' && capturedUri) {
     return (
-      <View style={styles.container}>
+      <View style={styles.previewContainer}>
         <Text style={styles.previewTitle}>Check your photo</Text>
         <Text style={styles.previewSubtitle}>
           Make sure the paper is vertical, your foot is in the center, and both are clearly visible.
@@ -103,150 +190,148 @@ export default function CameraScreen({ navigation, route }) {
     );
   }
 
-  // Guide: alignment frame + distance text + Take photo
+  // Main camera with overlays
   return (
-    <View style={styles.container}>
-      <Text style={styles.guideTitle}>Frame your foot</Text>
-      <Text style={styles.guideSubtitle}>
-        Place the paper vertically (portrait). Put your foot in the middle of the paper. Frame both inside the guide below, then tap "Take photo".
-      </Text>
-
-      <View style={styles.viewfinder}>
-        <View style={styles.alignmentFrame}>
-          <View style={[styles.corner, styles.cornerTL]} />
-          <View style={[styles.corner, styles.cornerTR]} />
-          <View style={[styles.corner, styles.cornerBL]} />
-          <View style={[styles.corner, styles.cornerBR]} />
-          <Text style={styles.frameLabel}>Paper (vertical)</Text>
-          <Text style={styles.frameLabelFoot}>Foot in center</Text>
+    <View style={styles.cameraScreen}>
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+      />
+      <View style={styles.overlay}>
+        <View style={styles.infoCardsRow}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Distance</Text>
+            <Text style={styles.infoText}>
+              Hold your phone at knee height, about 30 cm (12 in) above the paper.
+            </Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Lighting</Text>
+            <Text style={[styles.infoText, { color: lightStatusColor }]}>
+              {lightStatus}
+            </Text>
+          </View>
         </View>
+
+        <View style={styles.tiltCard}>
+          <Text style={styles.tiltLabel}>{tiltLabel}</Text>
+          <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>{tiltStatus}</Text>
+        </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
+          onPress={handleTakePhoto}
+          disabled={!canCapture}
+        >
+          <Text style={styles.captureButtonText}>
+            {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
+          </Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.distanceCard}>
-        <Text style={styles.distanceTitle}>Distance</Text>
-        <Text style={styles.distanceText}>
-          Hold your phone at knee height, about 30 cm (12 in) above the paper. The full sheet (vertical) with your foot centered should fit inside the frame.
-        </Text>
-      </View>
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      <TouchableOpacity style={styles.captureButton} onPress={openCamera}>
-        <Text style={styles.captureButtonText}>Take photo</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  cameraScreen: {
     flex: 1,
-    backgroundColor: '#F5EFE6',
+    backgroundColor: '#000',
+  },
+  camera: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlay: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 56,
+    justifyContent: 'flex-end',
   },
-  guideTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2F2A25',
-    marginBottom: 6,
-  },
-  guideSubtitle: {
-    fontSize: 14,
-    color: '#6B5F52',
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  viewfinder: {
-    width: FRAME_WIDTH,
-    height: FRAME_HEIGHT,
-    alignSelf: 'center',
-    marginBottom: 20,
-    backgroundColor: '#E8DDD0',
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
+  centerContainer: {
+    flex: 1,
+    backgroundColor: '#F5EFE6',
     alignItems: 'center',
-  },
-  alignmentFrame: {
-    width: FRAME_WIDTH - 24,
-    height: FRAME_HEIGHT - 24,
-    borderWidth: 3,
-    borderColor: 'rgba(194, 138, 91, 0.9)',
-    borderRadius: 12,
-    borderStyle: 'dashed',
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  corner: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: '#C28A5B',
-    borderWidth: 3,
+  infoCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
   },
-  cornerTL: { top: -2, left: -2, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 12 },
-  cornerTR: { top: -2, right: -2, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 12 },
-  cornerBL: { bottom: -2, left: -2, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 12 },
-  cornerBR: { bottom: -2, right: -2, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 12 },
-  frameLabel: {
+  infoCard: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  infoTitle: {
     fontSize: 13,
-    color: '#6B5F52',
     fontWeight: '600',
+    color: '#FFE0B2',
+    marginBottom: 2,
   },
-  frameLabelFoot: {
+  infoText: {
     fontSize: 12,
-    color: '#8B7D6F',
-    marginTop: 2,
-    fontWeight: '500',
+    color: '#F5EFE6',
+    lineHeight: 16,
   },
-  distanceCard: {
-    backgroundColor: '#FFFBF5',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2D4C0',
+  tiltCard: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  distanceTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2F2A25',
-    marginBottom: 4,
-  },
-  distanceText: {
+  tiltLabel: {
     fontSize: 13,
-    color: '#6B5F52',
-    lineHeight: 18,
+    color: '#F5EFE6',
+  },
+  tiltStatus: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 13,
-    color: '#B33',
-    marginBottom: 12,
+    color: '#FFCDD2',
+    marginBottom: 8,
     textAlign: 'center',
   },
   captureButton: {
+    marginTop: 4,
     backgroundColor: '#C28A5B',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 999,
     alignItems: 'center',
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
   },
   captureButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingCard: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    textAlign: 'center',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: '#F5EFE6',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   previewTitle: {
     fontSize: 22,
@@ -292,5 +377,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2F2A25',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 14,
+    color: '#6B5F52',
+    marginBottom: 20,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });
