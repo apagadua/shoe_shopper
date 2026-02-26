@@ -29,7 +29,13 @@
     },
     "plugins": [
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Shoe Shopper needs camera access to capture a photo of your foot for sizing."
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function FootCaptureScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
@@ -18,20 +19,20 @@ export default function FootCaptureScreen({ navigation, route }) {
     <View style={styles.container}>
       <Text style={styles.title}>Capture your foot</Text>
       <Text style={styles.subtitle}>
-        Place your bare foot on a sheet of printer paper against a smooth floor.
-        Keep the camera directly above for the most accurate scan.
+        Place a sheet of printer paper vertically on a smooth floor. Stand on the paper wearing a light, close‑fitting sock so your foot shape is clear. Keep the camera directly above for the most accurate capture.
       </Text>
 
       <View style={styles.card}>
         <View style={styles.mockPhoto}>
-          {/* Simple placeholder "mock photo" box */}
+          {/* Vertical paper with single footprint icon centered */}
           <View style={styles.paper} />
-          <View style={styles.foot} />
+          <MaterialCommunityIcons name="foot-print" size={106} color="#E0B68A" />
         </View>
         <View style={styles.tipsList}>
+          <Text style={styles.tipBullet}>* Paper vertical (portrait), foot in the center.</Text>
+          <Text style={styles.tipBullet}>* Wear a light, fitted sock (no baggy socks).</Text>
           <Text style={styles.tipBullet}>* Use a well-lit room (no harsh shadows).</Text>
           <Text style={styles.tipBullet}>* Keep your phone about knee-height.</Text>
-          <Text style={styles.tipBullet}>* Make sure the full sheet of paper is visible.</Text>
         </View>
       </View>
 
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2D4C0',
   },
   mockPhoto: {
-    height: 180,
+    height: 200,
     borderRadius: 16,
     backgroundColor: '#F0E2D0',
     justifyContent: 'center',
@@ -86,18 +87,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   paper: {
-    width: '70%',
-    height: '70%',
-    borderRadius: 12,
+    width: '42%',
+    height: '88%',
+    borderRadius: 8,
     backgroundColor: '#FFF',
     position: 'absolute',
+    borderWidth: 1,
+    borderColor: '#E2D4C0',
   },
-  foot: {
-    width: 70,
-    height: 110,
-    borderRadius: 40,
+  shoePrint: {
+    position: 'absolute',
+    width: 52,
+    height: 118,
+    borderRadius: 26,
     backgroundColor: '#E0B68A',
-    transform: [{ rotate: '-10deg' }],
+    borderWidth: 2,
+    borderColor: '#D1A572',
   },
   tipsList: {
     gap: 6,

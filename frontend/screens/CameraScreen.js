@@ -1,47 +1,395 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Dimensions,
+  Platform,
+} from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Accelerometer, LightSensor } from 'expo-sensors';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const FRAME_PADDING = 32;
+const FRAME_SCALE = 0.72;
+const FRAME_BASE_WIDTH = SCREEN_WIDTH - FRAME_PADDING * 2;
+// Portrait frame: paper vertical, foot in center
+const FRAME_ASPECT = 3 / 4; // width / height
+const FRAME_WIDTH = FRAME_BASE_WIDTH * FRAME_SCALE;
+const FRAME_HEIGHT = (FRAME_BASE_WIDTH / FRAME_ASPECT) * FRAME_SCALE;
+
+const TILT_OK_DEGREES = 10;
+const LIGHT_MIN_LUX = 50; // simple threshold for "too dark" on Android
 
 export default function CameraScreen({ navigation, route }) {
-  const fromOnboarding = route.params?.fromOnboarding;
+  const fromOnboarding = route.params?.fromOnboarding ?? false;
 
-  const handleContinue = () => {
-    navigation.navigate('Measurements', { fromOnboarding });
+  const cameraRef = useRef(null);
+  const [permission, requestPermission] = useCameraPermissions();
+
+  const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
+  const [capturedUri, setCapturedUri] = useState(null);
+  const [error, setError] = useState(null);
+
+  const [tiltDegrees, setTiltDegrees] = useState(null);
+  const [isAligned, setIsAligned] = useState(false);
+
+  const [lightLevel, setLightLevel] = useState(null);
+  const [lightOk, setLightOk] = useState(true);
+  const [lightAvailable, setLightAvailable] = useState(false);
+
+  // Tilt guidance while camera is open
+  useEffect(() => {
+    let sub;
+    if (phase === 'camera') {
+      Accelerometer.setUpdateInterval(200);
+      sub = Accelerometer.addListener(({ x, y, z }) => {
+        const mag = Math.sqrt(x * x + y * y + z * z) || 1;
+        const nz = z / mag;
+        const clamped = Math.max(-1, Math.min(1, nz));
+        const angleRad = Math.acos(Math.abs(clamped));
+        const angleDeg = (angleRad * 180) / Math.PI;
+        const rounded = Math.round(angleDeg);
+        setTiltDegrees(rounded);
+        setIsAligned(rounded <= TILT_OK_DEGREES);
+      });
+    }
+    return () => {
+      sub?.remove();
+    };
+  }, [phase]);
+
+  // Light guidance (Android only) while camera is open
+  useEffect(() => {
+    let sub;
+    let mounted = true;
+
+    if (phase === 'camera' && Platform.OS === 'android') {
+      (async () => {
+        try {
+          const available = await LightSensor.isAvailableAsync();
+          if (!mounted || !available) {
+            setLightAvailable(false);
+            return;
+          }
+          setLightAvailable(true);
+          sub = LightSensor.addListener(({ illuminance }) => {
+            setLightLevel(illuminance);
+            setLightOk(illuminance == null || illuminance >= LIGHT_MIN_LUX);
+          });
+        } catch {
+          setLightAvailable(false);
+        }
+      })();
+    }
+
+    return () => {
+      mounted = false;
+      sub?.remove();
+    };
+  }, [phase]);
+
+  const handleTakePhoto = async () => {
+    if (!cameraRef.current) return;
+    setError(null);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 });
+      setCapturedUri(photo.uri);
+      setPhase('preview');
+    } catch (e) {
+      setError(e.message || 'Could not take photo.');
+    }
   };
 
+  const handleUsePhoto = () => {
+    setPhase('processing');
+    setTimeout(() => {
+      navigation.navigate('Measurements', {
+        fromOnboarding,
+        imageUri: capturedUri,
+      });
+    }, 1500);
+  };
+
+  const handleRetake = () => {
+    setCapturedUri(null);
+    setPhase('camera');
+  };
+
+  if (!permission) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#C28A5B" />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.permissionTitle}>Allow camera access</Text>
+        <Text style={styles.permissionText}>
+          We need access to your camera so you can capture your foot on the paper.
+        </Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
+          <Text style={styles.primaryButtonText}>Enable camera</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (phase === 'processing') {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#C28A5B" />
+        <Text style={styles.loadingText}>Processing…</Text>
+      </View>
+    );
+  }
+
+  const tiltLabel = tiltDegrees == null ? 'Tilt: —' : `Tilt: ${tiltDegrees}°`;
+  const tiltStatus = isAligned ? 'Aligned' : 'Hold phone flatter';
+  const tiltStatusColor = isAligned ? '#2E7D32' : '#B33';
+
+  const canUseLight = Platform.OS === 'android' && lightAvailable;
+  let lightStatus = 'Lighting: check that foot and paper are clear';
+  let lightStatusColor = '#F5EFE6';
+  if (canUseLight) {
+    if (!lightOk) {
+      lightStatus = 'Too dark – move to brighter light';
+      lightStatusColor = '#FFCDD2';
+    } else {
+      lightStatus = 'Lighting OK';
+      lightStatusColor = '#C8E6C9';
+    }
+  }
+
+  const canCapture = isAligned; // always gate on tilt; lighting is guidance only
+
+  // Preview / confirmation
+  if (phase === 'preview' && capturedUri) {
+    return (
+      <View style={styles.previewContainer}>
+        <Text style={styles.previewTitle}>Check your photo</Text>
+        <Text style={styles.previewSubtitle}>
+          Make sure the paper is vertical, your foot is in the center, and both are clearly visible.
+        </Text>
+        <View style={styles.previewFrame}>
+          <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="contain" />
+        </View>
+        <TouchableOpacity style={styles.primaryButton} onPress={handleUsePhoto}>
+          <Text style={styles.primaryButtonText}>Use this photo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
+          <Text style={styles.secondaryButtonText}>Retake</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Main camera with overlays
   return (
-    <View style={styles.container}>
-      {/* Placeholder - camera UI will go here later */}
-      <View style={styles.placeholder} />
-      <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-        <Text style={styles.continueButtonText}>Continue</Text>
-      </TouchableOpacity>
+    <View style={styles.cameraScreen}>
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+      />
+      <View style={styles.overlay}>
+        <View style={styles.infoCardsRow}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Distance</Text>
+            <Text style={styles.infoText}>
+              Hold your phone at knee height, about 30 cm (12 in) above the paper.
+            </Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Lighting</Text>
+            <Text style={[styles.infoText, { color: lightStatusColor }]}>
+              {lightStatus}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.tiltCard}>
+          <Text style={styles.tiltLabel}>{tiltLabel}</Text>
+          <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>{tiltStatus}</Text>
+        </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
+          onPress={handleTakePhoto}
+          disabled={!canCapture}
+        >
+          <Text style={styles.captureButtonText}>
+            {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  cameraScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  camera: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlay: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 56,
+    justifyContent: 'flex-end',
+  },
+  centerContainer: {
+    flex: 1,
+    backgroundColor: '#F5EFE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  infoCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  infoCard: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  infoTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFE0B2',
+    marginBottom: 2,
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#F5EFE6',
+    lineHeight: 16,
+  },
+  tiltCard: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tiltLabel: {
+    fontSize: 13,
+    color: '#F5EFE6',
+  },
+  tiltStatus: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#FFCDD2',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  captureButton: {
+    marginTop: 4,
+    backgroundColor: '#C28A5B',
+    paddingVertical: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
+  },
+  captureButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B5F52',
+    fontWeight: '500',
+  },
+  previewContainer: {
     flex: 1,
     backgroundColor: '#F5EFE6',
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 24,
   },
-  placeholder: {
-    height: 280,
-    backgroundColor: '#F0E2D0',
+  previewTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2F2A25',
+    marginBottom: 6,
+  },
+  previewSubtitle: {
+    fontSize: 14,
+    color: '#6B5F52',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  previewFrame: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    backgroundColor: '#E8DDD0',
     borderRadius: 16,
+    overflow: 'hidden',
     marginBottom: 24,
   },
-  continueButton: {
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  primaryButton: {
     backgroundColor: '#C28A5B',
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
+    marginBottom: 12,
   },
-  continueButtonText: {
+  primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: '#6B5F52',
+    fontWeight: '500',
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2F2A25',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 14,
+    color: '#6B5F52',
+    marginBottom: 20,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });
