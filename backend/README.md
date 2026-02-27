@@ -18,7 +18,8 @@ In a new PowerShell terminal:
 ```powershell
 cd C:\Users\alyss\shoe_shopper\frontend
 
-$env:DATABASE_URL = 'postgresql://postgres.jdqvxiwauidupnnxjxyb:Sh0pp!ng4Sh03s2026@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+# Ask a teammate / check your secrets manager for the real connection string.
+$env:DATABASE_URL = '<YOUR_POSTGRES_DATABASE_URL_FROM_SUPABASE>'
 $env:DB_SSLMODE = 'require'
 $env:DJANGO_ALLOWED_HOSTS = '127.0.0.1,localhost,10.0.2.2'
 $env:EXPO_PUBLIC_API_URL = 'http://10.0.2.2:8000'
@@ -35,7 +36,8 @@ In a second PowerShell terminal:
 ```powershell
 cd C:\Users\alyss\shoe_shopper\backend
 
-$env:DATABASE_URL = 'postgresql://postgres.jdqvxiwauidupnnxjxyb:Sh0pp!ng4Sh03s2026@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+# Ask a teammate / check your secrets manager for the real connection string.
+$env:DATABASE_URL = '<YOUR_POSTGRES_DATABASE_URL_FROM_SUPABASE>'
 $env:DB_SSLMODE = 'require'
 $env:DJANGO_ALLOWED_HOSTS = '127.0.0.1,localhost,10.0.2.2'
 $env:EXPO_PUBLIC_API_URL = 'http://10.0.2.2:8000'
@@ -52,7 +54,8 @@ In a third PowerShell terminal (while frontend and backend are both running):
 ```powershell
 cd C:\Users\alyss\shoe_shopper
 
-$env:DATABASE_URL = 'postgresql://postgres.jdqvxiwauidupnnxjxyb:Sh0pp!ng4Sh03s2026@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+# Ask a teammate / check your secrets manager for the real connection string.
+$env:DATABASE_URL = '<YOUR_POSTGRES_DATABASE_URL_FROM_SUPABASE>'
 $env:DB_SSLMODE = 'require'
 $env:DJANGO_ALLOWED_HOSTS = '127.0.0.1,localhost,10.0.2.2'
 $env:EXPO_PUBLIC_API_URL = 'http://10.0.2.2:8000'
