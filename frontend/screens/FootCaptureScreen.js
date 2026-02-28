@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-
 export default function FootCaptureScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
 
@@ -24,9 +22,13 @@ export default function FootCaptureScreen({ navigation, route }) {
 
       <View style={styles.card}>
         <View style={styles.mockPhoto}>
-          {/* Vertical paper with single footprint icon centered */}
+          {/* Vertical paper with footprint image centered */}
           <View style={styles.paper} />
-          <MaterialCommunityIcons name="foot-print" size={106} color="#E0B68A" />
+          <Image
+            source={require('../assets/Asset_1-8.png')}
+            style={styles.footprintImage}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.tipsList}>
           <Text style={styles.tipBullet}>* Paper vertical (portrait), foot in the center.</Text>
@@ -94,6 +96,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 1,
     borderColor: '#E2D4C0',
+  },
+  footprintImage: {
+    width: 106,
+    height: 106,
   },
   shoePrint: {
     position: 'absolute',
