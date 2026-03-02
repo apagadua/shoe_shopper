@@ -155,7 +155,7 @@ export default function CameraScreen({ navigation, route }) {
   const tiltStatusColor = isAligned ? '#2E7D32' : '#B33';
 
   const canUseLight = Platform.OS === 'android' && lightAvailable;
-  let lightStatus = 'Lighting: check that foot and paper are clear';
+  let lightStatus = 'Check that foot and paper are clear';
   let lightStatusColor = '#F5EFE6';
   if (canUseLight) {
     if (!lightOk) {
@@ -199,24 +199,34 @@ export default function CameraScreen({ navigation, route }) {
         facing="back"
       />
       <View style={styles.overlay}>
-        <View style={styles.infoCardsRow}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Distance</Text>
-            <Text style={styles.infoText}>
-              Hold your phone at knee height, about 30 cm (12 in) above the paper.
-            </Text>
+        <View style={styles.topGuidance}>
+          <View style={styles.whiteHeader}>
+            <View style={styles.whiteHeaderRow}>
+              <View style={styles.whiteHeaderColumnLeft}>
+                <Text style={styles.whiteHeaderLabel}>Distance</Text>
+                <Text style={styles.whiteHeaderValue}>
+                Knee height above the paper.
+                </Text>
+              </View>
+              <View style={styles.whiteHeaderVerticalDivider} />
+              <View style={styles.whiteHeaderColumnRight}>
+                <Text style={styles.whiteHeaderLabel}>Lighting</Text>
+              <Text style={styles.whiteHeaderValue}>{lightStatus}</Text>
+              </View>
+            </View>
+            <View style={styles.whiteHeaderDivider} />
+            <View style={styles.whiteHeaderTiltRow}>
+              <Text
+                style={[
+                  styles.whiteHeaderValue,
+                  styles.whiteHeaderTiltText,
+                  { color: tiltStatusColor },
+                ]}
+              >
+                {tiltLabel} · {tiltStatus}
+              </Text>
+            </View>
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Lighting</Text>
-            <Text style={[styles.infoText, { color: lightStatusColor }]}>
-              {lightStatus}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.tiltCard}>
-          <Text style={styles.tiltLabel}>{tiltLabel}</Text>
-          <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>{tiltStatus}</Text>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -245,10 +255,69 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 56,
-    justifyContent: 'flex-end',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 112,
+    justifyContent: 'space-between',
+  },
+  topGuidance: {
+    width: '100%',
+    paddingHorizontal: 0,
+  },
+  whiteHeader: {
+    width: '100%',
+    backgroundColor: '#FFFBF5',
+    borderRadius: 0,
+    paddingLeft: 24,
+    paddingRight: 16,
+    paddingVertical: 12,
+  },
+  whiteHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  whiteHeaderColumn: {
+    flex: 1,
+  },
+  whiteHeaderColumnLeft: {
+    flex: 1,
+    paddingRight: 0,
+  },
+  whiteHeaderColumnRight: {
+    flex: 1,
+    paddingLeft: 36,
+  },
+  whiteHeaderVerticalDivider: {
+    width: 1,
+    backgroundColor: '#E2D4C0',
+    marginLeft: 16,
+  },
+  whiteHeaderDivider: {
+    height: 1,
+    backgroundColor: '#E2D4C0',
+    marginBottom: 6,
+  },
+  whiteHeaderTiltRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whiteHeaderLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    color: '#4A3B2D',
+  },
+  whiteHeaderValue: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#6B5F52',
+  },
+  whiteHeaderTiltText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '500',
   },
   centerContainer: {
     flex: 1,
@@ -284,7 +353,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 10,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
