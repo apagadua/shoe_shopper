@@ -490,6 +490,7 @@ export default function RecommendationsScreen({ navigation, route }) {
           </View>
         )}
 
+        {/* ——— Shoe cards (Recommendations): each card = brand, heart, name, size rows, tags, View details ——— */}
         {filteredShoes.map((shoe) => {
           const pathTags = path === 'function' ? (shoe.functionPath || []) : (shoe.silhouettePath || []);
 
@@ -958,6 +959,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2F2A25',
   },
+  /* ——— Shoe card styles (card, cardHeader, heartButton, brand, tags, attrTags, primaryButton) ——— */
   card: {
     backgroundColor: '#FFFBF5',
     borderRadius: 20,

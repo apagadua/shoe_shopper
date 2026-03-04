@@ -42,6 +42,7 @@ export default function SavedShoesScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* ——— Shoe cards (Saved Shoes): same layout as Recommendations — brand, heart, name, size rows, tags, View details ——— */}
       {savedShoes.map((shoe) => {
         const functionTags = shoe.functionPath || [];
         const cardTags = [];
@@ -137,6 +138,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  /* ——— Shoe card styles (same layout as RecommendationsScreen) ——— */
   card: {
     backgroundColor: '#FFFBF5',
     borderRadius: 20,
