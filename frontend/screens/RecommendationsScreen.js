@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSavedShoes } from '../SavedShoesContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 24;
@@ -376,6 +377,20 @@ export default function RecommendationsScreen({ navigation, route }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
+  const { savedShoes, toggleSaved, isSaved } = useSavedShoes();
+  const [toastMessage, setToastMessage] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showToast = (message) => {
+    setToastMessage(message);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 1800);
+  };
+
   const categories = path === 'function' ? Object.keys(FUNCTION_CATEGORIES) : Object.keys(SILHOUETTE_CATEGORIES);
   const subcategories = selectedCategory
     ? (path === 'function' ? FUNCTION_CATEGORIES[selectedCategory] : SILHOUETTE_CATEGORIES[selectedCategory]) || []
@@ -477,15 +492,50 @@ export default function RecommendationsScreen({ navigation, route }) {
 
         {filteredShoes.map((shoe) => {
           const pathTags = path === 'function' ? (shoe.functionPath || []) : (shoe.silhouettePath || []);
+
+          // Build tags for this shoe, always including any matching filters plus attributes.
+          const cardTags = [];
+
+          if (selectedCategory && pathTags.includes(selectedCategory)) {
+            cardTags.push(selectedCategory);
+          }
+          if (selectedSubcategory && pathTags.includes(selectedSubcategory) && !cardTags.includes(selectedSubcategory)) {
+            cardTags.push(selectedSubcategory);
+          }
+
+          ATTRIBUTE_FILTERS.forEach(({ key, label }) => {
+            if (shoe.attributes && shoe.attributes[key] && !cardTags.includes(label)) {
+              cardTags.push(label);
+            }
+          });
+
+          pathTags.forEach((t) => {
+            if (!cardTags.includes(t)) {
+              cardTags.push(t);
+            }
+          });
+
+          const saved = isSaved(shoe.id);
+
           return (
             <View key={shoe.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.brand}>{shoe.brand}</Text>
-                <View style={styles.tagsRow}>
-                  {pathTags.slice(0, 3).map((t) => (
-                    <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
-                  ))}
-                </View>
+                <TouchableOpacity
+                  style={styles.heartButton}
+                  onPress={() => {
+                    const wasSaved = isSaved(shoe.id);
+                    toggleSaved(shoe);
+                    showToast(wasSaved ? 'Removed from Saved Shoes' : 'Added to Saved Shoes');
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={saved ? 'heart' : 'heart-outline'}
+                    size={20}
+                    color={saved ? '#C28A5B' : '#B0A499'}
+                  />
+                </TouchableOpacity>
               </View>
               <Text style={styles.name}>{shoe.name}</Text>
               <View style={styles.sizeRow}>
@@ -500,6 +550,15 @@ export default function RecommendationsScreen({ navigation, route }) {
                 <Text style={styles.sizeLabel}>Width</Text>
                 <Text style={styles.sizeValue}>{shoe.widthCm} cm</Text>
               </View>
+              {cardTags.length > 0 && (
+                <View style={styles.attrTags}>
+                  {cardTags.map((t) => (
+                    <View key={t} style={styles.attrTag}>
+                      <Text style={styles.attrTagText}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               <TouchableOpacity style={styles.primaryButton} onPress={() => {}}>
                 <Text style={styles.primaryButtonText}>View details</Text>
               </TouchableOpacity>
@@ -535,6 +594,15 @@ export default function RecommendationsScreen({ navigation, route }) {
           </View>
         )}
       </ScrollView>
+
+      {toastMessage && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toastInner}>
+            <Ionicons name="heart" size={18} color="#C28A5B" style={styles.toastIcon} />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Overlay when drawer is open — always mounted for animation */}
       <Pressable
@@ -904,6 +972,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  heartButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
   brand: {
     fontSize: 13,
     color: '#4F453C',
@@ -963,14 +1035,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   attrTag: {
-    backgroundColor: '#E8F0E8',
+    backgroundColor: '#F0E2D0',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   attrTagText: {
     fontSize: 11,
-    color: '#4F453C',
+    color: '#6B5F52',
   },
   primaryButton: {
     backgroundColor: '#C28A5B',
@@ -1034,5 +1106,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  toastContainer: {
+    position: 'absolute',
+    left: 40,
+    right: 40,
+    top: '40%',
+    alignItems: 'center',
+  },
+  toastInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    backgroundColor: 'rgba(47, 42, 37, 0.9)',
+  },
+  toastIcon: {
+    marginRight: 8,
+  },
+  toastText: {
+    color: '#FFFBF5',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
