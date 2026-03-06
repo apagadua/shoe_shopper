@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Accelerometer, LightSensor } from 'expo-sensors';
+import { API_BASE_URL } from '../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
@@ -31,7 +32,7 @@ export default function CameraScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
 
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
-  const [capturedUri, setCapturedUri] = useState(null);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [error, setError] = useState(null);
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
@@ -97,25 +98,54 @@ export default function CameraScreen({ navigation, route }) {
     setError(null);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 });
-      setCapturedUri(photo.uri);
+      setCapturedPhoto(photo);
       setPhase('preview');
     } catch (e) {
       setError(e.message || 'Could not take photo.');
     }
   };
 
-  const handleUsePhoto = () => {
+  const handleUsePhoto = async () => {
+    if (!capturedPhoto?.uri) return;
+    setError(null);
     setPhase('processing');
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: capturedPhoto.uri,
+        name: `foot-${Date.now()}.jpg`,
+        type: 'image/jpeg',
+      });
+      if (capturedPhoto.width) {
+        formData.append('image_width_px', String(capturedPhoto.width));
+      }
+      if (capturedPhoto.height) {
+        formData.append('image_height_px', String(capturedPhoto.height));
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/measurements/upload/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed (${response.status})`);
+      }
+
+      const measurement = await response.json();
       navigation.navigate('Measurements', {
         fromOnboarding,
-        imageUri: capturedUri,
+        imageUri: capturedPhoto.uri,
+        measurementId: measurement.id,
       });
-    }, 1500);
+    } catch (e) {
+      setError(e.message || 'Could not upload photo.');
+      setPhase('preview');
+    }
   };
 
   const handleRetake = () => {
-    setCapturedUri(null);
+    setCapturedPhoto(null);
     setPhase('camera');
   };
 
@@ -170,7 +200,7 @@ export default function CameraScreen({ navigation, route }) {
   const canCapture = isAligned; // always gate on tilt; lighting is guidance only
 
   // Preview / confirmation
-  if (phase === 'preview' && capturedUri) {
+  if (phase === 'preview' && capturedPhoto?.uri) {
     return (
       <View style={styles.previewContainer}>
         <Text style={styles.previewTitle}>Check your photo</Text>
@@ -178,7 +208,7 @@ export default function CameraScreen({ navigation, route }) {
           Make sure the paper is vertical, your foot is in the center, and both are clearly visible.
         </Text>
         <View style={styles.previewFrame}>
-          <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="contain" />
+          <Image source={{ uri: capturedPhoto.uri }} style={styles.previewImage} resizeMode="contain" />
         </View>
         <TouchableOpacity style={styles.primaryButton} onPress={handleUsePhoto}>
           <Text style={styles.primaryButtonText}>Use this photo</Text>
