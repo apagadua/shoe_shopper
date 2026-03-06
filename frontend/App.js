@@ -202,13 +202,7 @@ export default function App() {
     <SavedShoesProvider>
       <NavigationContainer>
         <StatusBar style="dark" />
-        <RootStack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: '#FFF8F0' },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
-        }}
-      >
+        <RootStack.Navigator screenOptions={sharedHeaderOptions}>
         <RootStack.Screen
           name="Welcome"
           component={WelcomeScreen}

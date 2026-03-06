@@ -59,7 +59,7 @@ export default function MeasurementsScreen({ navigation, route }) {
 
       <TouchableOpacity
         style={styles.secondaryAction}
-        onPress={() => navigation.navigate('Camera', fromOnboarding ? { fromOnboarding: true } : {})}
+        onPress={() => navigation.navigate('Camera', { ...(fromOnboarding && { fromOnboarding: true }) })}
       >
         <Text style={styles.secondaryText}>Retake Photo</Text>
       </TouchableOpacity>

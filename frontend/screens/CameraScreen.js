@@ -326,47 +326,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  infoCardsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  infoCard: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  infoTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFE0B2',
-    marginBottom: 2,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#F5EFE6',
-    lineHeight: 16,
-  },
-  tiltCard: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tiltLabel: {
-    fontSize: 13,
-    color: '#F5EFE6',
-  },
-  tiltStatus: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   errorText: {
     fontSize: 13,
     color: '#FFCDD2',

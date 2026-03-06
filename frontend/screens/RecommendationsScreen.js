@@ -4,8 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HORIZONTAL_PADDING = 24;
-const CHIP_ROW_VIEWPORT = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
 // Drawer sized to content: row minWidth 132 + padding ~36; keep minimal left space
 const DRAWER_WIDTH = Math.min(172, SCREEN_WIDTH * 0.5);
 
@@ -611,7 +609,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingLeft: 0,
-    paddingRight: HORIZONTAL_PADDING,
+    paddingRight: 24,
     justifyContent: 'flex-start',
     flexGrow: 1,
     minHeight: 44,

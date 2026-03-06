@@ -101,15 +101,6 @@ const styles = StyleSheet.create({
     width: 106,
     height: 106,
   },
-  shoePrint: {
-    position: 'absolute',
-    width: 52,
-    height: 118,
-    borderRadius: 26,
-    backgroundColor: '#E0B68A',
-    borderWidth: 2,
-    borderColor: '#D1A572',
-  },
   tipsList: {
     gap: 6,
   },
