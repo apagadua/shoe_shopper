@@ -1,7 +1,9 @@
+import * as SecureStore from 'expo-secure-store';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_BASE_URL } from '../config/api';
 
 export default function ProfileScreen({ navigation }) {
@@ -14,19 +16,46 @@ export default function ProfileScreen({ navigation }) {
     // TODO: open image picker / camera for profile photo
   };
 
-  const handleManageEmailPassword = () => {
-    // TODO: navigate to manage email & password screen
+  const signOutAndReset = async () => {
+    await SecureStore.deleteItemAsync('authToken');
+    await GoogleSignin.signOut();
+    const root = navigation.getParent()?.getParent();
+    root?.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
   };
 
   const handleDeleteAccount = () => {
-    // TODO: show confirm dialog, then delete account and sign out
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await SecureStore.getItemAsync('authToken');
+              if (!token) throw new Error('Session expired. Please sign in again.');
+              const res = await fetch(`${API_BASE_URL}/api/auth/delete/`, {
+                method: 'DELETE',
+                headers: { Authorization: `Token ${token}` },
+              });
+              if (!res.ok) throw new Error('Failed to delete account');
+              await signOutAndReset();
+            } catch (err) {
+              Alert.alert('Error', err.message);
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleSignOut = () => {
-    // TODO: clear auth state; for now go to Welcome (root stack is 3 levels up: Profile > ProfileStack > Tab > Root)
-    const root = navigation.getParent()?.getParent()?.getParent();
-    if (root) {
-      root.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
+  const handleSignOut = async () => {
+    try {
+      await signOutAndReset();
+    } catch (err) {
+      Alert.alert('Sign-out failed', err.message);
     }
   };
 
@@ -89,10 +118,6 @@ export default function ProfileScreen({ navigation }) {
       {/* Account */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Account</Text>
-        <TouchableOpacity style={styles.rowButton} onPress={handleManageEmailPassword}>
-          <Text style={styles.rowButtonText}>Manage email & password</Text>
-          <Ionicons name="chevron-forward" size={20} color="#A39380" />
-        </TouchableOpacity>
         <TouchableOpacity style={styles.rowButton} onPress={handleDeleteAccount}>
           <Text style={styles.rowButtonTextDanger}>Delete account</Text>
           <Ionicons name="chevron-forward" size={20} color="#A39380" />

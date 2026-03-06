@@ -1,4 +1,5 @@
-import React from 'react';
+import * as SecureStore from 'expo-secure-store';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Outfit_600SemiBold, Outfit_400Regular } from '@expo-google-fonts/outfit';
@@ -9,7 +10,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LoginScreen from './screens/LoginScreen';
-import CreateAccountScreen from './screens/CreateAccountScreen';
 import ClosetScreen from './screens/ClosetScreen';
 import SavedShoesScreen from './screens/SavedShoesScreen';
 import OwnedShoesScreen from './screens/OwnedShoesScreen';
@@ -187,8 +187,15 @@ export default function App() {
     Outfit_600SemiBold,
     Outfit_400Regular,
   });
+  const [initialRoute, setInitialRoute] = useState(null);
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    SecureStore.getItemAsync('authToken')
+      .then(token => setInitialRoute(token ? 'MainTabs' : 'Welcome'))
+      .catch(() => setInitialRoute('Welcome'));
+  }, []);
+
+  if (!fontsLoaded || initialRoute === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#C28A5B" />
@@ -202,20 +209,14 @@ export default function App() {
     <SavedShoesProvider>
       <NavigationContainer>
         <StatusBar style="dark" />
-        <RootStack.Navigator screenOptions={sharedHeaderOptions}>
+        <RootStack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={sharedHeaderOptions}
+        >
         <RootStack.Screen
           name="Welcome"
           component={WelcomeScreen}
           options={{ title: 'Shoe Shopper', headerBackVisible: false }}
-        />
-        <RootStack.Screen
-          name="CreateAccount"
-          component={CreateAccountScreen}
-          options={({ navigation }) => ({
-            title: 'Create Account',
-            headerBackVisible: false,
-            headerLeft: () => headerLeftToWelcome(navigation),
-          })}
         />
         <RootStack.Screen
           name="Login"

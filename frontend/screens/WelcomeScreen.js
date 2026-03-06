@@ -64,19 +64,9 @@ export default function WelcomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={() => navigation.navigate('CreateAccount')}
-          >
-            <Text style={styles.buttonText}>Get Started Free</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryAction}
             onPress={() => navigation.navigate('Login')}
           >
-            <Text style={styles.secondaryText}>
-              Already have an account?{' '}
-              <Text style={styles.secondaryTextBold}>Log in</Text>
-            </Text>
+            <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
         </View>
 

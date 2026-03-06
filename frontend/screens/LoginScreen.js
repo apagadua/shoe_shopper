@@ -1,77 +1,43 @@
+import * as SecureStore from 'expo-secure-store';
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
-} from 'react-native';
+import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { googleSignIn, signInWithGoogle } from '../services/auth';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // Placeholder: plug in real auth later
-    console.log('Logging in with:', { email, password });
-    navigation.replace('MainTabs');
-  };
+  async function handleGooglePress() {
+    setLoading(true);
+    try {
+      const idToken = await googleSignIn();
+      if (!idToken) return;
+      const token = await signInWithGoogle(idToken);
+      await SecureStore.setItemAsync('authToken', token);
+      navigation.replace('MainTabs');
+    } catch (err) {
+      Alert.alert('Sign-in failed', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Log In</Text>
-          <Text style={styles.subtitle}>
-            Use your email to access your Shoe Shopper account.
-          </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Log In</Text>
+      <Text style={styles.subtitle}>
+        Sign in with your Google account to continue.
+      </Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="you@example.com"
-              placeholderTextColor="#B0A499"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="********"
-              placeholderTextColor="#B0A499"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
-              <Text style={styles.buttonText}>Continue</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('CreateAccount')}
-            >
-              <Text style={styles.secondaryText}>
-                Don't have an account?{' '}
-                <Text style={styles.secondaryTextBold}>Create account</Text>
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      <TouchableOpacity
+        style={[styles.googleButton, loading && styles.buttonDisabled]}
+        disabled={loading}
+        onPress={handleGooglePress}
+      >
+        <Text style={styles.googleButtonText}>
+          {loading ? 'Signing in...' : 'Continue with Google'}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -93,46 +59,20 @@ const styles = StyleSheet.create({
     color: '#6B5F52',
     marginBottom: 32,
   },
-  form: {
-    gap: 16,
-  },
-  label: {
-    fontSize: 14,
-    color: '#4F453C',
-    marginBottom: 4,
-  },
-  input: {
+  googleButton: {
+    backgroundColor: '#FFFBF5',
     borderWidth: 1,
     borderColor: '#E2D4C0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#FFFBF5',
-    fontSize: 15,
-    marginBottom: 4,
-  },
-  button: {
-    marginTop: 16,
-    backgroundColor: '#C28A5B',
     paddingVertical: 14,
     borderRadius: 999,
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#FFFFFF',
+  googleButtonText: {
+    color: '#2F2A25',
     fontSize: 16,
     fontWeight: '600',
   },
-  secondaryAction: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontSize: 14,
-    color: '#6B5F52',
-  },
-  secondaryTextBold: {
-    fontWeight: '600',
-    color: '#2F2A25',
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });

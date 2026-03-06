@@ -27,15 +27,18 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "shoeshopper",
     "plugins": [
       "expo-font",
+      "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",
       [
         "expo-image-picker",
         {
           "cameraPermission": "Shoe Shopper needs camera access to capture a photo of your foot for sizing."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
