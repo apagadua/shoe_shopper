@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from backend.models import Shoe, ShoeSize
+from backend.models import Measurement, Shoe, ShoeSize
 from backend.services.fit_algorithm import status_label
 
 
@@ -75,3 +75,22 @@ class RecommendationSerializer(serializers.Serializer):
     def get_reject_reason(self, obj):      return obj["fit"]["reject_reason"]
     def get_recommended_size(self, obj):  return obj.get("recommended_size")
     def get_estimated_us_size(self, obj): return obj["fit"].get("estimated_us_size")
+
+
+class MeasurementUploadSerializer(serializers.Serializer):
+    image = serializers.FileField()
+    image_width_px = serializers.IntegerField(required=False, min_value=1)
+    image_height_px = serializers.IntegerField(required=False, min_value=1)
+
+
+class MeasurementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Measurement
+        fields = [
+            "id",
+            "status",
+            "image_url",
+            "image_width_px",
+            "image_height_px",
+            "created_at",
+        ]

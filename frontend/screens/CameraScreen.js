@@ -34,7 +34,7 @@ export default function CameraScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
 
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
-  const [capturedUri, setCapturedUri] = useState(null);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [error, setError] = useState(null);
 
   const [paperSize, setPaperSize] = useState('letter'); // 'letter' | 'a4'
@@ -103,7 +103,7 @@ export default function CameraScreen({ navigation, route }) {
     setError(null);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 });
-      setCapturedUri(photo.uri);
+      setCapturedPhoto(photo);
       setPhase('preview');
     } catch (e) {
       setError(e.message || 'Could not take photo.');
@@ -111,14 +111,15 @@ export default function CameraScreen({ navigation, route }) {
   };
 
   const handleUsePhoto = async () => {
-    setPhase('processing');
+    if (!capturedPhoto?.uri) return;
     setError(null);
+    setPhase('processing');
     try {
       const formData = new FormData();
-      const filename = capturedUri.split('/').pop();
+      const filename = capturedPhoto.uri.split('/').pop();
       const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
       const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-      formData.append('image', { uri: capturedUri, name: filename, type: mimeType });
+      formData.append('image', { uri: capturedPhoto.uri, name: filename, type: mimeType });
       formData.append('paper_size', paperSize);
 
       const token = await SecureStore.getItemAsync('authToken');
@@ -142,7 +143,7 @@ export default function CameraScreen({ navigation, route }) {
   };
 
   const handleRetake = () => {
-    setCapturedUri(null);
+    setCapturedPhoto(null);
     setError(null);
     setPhase('camera');
   };
@@ -209,7 +210,7 @@ export default function CameraScreen({ navigation, route }) {
   const canCapture = isAligned; // always gate on tilt; lighting is guidance only
 
   // Preview / confirmation
-  if (phase === 'preview' && capturedUri) {
+  if (phase === 'preview' && capturedPhoto?.uri) {
     return (
       <View style={styles.previewContainer}>
         <Text style={styles.previewTitle}>Check your photo</Text>
@@ -217,7 +218,7 @@ export default function CameraScreen({ navigation, route }) {
           Make sure the paper is vertical, your foot is in the center, and both are clearly visible.
         </Text>
         <View style={styles.previewFrame}>
-          <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="contain" />
+          <Image source={{ uri: capturedPhoto.uri }} style={styles.previewImage} resizeMode="contain" />
         </View>
         <TouchableOpacity style={styles.primaryButton} onPress={handleUsePhoto}>
           <Text style={styles.primaryButtonText}>Use this photo</Text>
