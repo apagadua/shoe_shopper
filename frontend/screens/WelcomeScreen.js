@@ -99,19 +99,19 @@ export default function WelcomeScreen({ navigation }) {
               snapToAlignment="start"
               contentContainerStyle={styles.carouselContent}
             >
-              {FEATURES.map((feature) => (
+              {FEATURES.map((feature) => {
+                const IconComponent = feature.iconSet === 'feather' ? Feather : FontAwesome5;
+                const iconSize = feature.iconSet === 'feather' ? 22 : 20;
+                return (
                 <View key={feature.key} style={[styles.stepCard, { width: CARD_WIDTH }]}>
                   <View style={[styles.stepIcon, { backgroundColor: feature.iconBg }]}>
-                    {feature.iconSet === 'feather' ? (
-                      <Feather name={feature.icon} size={22} color="#2F2A25" />
-                    ) : (
-                      <FontAwesome5 name={feature.icon} size={20} color="#2F2A25" />
-                    )}
+                    <IconComponent name={feature.icon} size={iconSize} color="#2F2A25" />
                   </View>
                   <Text style={styles.stepTitle}>{feature.title}</Text>
                   <Text style={styles.stepText}>{feature.text}</Text>
                 </View>
-              ))}
+                );
+              })}
             </ScrollView>
             <View style={styles.pagination}>
               {FEATURES.map((_, index) => (

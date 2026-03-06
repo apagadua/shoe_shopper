@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { emptyStateStyles } from '../styles/emptyState';
 
 export default function OwnedShoesScreen() {
   return (
@@ -23,6 +24,7 @@ export default function OwnedShoesScreen() {
 }
 
 const styles = StyleSheet.create({
+  ...emptyStateStyles,
   container: {
     flex: 1,
     backgroundColor: '#F5EFE6',
@@ -31,24 +33,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 40,
     paddingBottom: 40,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyIcon: {
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2F2A25',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B5F52',
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

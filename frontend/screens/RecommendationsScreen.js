@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
+import { ATTRIBUTE_FILTERS } from '../constants/attributes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Drawer sized to content: row minWidth 132 + padding ~36; keep minimal left space
@@ -22,14 +23,13 @@ const SILHOUETTE_CATEGORIES = {
   'Dress Shoe': [],
 };
 
-const ATTRIBUTE_FILTERS = [
-  { key: 'waterproof', label: 'Waterproof' },
-  { key: 'vegan', label: 'Vegan' },
-  { key: 'leather', label: 'Leather' },
-  { key: 'resoleable', label: 'Resoleable' },
-  { key: 'insulated', label: 'Insulated' },
-  { key: 'slipResistant', label: 'Slip-resistant' },
-];
+function getCategoriesAndSubcategories(path, selectedCategory) {
+  const categories = path === 'function' ? Object.keys(FUNCTION_CATEGORIES) : Object.keys(SILHOUETTE_CATEGORIES);
+  const subcategories = selectedCategory
+    ? (path === 'function' ? FUNCTION_CATEGORIES[selectedCategory] : SILHOUETTE_CATEGORIES[selectedCategory]) || []
+    : [];
+  return { categories, subcategories };
+}
 
 // Minimal hardcoded shoes for recommended page (filtering already tested). Replace with API when wiring DB.
 const ALL_SHOES = [
@@ -95,15 +95,8 @@ export default function RecommendationsScreen({ navigation, route }) {
     }, 1800);
   };
 
-  const categories = path === 'function' ? Object.keys(FUNCTION_CATEGORIES) : Object.keys(SILHOUETTE_CATEGORIES);
-  const subcategories = selectedCategory
-    ? (path === 'function' ? FUNCTION_CATEGORIES[selectedCategory] : SILHOUETTE_CATEGORIES[selectedCategory]) || []
-    : [];
-
-  const categoriesDraft = pathDraft === 'function' ? Object.keys(FUNCTION_CATEGORIES) : Object.keys(SILHOUETTE_CATEGORIES);
-  const subcategoriesDraft = selectedCategoryDraft
-    ? (pathDraft === 'function' ? FUNCTION_CATEGORIES[selectedCategoryDraft] : SILHOUETTE_CATEGORIES[selectedCategoryDraft]) || []
-    : [];
+  const { categories, subcategories } = getCategoriesAndSubcategories(path, selectedCategory);
+  const { categories: categoriesDraft, subcategories: subcategoriesDraft } = getCategoriesAndSubcategories(pathDraft, selectedCategoryDraft);
 
   useEffect(() => {
     navigation.setOptions({
@@ -562,90 +555,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-  },
-  section: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B5F52',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    width: '100%',
-  },
-  pathRow: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-  },
-  pathPill: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFBF5',
-    borderWidth: 1,
-    borderColor: '#E2D4C0',
-  },
-  pathPillActive: {
-    backgroundColor: '#C28A5B',
-    borderColor: '#C28A5B',
-  },
-  pathPillText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2F2A25',
-  },
-  pathPillTextActive: {
-    color: '#FFFFFF',
-  },
-  chipRowWrap: {
-    width: '100%',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingLeft: 0,
-    paddingRight: 24,
-    justifyContent: 'flex-start',
-    flexGrow: 1,
-    minHeight: 44,
-  },
-  attrRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-  },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    backgroundColor: '#FFFBF5',
-    borderWidth: 1,
-    borderColor: '#E2D4C0',
-  },
-  chipSmall: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  chipActive: {
-    backgroundColor: '#C28A5B',
-    borderColor: '#C28A5B',
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#2F2A25',
-  },
-  chipTextSmall: {
-    fontSize: 12,
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
   },
   clearButton: {
     flexDirection: 'row',

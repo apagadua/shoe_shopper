@@ -2,15 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
-
-const ATTRIBUTE_FILTERS = [
-  { key: 'waterproof', label: 'Waterproof' },
-  { key: 'vegan', label: 'Vegan' },
-  { key: 'leather', label: 'Leather' },
-  { key: 'resoleable', label: 'Resoleable' },
-  { key: 'insulated', label: 'Insulated' },
-  { key: 'slipResistant', label: 'Slip-resistant' },
-];
+import { ATTRIBUTE_FILTERS } from '../constants/attributes';
+import { emptyStateStyles } from '../styles/emptyState';
 
 export default function SavedShoesScreen() {
   const { savedShoes, toggleSaved, isSaved } = useSavedShoes();
@@ -110,6 +103,7 @@ export default function SavedShoesScreen() {
 }
 
 const styles = StyleSheet.create({
+  ...emptyStateStyles,
   container: {
     flex: 1,
     backgroundColor: '#F5EFE6',
@@ -118,25 +112,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 40,
     paddingBottom: 40,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyIcon: {
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2F2A25',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B5F52',
-    textAlign: 'center',
-    lineHeight: 20,
   },
   /* ——— Shoe card styles (same layout as RecommendationsScreen) ——— */
   card: {
