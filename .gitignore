@@ -45,3 +45,13 @@ yarn-error.log*
 # Build outputs
 build/
 *.egg-info/
+
+# SQLite dev database
+db.sqlite3
+
+# Django media uploads (user-generated content)
+media/
+
+# Expo prebuild output (machine-generated, run `npx expo prebuild`)
+frontend/android/
+frontend/ios/
