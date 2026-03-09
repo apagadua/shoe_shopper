@@ -18,6 +18,7 @@ import CameraScreen from './screens/CameraScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import { SavedShoesProvider } from './SavedShoesContext';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -205,6 +206,7 @@ export default function App() {
   SplashScreen.hideAsync();
 
   return (
+    <SavedShoesProvider>
     <NavigationContainer>
       <StatusBar style="dark" />
       <RootStack.Navigator
@@ -269,6 +271,7 @@ export default function App() {
         />
       </RootStack.Navigator>
     </NavigationContainer>
+    </SavedShoesProvider>
   );
 }
 

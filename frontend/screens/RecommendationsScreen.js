@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Animated, Pressable, ActivityIndicator,
+  Image, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -296,10 +297,14 @@ export default function RecommendationsScreen({ navigation, route }) {
                 </View>
               )}
 
-              <View style={styles.shoePhotoPlaceholder}>
-                <Ionicons name="image-outline" size={32} color="#B0A499" />
-                <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
-              </View>
+              {item.shoe_image_url ? (
+                <Image source={{ uri: item.shoe_image_url }} style={styles.shoeImage} resizeMode="contain" />
+              ) : (
+                <View style={styles.shoePhotoPlaceholder}>
+                  <Ionicons name="image-outline" size={32} color="#B0A499" />
+                  <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
+                </View>
+              )}
 
               {cardTags.length > 0 && (
                 <View style={styles.attrTags}>
@@ -311,9 +316,11 @@ export default function RecommendationsScreen({ navigation, route }) {
                 </View>
               )}
 
-              <TouchableOpacity style={styles.primaryButton} onPress={() => {}}>
-                <Text style={styles.primaryButtonText}>View details</Text>
-              </TouchableOpacity>
+              {item.product_url ? (
+                <TouchableOpacity style={styles.primaryButton} onPress={() => Linking.openURL(item.product_url)}>
+                  <Text style={styles.primaryButtonText}>View details</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           );
         })}
@@ -520,6 +527,10 @@ const styles = StyleSheet.create({
   fitScore: { fontSize: 16, fontWeight: '700' },
   fitLabel: { fontSize: 12, fontWeight: '600' },
   fitProfile: { fontSize: 11, color: '#9B8E82', textTransform: 'uppercase', letterSpacing: 0.4 },
+  shoeImage: {
+    width: '100%', height: 160, borderRadius: 12, marginBottom: 12,
+    backgroundColor: '#F0E2D0',
+  },
   shoePhotoPlaceholder: {
     height: 120, backgroundColor: '#F0E2D0', borderRadius: 12,
     marginBottom: 12, justifyContent: 'center', alignItems: 'center',
