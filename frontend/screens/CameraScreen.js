@@ -10,7 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as SecureStore from 'expo-secure-store';
 import { Accelerometer, LightSensor } from 'expo-sensors';
+import { API_BASE_URL } from '../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
@@ -33,6 +35,8 @@ export default function CameraScreen({ navigation, route }) {
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
   const [capturedUri, setCapturedUri] = useState(null);
   const [error, setError] = useState(null);
+
+  const [paperSize, setPaperSize] = useState('letter'); // 'letter' | 'a4'
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
@@ -104,18 +108,40 @@ export default function CameraScreen({ navigation, route }) {
     }
   };
 
-  const handleUsePhoto = () => {
+  const handleUsePhoto = async () => {
     setPhase('processing');
-    setTimeout(() => {
-      navigation.navigate('Measurements', {
-        fromOnboarding,
-        imageUri: capturedUri,
+    setError(null);
+    try {
+      const formData = new FormData();
+      const filename = capturedUri.split('/').pop();
+      const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      formData.append('image', { uri: capturedUri, name: filename, type: mimeType });
+      formData.append('paper_size', paperSize);
+
+      const token = await SecureStore.getItemAsync('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
+        method: 'POST',
+        headers: { Authorization: `Token ${token}` },
+        body: formData,
       });
-    }, 1500);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Measurement failed');
+      }
+
+      navigation.navigate('Measurements', { fromOnboarding, measurements: data });
+    } catch (e) {
+      setError(e.message || 'Could not process photo. Please try again.');
+      setPhase('preview');
+    }
   };
 
   const handleRetake = () => {
     setCapturedUri(null);
+    setError(null);
     setPhase('camera');
   };
 
@@ -155,7 +181,7 @@ export default function CameraScreen({ navigation, route }) {
   const tiltStatusColor = isAligned ? '#2E7D32' : '#B33';
 
   const canUseLight = Platform.OS === 'android' && lightAvailable;
-  let lightStatus = 'Lighting: check that foot and paper are clear';
+  let lightStatus = 'Check that foot and paper are clear';
   let lightStatusColor = '#F5EFE6';
   if (canUseLight) {
     if (!lightOk) {
@@ -186,6 +212,7 @@ export default function CameraScreen({ navigation, route }) {
         <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
           <Text style={styles.secondaryButtonText}>Retake</Text>
         </TouchableOpacity>
+        {error ? <Text style={styles.previewErrorText}>{error}</Text> : null}
       </View>
     );
   }
@@ -199,24 +226,49 @@ export default function CameraScreen({ navigation, route }) {
         facing="back"
       />
       <View style={styles.overlay}>
-        <View style={styles.infoCardsRow}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Distance</Text>
-            <Text style={styles.infoText}>
-              Hold your phone at knee height, about 30 cm (12 in) above the paper.
-            </Text>
+        <View style={styles.topGuidance}>
+          <View style={styles.whiteHeader}>
+            <View style={styles.whiteHeaderRow}>
+              <View style={styles.whiteHeaderColumnLeft}>
+                <Text style={styles.whiteHeaderLabel}>Distance</Text>
+                <Text style={styles.whiteHeaderValue}>
+                Knee height above the paper.
+                </Text>
+              </View>
+              <View style={styles.whiteHeaderVerticalDivider} />
+              <View style={styles.whiteHeaderColumnRight}>
+                <Text style={styles.whiteHeaderLabel}>Lighting</Text>
+              <Text style={styles.whiteHeaderValue}>{lightStatus}</Text>
+              </View>
+            </View>
+            <View style={styles.whiteHeaderDivider} />
+            <View style={styles.whiteHeaderTiltRow}>
+              <Text
+                style={[
+                  styles.whiteHeaderValue,
+                  styles.whiteHeaderTiltText,
+                  { color: tiltStatusColor },
+                ]}
+              >
+                {tiltLabel} · {tiltStatus}
+              </Text>
+            </View>
+            <View style={styles.whiteHeaderDivider} />
+            <View style={styles.whiteHeaderPaperRow}>
+              <Text style={styles.whiteHeaderLabel}>Paper</Text>
+              {[['letter', 'Letter'], ['a4', 'A4']].map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  style={[styles.paperHeaderOption, paperSize === val && styles.paperHeaderOptionActive]}
+                  onPress={() => setPaperSize(val)}
+                >
+                  <Text style={[styles.paperHeaderOptionText, paperSize === val && styles.paperHeaderOptionTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Lighting</Text>
-            <Text style={[styles.infoText, { color: lightStatusColor }]}>
-              {lightStatus}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.tiltCard}>
-          <Text style={styles.tiltLabel}>{tiltLabel}</Text>
-          <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>{tiltStatus}</Text>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -245,10 +297,93 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 56,
-    justifyContent: 'flex-end',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 112,
+    justifyContent: 'space-between',
+  },
+  topGuidance: {
+    width: '100%',
+    paddingHorizontal: 0,
+  },
+  whiteHeader: {
+    width: '100%',
+    backgroundColor: '#FFFBF5',
+    borderRadius: 0,
+    paddingLeft: 24,
+    paddingRight: 16,
+    paddingVertical: 12,
+  },
+  whiteHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  whiteHeaderColumn: {
+    flex: 1,
+  },
+  whiteHeaderColumnLeft: {
+    flex: 1,
+    paddingRight: 0,
+  },
+  whiteHeaderColumnRight: {
+    flex: 1,
+    paddingLeft: 36,
+  },
+  whiteHeaderVerticalDivider: {
+    width: 1,
+    backgroundColor: '#E2D4C0',
+    marginLeft: 16,
+  },
+  whiteHeaderDivider: {
+    height: 1,
+    backgroundColor: '#E2D4C0',
+    marginBottom: 6,
+  },
+  whiteHeaderTiltRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whiteHeaderLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    color: '#4A3B2D',
+  },
+  whiteHeaderValue: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#6B5F52',
+  },
+  whiteHeaderTiltText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  whiteHeaderPaperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  paperHeaderOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#C28A5B',
+  },
+  paperHeaderOptionActive: {
+    backgroundColor: '#C28A5B',
+  },
+  paperHeaderOptionText: {
+    fontSize: 12,
+    color: '#C28A5B',
+    fontWeight: '600',
+  },
+  paperHeaderOptionTextActive: {
+    color: '#FFFFFF',
   },
   centerContainer: {
     flex: 1,
@@ -377,6 +512,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  previewErrorText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#B33',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   permissionTitle: {
     fontSize: 20,

@@ -1,16 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-// Placeholder - later from auth/profile or scan
-const SAMPLE_MEASUREMENTS = {
-  length: '25.3 cm',
-  width: '9.4 cm',
-  arch: 'Neutral',
-  size: 'US 8',
-};
+import * as SecureStore from 'expo-secure-store';
+import { useFocusEffect } from '@react-navigation/native';
+import { API_BASE_URL } from '../config/api';
+import { getBestSize } from '../utils/shoeSize';
 
 export default function ClosetScreen({ navigation }) {
+  const [measurements, setMeasurements] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+      setLoadError(false);
+      SecureStore.getItemAsync('authToken').then(token => {
+        if (!token || cancelled) return;
+        fetch(`${API_BASE_URL}/api/measurements/latest/`, {
+          headers: { Authorization: `Token ${token}` },
+        })
+          .then(res => {
+            if (res.status === 404) return null; // no scans yet — not an error
+            if (!res.ok) throw new Error('fetch failed');
+            return res.json();
+          })
+          .then(data => { if (!cancelled && data) setMeasurements(data); })
+          .catch(() => { if (!cancelled) setLoadError(true); });
+      }).catch(() => { if (!cancelled) setLoadError(true); });
+      return () => { cancelled = true; };
+    }, [])
+  );
+
   return (
     <ScrollView
       style={styles.container}
@@ -23,22 +43,31 @@ export default function ClosetScreen({ navigation }) {
           <Ionicons name="footsteps" size={28} color="#C28A5B" />
           <Text style={styles.measurementsTitle}>Your Foot Profile</Text>
         </View>
+        {loadError ? (
+          <Text style={styles.loadErrorText}>Could not load measurements. Check your connection.</Text>
+        ) : null}
         <View style={styles.measurementsGrid}>
           <View style={styles.measurementItem}>
             <Text style={styles.measurementLabel}>Length</Text>
-            <Text style={styles.measurementValue}>{SAMPLE_MEASUREMENTS.length}</Text>
+            <Text style={styles.measurementValue}>
+              {measurements ? (measurements.length_in * 2.54).toFixed(1) + ' cm' : '—'}
+            </Text>
           </View>
           <View style={styles.measurementItem}>
             <Text style={styles.measurementLabel}>Width</Text>
-            <Text style={styles.measurementValue}>{SAMPLE_MEASUREMENTS.width}</Text>
+            <Text style={styles.measurementValue}>
+              {measurements ? (measurements.width_in * 2.54).toFixed(1) + ' cm' : '—'}
+            </Text>
           </View>
           <View style={styles.measurementItem}>
             <Text style={styles.measurementLabel}>Arch</Text>
-            <Text style={styles.measurementValue}>{SAMPLE_MEASUREMENTS.arch}</Text>
+            <Text style={styles.measurementValue}>—</Text>
           </View>
           <View style={styles.measurementItem}>
             <Text style={styles.measurementLabel}>Typical size</Text>
-            <Text style={styles.measurementValue}>{SAMPLE_MEASUREMENTS.size}</Text>
+            <Text style={styles.measurementValue}>
+              {measurements?.length_in ? `US ${getBestSize(measurements.length_in)}` : '—'}
+            </Text>
           </View>
         </View>
       </View>
@@ -105,6 +134,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#2F2A25',
+  },
+  loadErrorText: {
+    fontSize: 13,
+    color: '#B33',
+    marginBottom: 8,
   },
   measurementsGrid: {
     flexDirection: 'row',
