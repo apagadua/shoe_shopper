@@ -85,6 +85,14 @@ class FootMeasureView(APIView):
         if not image_file:
             return Response({"detail": "image field required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+        ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+        if image_file.size > MAX_UPLOAD_BYTES:
+            return Response({"detail": "Image too large (max 10 MB)"}, status=status.HTTP_400_BAD_REQUEST)
+        if image_file.content_type not in ALLOWED_MIME_TYPES:
+            return Response({"detail": "Unsupported image type"}, status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
         image_bytes = image_file.read()
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -272,20 +280,20 @@ class RecommendationsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # CV correction factors (update after model retraining):
-        #  - Width is overestimated ~25-30%; area overestimation follows similarly.
-        #  - Toebox polygon captures full forefoot, not toe region — kept disabled.
-        CV_WIDTH_SCALE = 0.65
-        CV_AREA_SCALE  = 0.70   # area is a 2-D product; correct accordingly
-
-        raw_area = float(measurement.area_sq_in) if measurement.area_sq_in else None
+        # v1.6: foot length and width carry Roboflow CV measurement uncertainty
+        # (±0.55" length, ±0.35" width). These are passed through as-is; the
+        # algorithm's FOOT_*_LO/HI constants widen the reject window to absorb
+        # that uncertainty. Toebox dimensions are also CV-derived and passed
+        # through directly; the scoring algorithm handles their uncertainty
+        # via profile tolerance bands.
+        raw_area = float(measurement.area_sq_in) if measurement.area_sq_in is not None else None
 
         foot = {
             "length_in":        float(measurement.length_in),
-            "width_in":         float(measurement.width_in) * CV_WIDTH_SCALE,
-            "area_sq_in":       raw_area * CV_AREA_SCALE if raw_area else None,
-            "toebox_length_in": None,
-            "toebox_width_in":  None,
+            "width_in":         float(measurement.width_in),
+            "area_sq_in":       raw_area,
+            "toebox_length_in": float(measurement.toebox_length_in) if measurement.toebox_length_in is not None else None,
+            "toebox_width_in":  float(measurement.toebox_width_in)  if measurement.toebox_width_in  is not None else None,
         }
 
         sub_type = request.query_params.get("sub_type") or None

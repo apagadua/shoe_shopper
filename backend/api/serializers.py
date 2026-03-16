@@ -61,8 +61,6 @@ class RecommendationSerializer(serializers.Serializer):
     def get_function_tags(self, obj):  return obj["shoe"].function_tags or []
     def get_style_tags(self, obj):     return obj["shoe"].style_tags or []
 
-    attributes_json = serializers.SerializerMethodField()
-
     def get_sizes(self, obj):
         return ShoeSizeSerializer(obj["shoe"].sizes.all(), many=True).data
 

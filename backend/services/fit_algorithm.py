@@ -1,5 +1,5 @@
 """
-Shoe Fit Recommendation Algorithm — v1.0
+Shoe Fit Recommendation Algorithm — v1.5
 
 Scores a shoe against a foot measurement on a 0–100 point scale.
 Every shoe starts at 100 points; deviations from optimal clearance subtract points.
@@ -10,25 +10,48 @@ All measurements in inches.
 
 import copy
 
-ALGORITHM_VERSION = "1.3"
+ALGORITHM_VERSION = "1.5"
 
 # ---------------------------------------------------------------------------
-# CV measurement error offsets — update here after retraining the model.
-# Expand each measurement into a candidate range at match time:
-#   foot  range = [foot_val  - FOOT_*_LO,  foot_val  + FOOT_*_HI]
-#   shoe  range = [shoe_val  - SHOE_*_LO,  shoe_val  + SHOE_*_HI]
-# A dimension matches if the two ranges overlap.
+# CV model systematic bias corrections (calibrated from 24 captures, true foot 11.55" × 5.05")
+#   Length: model underestimates by mean −0.508"; correct upward before scoring.
+#   Width:  model overestimates  by mean +0.371"; correct downward before scoring.
+#
+# These are applied to the raw foot measurement in score_shoe before computing
+# any clearances or reject checks. FOOT_*_LO/HI below cover the residual
+# uncertainty that remains after the bias is removed (residual StdDev: length
+# 0.47", width 0.77").
 # ---------------------------------------------------------------------------
 
-FOOT_LENGTH_LO = 0.31
-FOOT_LENGTH_HI = 0.83
-FOOT_WIDTH_LO  = 0.48
-FOOT_WIDTH_HI  = 0.40
+LENGTH_BIAS_CORRECTION = 0.508   # add to measured foot length
+WIDTH_BIAS_CORRECTION  = 0.371   # subtract from measured foot width
 
-SHOE_LENGTH_LO = 0.68
-SHOE_LENGTH_HI = 1.39
-SHOE_WIDTH_LO  = 0.51
-SHOE_WIDTH_HI  = 1.07
+# ---------------------------------------------------------------------------
+# Reject-range overlap constants.
+# Expand each corrected measurement into a candidate range at match time:
+#   foot  range = [foot_adj - FOOT_*_LO,  foot_adj + FOOT_*_HI]
+#   shoe  range = [shoe_val - SHOE_*_LO,  shoe_val + SHOE_*_HI]
+# A dimension matches (not rejected) if the two ranges overlap.
+#
+# SHOE_LO encodes the maximum valid clearance across all function profiles so
+# that a legitimately roomy shoe is not rejected before reaching the scorer.
+#
+# Effective reject windows (applied to bias-corrected foot dimensions):
+#   Length: reject if insole < foot_adj − 0.55"  OR  insole > foot_adj + 1.34"
+#   Width:  reject if insole < foot_adj − 2.02"  OR  insole > foot_adj + 2.35"
+#     (width window intentionally wide — residual noise is 0.77" StdDev;
+#      hard rejects are reserved for clear mismatches only)
+# ---------------------------------------------------------------------------
+
+FOOT_LENGTH_LO = 0.55   # residual length uncertainty after bias correction
+FOOT_LENGTH_HI = 0.55
+FOOT_WIDTH_LO  = 1.10   # residual width uncertainty after bias correction (higher variance)
+FOOT_WIDTH_HI  = 1.10
+
+SHOE_LENGTH_LO = 0.79   # max length clearance in any profile (ROAD/TRAIL/HIKING)
+SHOE_LENGTH_HI = 0.00
+SHOE_WIDTH_LO  = 0.92   # max total width clearance = 2 × 0.46"/side (ROAD/TRAIL/WORK_OUTDOOR)
+SHOE_WIDTH_HI  = 1.25   # shoe construction flex: upper can accommodate foot up to 1.25" wider than insole template
 
 # ---------------------------------------------------------------------------
 # Tolerance profiles
@@ -37,89 +60,96 @@ SHOE_WIDTH_HI  = 1.07
 # ---------------------------------------------------------------------------
 
 _PROFILES = {
+    # width/tb_width min values are negative to allow partial credit when the foot
+    # is slightly wider than the insole. These represent real shoe construction
+    # flex — the upper can stretch to accommodate modest overhang.
+    # -0.25/side = 0.50" total overhang limit for ball area (most profiles).
+    # -0.16/side = 0.32" total for toebox (less flex than the ball area).
+    # Work profiles use -0.12 since sustained wear demands more reliable width fit.
+    # CV bias correction is applied upstream, so clearances here reflect true dimensions.
     "ROAD_RUNNING": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "width":    {"min": 0.00, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
+        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "tb_width": {"min": 0.12, "opt_low": 0.16, "opt_high": 0.16, "max": 0.46},
+        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
     },
     "TRAIL_RUNNING": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "width":    {"min": 0.00, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
+        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "tb_width": {"min": 0.12, "opt_low": 0.16, "opt_high": 0.16, "max": 0.46},
+        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
     },
     "INDOOR_TRACK": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.63},
-        "width":    {"min": 0.00, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
+        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.63},
-        "tb_width": {"min": 0.12, "opt_low": 0.16, "opt_high": 0.16, "max": 0.43},
+        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.43},
     },
     "TRAINING": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.59},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.59},
-        "tb_width": {"min": 0.08, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
     },
     "BASKETBALL": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.20, "max": 0.43},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.20, "max": 0.43},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "tb_width": {"min": 0.08, "opt_low": 0.12, "opt_high": 0.20, "max": 0.43},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.20, "max": 0.43},
     },
     "CLEATED_SPORT": {
         "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.47, "max": 0.55},
-        "width":    {"min": 0.00, "opt_low": 0.04, "opt_high": 0.12, "max": 0.35},
+        "width":    {"min": -0.25, "opt_low": 0.04, "opt_high": 0.12, "max": 0.35},
         "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.47, "max": 0.55},
-        "tb_width": {"min": 0.00, "opt_low": 0.04, "opt_high": 0.08, "max": 0.31},
+        "tb_width": {"min": -0.16, "opt_low": 0.04, "opt_high": 0.08, "max": 0.31},
     },
     "TENNIS": {
         "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
         "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "tb_width": {"min": 0.08, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
     },
     "SKATE": {
-        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.39, "max": 0.55},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
-        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.39, "max": 0.55},
-        "tb_width": {"min": 0.04, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
+        "length":   {"min": 0.20, "opt_low": 0.31, "opt_high": 0.43, "max": 0.55},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
+        "tb_len":   {"min": 0.20, "opt_low": 0.31, "opt_high": 0.43, "max": 0.55},
+        "tb_width": {"min": -0.16, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
     },
     "HIKING": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "tb_width": {"min": 0.08, "opt_low": 0.12, "opt_high": 0.12, "max": 0.39},
+        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.67, "max": 0.79},
+        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
+        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.67, "max": 0.79},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
     },
     "CASUAL": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.47, "max": 0.59},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.47, "max": 0.59},
-        "tb_width": {"min": 0.04, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
+        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
+        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
+        "tb_width": {"min": -0.16, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
     },
     "CASUAL_SLIPON": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.47, "max": 0.59},
-        "width":    {"min": 0.00, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.47, "max": 0.59},
-        "tb_width": {"min": 0.04, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
+        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
+        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
+        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
     },
     "WORK_INDOOR": {
         "length":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "width":    {"min": 0.08, "opt_low": 0.16, "opt_high": 0.20, "max": 0.43},
+        "width":    {"min": -0.12, "opt_low": 0.16, "opt_high": 0.20, "max": 0.43},
         "tb_len":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "tb_width": {"min": 0.08, "opt_low": 0.16, "opt_high": 0.20, "max": 0.39},
+        "tb_width": {"min": -0.12, "opt_low": 0.16, "opt_high": 0.20, "max": 0.39},
     },
     "WORK_OUTDOOR": {
         "length":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "width":    {"min": 0.12, "opt_low": 0.20, "opt_high": 0.20, "max": 0.46},
+        "width":    {"min": -0.12, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
         "tb_len":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "tb_width": {"min": 0.12, "opt_low": 0.20, "opt_high": 0.20, "max": 0.43},
+        "tb_width": {"min": -0.12, "opt_low": 0.16, "opt_high": 0.24, "max": 0.43},
     },
     "DRESS": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "width":    {"min": 0.00, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "tb_width": {"min": 0.08, "opt_low": 0.12, "opt_high": 0.12, "max": 0.35},
+        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
+        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
     },
 }
 
@@ -127,10 +157,11 @@ _PROFILES = {
 # Point budgets
 # ---------------------------------------------------------------------------
 
-# Full toebox data available (tb area key = toebox area)
-_POINTS_DEFAULT     = {"length": 18, "width": 27, "tb_len": 18, "tb_width": 27, "area": 10}
-_POINTS_SKATE       = {"length": 15, "width": 31, "tb_len": 15, "tb_width": 31, "area": 8}
-_POINTS_CASUAL_SLIP = {"length": 16, "width": 29, "tb_len": 16, "tb_width": 29, "area": 10}
+# Full toebox data available — 4 dimensions, no area (area is derived from length×width so
+# scoring it separately would double-count the same insole geometry)
+_POINTS_DEFAULT     = {"length": 20, "width": 30, "tb_len": 20, "tb_width": 30}
+_POINTS_SKATE       = {"length": 17, "width": 33, "tb_len": 17, "tb_width": 33}
+_POINTS_CASUAL_SLIP = {"length": 18, "width": 32, "tb_len": 18, "tb_width": 32}
 
 # No toebox, with overall foot area (area = insole_area / foot_area ratio)
 _POINTS_NO_TOEBOX_WITH_AREA_DEFAULT     = {"length": 35, "width": 40, "area": 25}
@@ -241,15 +272,16 @@ def _score_dimension(c, T, P):
         if t_max <= opt_high:
             return float(P)
         ratio = (t_max - c) / (t_max - opt_high)
-        # Floor raised to 0.65 — a shoe at max clearance is still a decent fit
-        return P * (0.65 + 0.35 * ratio)
+        # Floor raised to 0.70 — a shoe at max clearance is still a decent fit;
+        # 0.70 accounts for CV measurement imprecision that may make a good shoe appear loose
+        return P * (0.70 + 0.30 * ratio)
 
-    # Zone 5 — excessively loose; decay over 2× the band to account for CV noise
+    # Zone 5 — excessively loose; decay over 4× the band to account for CV measurement imprecision
     interval = t_max - opt_high
     if interval <= 0:
         return 0.0
     overage = c - t_max
-    return max(0.0, P * 0.65 - (P * 0.65 * (overage / (interval * 2))))
+    return max(0.0, P * 0.70 - (P * 0.70 * (overage / (interval * 4))))
 
 
 def _get_zone(c, T):
@@ -323,6 +355,8 @@ def score_shoe(foot, shoe, sub_type=None):
         deduction = _FASHION_DEDUCTION.get(toe_shape, 0.00)
         if deduction > 0:
             eff_shoe_length -= deduction
+            if eff_shoe_tb_length is not None:
+                eff_shoe_tb_length -= deduction
             flags.append("FASHION_ALLOWANCE_APPLIED")
             adjustments.append(f"fashion_deduction: {toe_shape} {deduction}\"")
 
@@ -342,15 +376,6 @@ def score_shoe(foot, shoe, sub_type=None):
 
     # Pre-processing Step 3 — Silhouette tag modifiers
     style_tags_lower = {t.lower() for t in (shoe.get("style_tags") or [])}
-
-    if "slip-on sneaker" in style_tags_lower or "loafer" in style_tags_lower:
-        flags.append("HEEL_SLIP_HARD_ZERO")
-    elif "clog" in style_tags_lower:
-        flags.append("HEEL_SCORING_DISABLED")
-    elif "chelsea" in style_tags_lower:
-        flags.append("HEEL_SLIP_STRICT")
-    elif "high-top" in style_tags_lower and profile_name not in ("CASUAL", "CASUAL_SLIPON"):
-        flags.append("HEEL_SLIP_RELAXED")
 
     if "combat" in style_tags_lower:
         T["length"]["min"]  = max(T["length"]["min"],  0.47)
@@ -404,8 +429,9 @@ def score_shoe(foot, shoe, sub_type=None):
     # -----------------------------------------------------------------------
     # Step 3 — Clearance computation
     # -----------------------------------------------------------------------
-    foot_length      = float(foot["length_in"])
-    foot_width       = float(foot["width_in"])
+    # Apply systematic CV bias corrections before any clearance or reject logic
+    foot_length      = float(foot["length_in"]) + LENGTH_BIAS_CORRECTION
+    foot_width       = float(foot["width_in"])  - WIDTH_BIAS_CORRECTION
     foot_area        = float(foot["area_sq_in"]) if foot.get("area_sq_in") is not None else None
     foot_tb_length   = foot.get("toebox_length_in")
     foot_tb_width    = foot.get("toebox_width_in")
@@ -452,7 +478,8 @@ def score_shoe(foot, shoe, sub_type=None):
         }
 
     # Priority 1: toebox width compression (universal)
-    if c_tb_width is not None and c_tb_width < 0:
+    # Allow up to FOOT_WIDTH_LO/2 per side of compression to absorb CV measurement noise
+    if c_tb_width is not None and c_tb_width < -(FOOT_WIDTH_LO / 2):
         return _reject("TOEBOX_WIDTH_COMPRESSION")
 
     # Priority 2: length range overlap
@@ -463,9 +490,9 @@ def score_shoe(foot, shoe, sub_type=None):
     if not (foot_len_lo <= shoe_len_hi and shoe_len_lo <= foot_len_hi):
         return _reject("LENGTH_OUT_OF_RANGE")
 
-    # Priority 3: insufficient toebox length
-    if c_tb_length is not None and c_tb_length < T["tb_len"]["min"]:
-        return _reject("INSUFFICIENT_TOEBOX_LENGTH")
+    # Priority 3: insufficient toebox length — not used as a hard reject;
+    # CV toebox length measurements are not directly comparable to shoe DB values.
+    # Scoring still penalises insufficient toebox clearance.
 
     # Priority 4: width range overlap
     foot_wid_lo = foot_width - FOOT_WIDTH_LO
@@ -489,37 +516,10 @@ def score_shoe(foot, shoe, sub_type=None):
     if has_toebox:
         tb_len_score = _score_dimension(c_tb_length, T["tb_len"],   pts["tb_len"])
         tb_wid_score = _score_dimension(c_tb_width,  T["tb_width"], pts["tb_width"])
-
-        # Toebox area score
-        opt_tb_len_mid   = (T["tb_len"]["opt_low"]   + T["tb_len"]["opt_high"])   / 2
-        opt_tb_wid_mid   = (T["tb_width"]["opt_low"] + T["tb_width"]["opt_high"]) / 2
-        expected_area    = (foot_tb_length + opt_tb_len_mid) * (foot_tb_width + 2 * opt_tb_wid_mid)
-        shoe_tb_area     = eff_shoe_tb_length * eff_shoe_tb_width
-
-        min_area = (foot_tb_length + T["tb_len"]["min"]) * (foot_tb_width + 2 * T["tb_width"]["min"])
-        max_area = (foot_tb_length + T["tb_len"]["max"]) * (foot_tb_width + 2 * T["tb_width"]["max"])
-
-        if expected_area > 0:
-            area_ratio = shoe_tb_area / expected_area
-            T_area = {
-                "min":      min_area / expected_area if expected_area else 0,
-                "opt_low":  1.00,
-                "opt_high": 1.00,
-                "max":      max_area / expected_area if expected_area else 2,
-            }
-            area_score = _score_dimension(area_ratio, T_area, pts["area"])
-        else:
-            area_score = pts["area"]
-            area_ratio = 1.0
-            shoe_tb_area = 0.0
-
-        total = len_score + wid_score + tb_len_score + tb_wid_score + area_score
+        total = len_score + wid_score + tb_len_score + tb_wid_score
     else:
         tb_len_score = None
         tb_wid_score = None
-        area_score   = None
-        area_ratio   = None
-        shoe_tb_area = None
 
         if has_area:
             # Overall foot area vs insole area ratio
@@ -586,14 +586,6 @@ def score_shoe(foot, shoe, sub_type=None):
             "zone": _get_zone(c_tb_width, T["tb_width"]),
             "points_earned": round(tb_wid_score, 2),
             "points_max": pts["tb_width"],
-        }
-        dimensions["toebox_area"] = {
-            "shoe_area": round(shoe_tb_area, 4),
-            "expected_area": round(expected_area, 4),
-            "ratio": round(area_ratio, 4),
-            "zone": _get_zone(area_ratio, T_area),
-            "points_earned": round(area_score, 2),
-            "points_max": pts["area"],
         }
     elif has_area:
         T_area_overall = {"min": 0.90, "opt_low": 1.10, "opt_high": 1.35, "max": 2.00}

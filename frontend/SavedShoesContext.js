@@ -11,7 +11,10 @@ export function SavedShoesProvider({ children }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then(raw => { if (raw) setSavedMap(JSON.parse(raw)); })
-      .catch(() => {});
+      .catch(err => {
+        console.error('Failed to load saved shoes:', err);
+        setSavedMap({});
+      });
   }, []);
 
   function toggleSaved(shoe) {

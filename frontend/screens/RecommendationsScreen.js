@@ -68,6 +68,7 @@ export default function RecommendationsScreen({ navigation, route }) {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerAnim = useRef(new Animated.Value(0)).current;
+  const isAnimatingRef = useRef(false);
 
   const { toggleSaved, isSaved } = useSavedShoes();
   const [toastMessage, setToastMessage] = useState(null);
@@ -118,16 +119,22 @@ export default function RecommendationsScreen({ navigation, route }) {
       headerRight: () => (
         <TouchableOpacity
           onPress={() => {
+            if (isAnimatingRef.current) return;
+            isAnimatingRef.current = true;
             if (drawerOpen) {
               setDrawerOpen(false);
-              Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+              Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+                isAnimatingRef.current = false;
+              });
             } else {
               setPathDraft(path);
               setSelectedCategoryDraft(selectedCategory);
               setSelectedSubcategoryDraft(selectedSubcategory);
               setAttributeFiltersDraft({ ...attributeFilters });
               setDrawerOpen(true);
-              Animated.timing(drawerAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+              Animated.timing(drawerAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start(() => {
+                isAnimatingRef.current = false;
+              });
             }
           }}
           style={styles.headerFilterButton}
@@ -167,7 +174,10 @@ export default function RecommendationsScreen({ navigation, route }) {
     setSelectedSubcategory(selectedSubcategoryDraft);
     setAttributeFilters({ ...attributeFiltersDraft });
     setDrawerOpen(false);
-    Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+    isAnimatingRef.current = true;
+    Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+      isAnimatingRef.current = false;
+    });
   };
 
   const clearDraft = () => {
@@ -380,7 +390,10 @@ export default function RecommendationsScreen({ navigation, route }) {
         style={[StyleSheet.absoluteFill, { pointerEvents: drawerOpen ? 'auto' : 'none' }]}
         onPress={() => {
           setDrawerOpen(false);
-          Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+          isAnimatingRef.current = true;
+          Animated.timing(drawerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+            isAnimatingRef.current = false;
+          });
         }}
       >
         <Animated.View style={[styles.drawerOverlay, { opacity: overlayOpacity }]} />

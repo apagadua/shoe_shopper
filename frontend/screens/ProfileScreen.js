@@ -72,8 +72,14 @@ export default function ProfileScreen({ navigation }) {
         return;
       }
 
-      const healthJson = await healthRes.json();
-      const shoesJson = await shoesRes.json();
+      let healthJson, shoesJson;
+      try {
+        healthJson = await healthRes.json();
+        shoesJson = await shoesRes.json();
+      } catch {
+        setApiStatus('API returned non-JSON response');
+        return;
+      }
       const preview = shoesJson.slice(0, 3).map((shoe) => `${shoe.brand} ${shoe.model}`);
       setShoePreview(preview);
       setApiStatus(`Connected: ${healthJson.shoe_count} shoes in DB`);

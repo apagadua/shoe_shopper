@@ -75,7 +75,8 @@ export default function CameraScreen({ navigation, route }) {
       (async () => {
         try {
           const available = await LightSensor.isAvailableAsync();
-          if (!mounted || !available) {
+          if (!mounted) return;
+          if (!available) {
             setLightAvailable(false);
             return;
           }
