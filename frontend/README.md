@@ -1,263 +1,168 @@
-# Shoe Shopper - Setup Guide
+# Shoe Shopper – Frontend
 
-This guide will help you set up and run the Expo application on both **Mac** and **Windows**.
+Expo + React Native app for the Shoe Shopper experience.
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Expo Go Setup](#expo-go-setup)
-- [Running the App](#running-the-app)
-- [Connecting to the Development Server](#connecting-to-the-development-server)
+- [Install & Run](#install--run)
+- [Running on Devices](#running-on-devices)
 - [Troubleshooting](#troubleshooting)
-- [Expo Development Build (Android)](#expo-development-build-android-dev-client)
-- [iOS (Expo Go only)](#ios-expo-go-only)
 - [Project Structure](#project-structure)
+- [Development Notes](#development-notes)
 
 ---
 
 ## Prerequisites
 
-### Required Software
-
-1. **Node.js** (v18 or higher)
-   - **Windows/Mac**: Download from [nodejs.org](https://nodejs.org/)
-   - Verify installation:
-     ```bash
-     node --version
-     npm --version
-     ```
-
-2. **npm** (comes with Node.js)
-   - Verify installation:
-     ```bash
-     npm --version
-     ```
-
-3. **Expo Go** (for running on a physical phone via QR code)
-   - [iOS](https://apps.apple.com/app/expo-go/id982107779) · [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)  
-   - Optional if you only use the Android emulator with the dev client.
+- **Node.js** v18+ (includes `npm`)
+  - Download from `https://nodejs.org`
+  - Verify:
+    ```bash
+    node --version
+    npm --version
+    ```
+- **Expo CLI tooling**
+  - We use `npx expo …` (no global install required).
+- **Expo Go** (optional, for physical devices)
+  - iOS: App Store → “Expo Go”
+  - Android: Play Store → “Expo Go”
 
 ---
 
-## Setup
+## Install & Run
 
-### Step 1: Navigate to Project Directory
-
-From the repo root, go into `frontend` (all commands in this guide run from `frontend`; there is no root `package.json`):
+All commands below run from the `frontend` folder.
 
 ```bash
 cd frontend
 ```
 
-### Step 2: Install Dependencies
-
-Install all required packages:
+### Install dependencies
 
 ```bash
 npm install
 ```
 
-This will install all dependencies listed in `package.json`. Wait for the installation to complete (this may take a few minutes).
+If you hit peer dependency conflicts:
 
-**Note:** If you encounter peer dependency conflicts, try:
 ```bash
 npm install --legacy-peer-deps
 ```
 
-### Step 3: Verify Installation
+### Start the development server
 
-Check that `node_modules` was created: run `dir node_modules` (Windows) or `ls node_modules` (Mac).
-
----
-
-## Expo Go Setup
-
-1. **Install Expo Go** on your phone: [iOS App Store](https://apps.apple.com/app/expo-go/id982107779) or [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent).
-2. **Network:** Phone and computer on the same Wi‑Fi works best. The app uses **tunnel mode** by default (`npm start`), so it can connect from different networks too (slower).
-
----
-
-## Running the App
-
-From the `frontend` directory:
+Standard Expo dev server with tunnel (good for phones on different networks):
 
 ```bash
 npm start
 ```
 
-This starts Metro with **tunnel mode** by default (so your phone can connect even on a different network).
+or explicitly:
 
-### What Happens Next
+```bash
+npx expo start
+```
 
-After running `npm start`, you should see:
+You’ll see Metro start, a QR code, and shortcuts like:
 
-1. **Metro Bundler starting** - This is the JavaScript bundler
-2. **QR Code** - A QR code will appear in your terminal
-3. **Connection options** - You'll see options like:
-   ```
-   › Press a │ open Android
-   › Press i │ open iOS simulator
-   › Press w │ open web
-   › Press r │ reload app
-   ```
+```text
+› Press a │ open Android
+› Press i │ open iOS simulator
+› Press w │ open web
+› Press r │ reload app
+```
 
----
+To clear the Metro cache:
 
-## Connecting to the Development Server
-
-### Method 1: Scan QR Code (Recommended)
-
-#### iOS:
-1. Open the **Camera app** on your iPhone/iPad
-2. Point the camera at the QR code in your terminal
-3. Tap the notification that appears
-4. Expo Go will open and load your app
-
-#### Android:
-1. Open the **Expo Go app** on your Android device
-2. Tap **"Scan QR code"**
-3. Point your camera at the QR code in your terminal
-4. The app will load automatically
-
-### Method 2: Manual Connection
-
-If QR code scanning doesn't work:
-
-#### iOS:
-1. Open Expo Go app
-2. Tap **"Enter URL manually"**
-3. Enter the URL shown in your terminal (e.g., `exp://192.168.1.100:8081`)
-
-#### Android:
-1. Open Expo Go app
-2. Tap **"Enter URL manually"**
-3. Enter the URL shown in your terminal
-
-### Method 3: Tunnel mode
-
-`npm start` uses tunnel mode by default, so the URL will look like `exp://….exp.direct`. Works across different networks; a bit slower than LAN.
+```bash
+npx expo start --clear
+```
 
 ---
 
-## Using Expo Go
+## Running on Devices
 
-### Hot Reloading
+### Using Expo Go (physical devices)
 
-- **Automatic**: Changes to your code automatically reload in the app
-- **Manual Reload**: Shake your device and tap "Reload" (or press `r` in terminal)
+1. Install **Expo Go** on your phone.
+2. Make sure phone and computer have network connectivity (same Wi‑Fi works best).
+3. From `frontend` run `npm start` / `npx expo start`.
+4. In the terminal or Expo Dev Tools:
+   - Scan the QR code with your phone’s camera (iOS) or Expo Go app (Android), **or**
+   - Manually enter the URL shown (usually `exp://…exp.direct` when using tunnel).
 
-### Developer Menu
+### Using the Android emulator (dev client)
 
-#### iOS:
-- Shake your device to open the developer menu
-- Or use a three-finger tap
+This project also supports an **Expo development build** for Android via EAS. High‑level flow:
 
-#### Android:
-- Shake your device to open the developer menu
-- Or press the menu button
+1. Install Android Studio and create an AVD.
+2. Build the dev client from `frontend`:
+   ```bash
+   npx eas-cli build --profile development --platform android
+   ```
+3. Download the APK from the EAS build page and drag‑and‑drop it onto the emulator.
+4. Run the dev server for the dev client:
+   ```bash
+   npx expo start --dev-client
+   ```
+5. With the emulator running, press `a` in the terminal or open the installed app icon directly.
 
-### Common Actions
+You only need to rebuild the dev client when native config/dependencies change; normal JS changes just use Metro.
 
-- **Reload App**: Shake device → "Reload"
-- **Debug**: Shake device → "Debug Remote JS"
-- **Performance Monitor**: Shake device → "Show Performance Monitor"
+### iOS
 
-### Keyboard Shortcuts (in Terminal)
-
-While the dev server is running:
-- `r` - Reload the app
-- `m` - Toggle menu
-- `a` - Open on Android emulator (if installed)
-- `i` - Open on iOS simulator (Mac only)
-- `w` - Open in web browser
-- `j` - Open debugger
-- `Ctrl+C` - Stop the server
+Currently **iOS uses Expo Go only** (no iOS dev client in this repo). Follow the Expo Go steps above.
 
 ---
 
 ## Troubleshooting
 
-### Issue: "Unable to resolve module"
+### “Unable to resolve module” / broken `node_modules`
 
-**Solution:**
 ```bash
 rm -rf node_modules package-lock.json  # Mac
-# OR
-rmdir /s node_modules  # Windows
-del package-lock.json   # Windows
+
+:: Windows
+rmdir /s node_modules
+del package-lock.json
 
 npm install
 ```
 
-### Issue: "Port 8081 already in use"
+### “Port 8081 already in use”
 
-**Solution:**
-- Close other Expo/Metro bundler instances
-- Or kill the process:
+- Close other Expo/Metro instances, or:
+
+```bash
+:: Windows
+netstat -ano | findstr :8081
+taskkill /PID <PID> /F
+```
+
+### “Can’t connect to development server” / Expo Go cannot load app
+
+- Ensure device and computer are on the same network (or use tunnel mode).
+- Check the URL shown in the terminal matches your machine’s IP / tunnel URL.
+- Restart the dev server:
   ```bash
-  # Mac
-  lsof -ti:8081 | xargs kill -9
-  
-  # Windows
-  netstat -ano | findstr :8081
-  taskkill /PID <PID> /F
+  npm start
   ```
 
-### Issue: "Can't connect to development server"
+### Metro cache issues
 
-**Solutions:**
-1. **Check Network Connection**
-   - Ensure device and computer are on same Wi-Fi
-   - Try tunnel mode (already enabled by default)
-
-2. **Firewall Issues (Windows)**
-   - Allow Node.js through Windows Firewall
-   - Settings → Firewall → Allow an app → Node.js
-
-3. **Check IP Address**
-   - Terminal shows the connection URL
-   - Verify it matches your computer's local IP
-
-### Issue: "Expo Go can't find the app"
-
-**Solutions:**
-1. Make sure you're scanning the correct QR code
-2. Try entering the URL manually in Expo Go
-3. Restart the development server:
-   ```bash
-   # Press Ctrl+C to stop, then:
-   npm start
-   ```
-
-### Issue: "Metro bundler cache issues"
-
-**Solution:**
 ```bash
 npx expo start --clear
 ```
 
-### Issue: "Package version mismatches" or "ERESOLVE could not resolve"
+### Dependency / version mismatches
 
-**Solution:**
 ```bash
 npm install
 # If that doesn't work:
 npm install --legacy-peer-deps
 ```
 
-If you see React version conflicts, ensure `package.json` has `"react": "19.1.0"` (required by Expo SDK 54).
-
-### Issue: "expo-modules-core errors"
-
-**Solution:**
-```bash
-rm -rf node_modules package-lock.json  # Mac
-# OR
-rmdir /s node_modules  # Windows
-del package-lock.json   # Windows
-
-npm install
-```
+Expo SDK 54 in this project expects `"react": "19.1.0"` as configured in `package.json`.
 
 ---
 
@@ -283,6 +188,13 @@ frontend/
 ├── package-lock.json # Locked dependency versions
 └── README.md         # This file
 ```
+
+---
+
+## Development Notes
+
+- Frontend coding conventions and patterns live in `FRONTEND_STYLE_GUIDE.md`.
+- Backend and environment configuration are documented in the backend README and `.env` files (at the repo root and in `frontend/.env`).
 
 ---
 
