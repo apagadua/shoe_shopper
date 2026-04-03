@@ -66,6 +66,8 @@ class Measurement(models.Model):
     image_height_px = models.IntegerField(null=True, blank=True)
     length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    toebox_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    toebox_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     area_sq_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     perimeter_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     paper_type = models.CharField(max_length=10, choices=PaperType.choices, null=True, blank=True)
@@ -125,6 +127,10 @@ class Shoe(models.Model):
     attributes_json = models.JSONField(default=dict, blank=True)
     insole_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     insole_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    insole_toebox_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    insole_toebox_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    toe_shape = models.CharField(max_length=12, null=True, blank=True)   # round/almond/chisel/pointed
+    cap_type = models.CharField(max_length=12, null=True, blank=True)    # none/steel/composite
     insole_area_sq_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     insole_perimeter_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     shoe_image_url = models.TextField(null=True, blank=True)

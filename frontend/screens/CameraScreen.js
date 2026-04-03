@@ -10,7 +10,9 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as SecureStore from 'expo-secure-store';
 import { Accelerometer, LightSensor } from 'expo-sensors';
+import { API_BASE_URL } from '../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
@@ -33,6 +35,8 @@ export default function CameraScreen({ navigation, route }) {
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
   const [capturedUri, setCapturedUri] = useState(null);
   const [error, setError] = useState(null);
+
+  const [paperSize, setPaperSize] = useState('letter'); // 'letter' | 'a4'
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
@@ -71,7 +75,8 @@ export default function CameraScreen({ navigation, route }) {
       (async () => {
         try {
           const available = await LightSensor.isAvailableAsync();
-          if (!mounted || !available) {
+          if (!mounted) return;
+          if (!available) {
             setLightAvailable(false);
             return;
           }
@@ -104,18 +109,40 @@ export default function CameraScreen({ navigation, route }) {
     }
   };
 
-  const handleUsePhoto = () => {
+  const handleUsePhoto = async () => {
     setPhase('processing');
-    setTimeout(() => {
-      navigation.navigate('Measurements', {
-        fromOnboarding,
-        imageUri: capturedUri,
+    setError(null);
+    try {
+      const formData = new FormData();
+      const filename = capturedUri.split('/').pop();
+      const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      formData.append('image', { uri: capturedUri, name: filename, type: mimeType });
+      formData.append('paper_size', paperSize);
+
+      const token = await SecureStore.getItemAsync('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
+        method: 'POST',
+        headers: { Authorization: `Token ${token}` },
+        body: formData,
       });
-    }, 1500);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Measurement failed');
+      }
+
+      navigation.navigate('Measurements', { fromOnboarding, measurements: data });
+    } catch (e) {
+      setError(e.message || 'Could not process photo. Please try again.');
+      setPhase('preview');
+    }
   };
 
   const handleRetake = () => {
     setCapturedUri(null);
+    setError(null);
     setPhase('camera');
   };
 
@@ -186,6 +213,7 @@ export default function CameraScreen({ navigation, route }) {
         <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
           <Text style={styles.secondaryButtonText}>Retake</Text>
         </TouchableOpacity>
+        {error ? <Text style={styles.previewErrorText}>{error}</Text> : null}
       </View>
     );
   }
@@ -225,6 +253,21 @@ export default function CameraScreen({ navigation, route }) {
               >
                 {tiltLabel} · {tiltStatus}
               </Text>
+            </View>
+            <View style={styles.whiteHeaderDivider} />
+            <View style={styles.whiteHeaderPaperRow}>
+              <Text style={styles.whiteHeaderLabel}>Paper</Text>
+              {[['letter', 'Letter'], ['a4', 'A4']].map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  style={[styles.paperHeaderOption, paperSize === val && styles.paperHeaderOptionActive]}
+                  onPress={() => setPaperSize(val)}
+                >
+                  <Text style={[styles.paperHeaderOptionText, paperSize === val && styles.paperHeaderOptionTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </View>
@@ -319,6 +362,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  whiteHeaderPaperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  paperHeaderOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#C28A5B',
+  },
+  paperHeaderOptionActive: {
+    backgroundColor: '#C28A5B',
+  },
+  paperHeaderOptionText: {
+    fontSize: 12,
+    color: '#C28A5B',
+    fontWeight: '600',
+  },
+  paperHeaderOptionTextActive: {
+    color: '#FFFFFF',
+  },
   centerContainer: {
     flex: 1,
     backgroundColor: '#F5EFE6',
@@ -405,6 +472,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  previewErrorText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#B33',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   permissionTitle: {
     fontSize: 20,
