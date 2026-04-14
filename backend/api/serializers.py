@@ -19,6 +19,8 @@ class ShoeSerializer(serializers.ModelSerializer):
             "id",
             "brand",
             "model",
+            "colorway",
+            "sku",
             "gender",
             "price_usd",
             "shoe_image_url",
@@ -33,11 +35,12 @@ class RecommendationSerializer(serializers.Serializer):
     id               = serializers.SerializerMethodField()
     brand            = serializers.SerializerMethodField()
     model            = serializers.SerializerMethodField()
+    colorway         = serializers.SerializerMethodField()
+    sku              = serializers.SerializerMethodField()
     gender           = serializers.SerializerMethodField()
     price_usd        = serializers.SerializerMethodField()
     shoe_image_url   = serializers.SerializerMethodField()
     product_url      = serializers.SerializerMethodField()
-    sizes            = serializers.SerializerMethodField()
     function_tags    = serializers.SerializerMethodField()
     style_tags       = serializers.SerializerMethodField()
     attributes_json  = serializers.SerializerMethodField()
@@ -54,15 +57,14 @@ class RecommendationSerializer(serializers.Serializer):
     def get_id(self, obj):             return obj["shoe"].id
     def get_brand(self, obj):          return obj["shoe"].brand
     def get_model(self, obj):          return obj["shoe"].model
+    def get_colorway(self, obj):       return obj["shoe"].colorway
+    def get_sku(self, obj):            return obj["shoe"].sku
     def get_gender(self, obj):         return obj["shoe"].gender
     def get_price_usd(self, obj):      return str(obj["shoe"].price_usd) if obj["shoe"].price_usd else None
     def get_shoe_image_url(self, obj): return obj["shoe"].shoe_image_url
     def get_product_url(self, obj):    return obj["shoe"].product_url
     def get_function_tags(self, obj):  return obj["shoe"].function_tags or []
     def get_style_tags(self, obj):     return obj["shoe"].style_tags or []
-
-    def get_sizes(self, obj):
-        return ShoeSizeSerializer(obj["shoe"].sizes.all(), many=True).data
 
     def get_attributes_json(self, obj): return obj.get("attributes", {})
 

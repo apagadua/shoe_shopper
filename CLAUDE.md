@@ -100,7 +100,7 @@ Stored in `.env` at the repo root (never commit).
 | Model | Key Fields | Notes |
 |---|---|---|
 | `Profile` | `user`, `display_name`, `avatar_url` | 1-to-1 with Django User |
-| `GuestSession` | `session_uuid`, `expires_at` | Anonymous usage |
+| `GuestSession` | `id` (UUID pk), `expires_at` | Anonymous usage |
 | `Measurement` | `length_in`, `width_in`, `area_sq_in`, `status` | Status: uploaded/processing/complete/error |
 | `Shoe` | `brand`, `model`, `gender`, `price_usd`, `insole_*` dimensions | Arrays: `function_tags`, `style_tags` |
 | `ShoeSize` | `shoe`, `us_size`, `width`, `is_available` | Unique on (shoe, us_size, width) |
@@ -118,7 +118,9 @@ Stored in `.env` at the repo root (never commit).
 | GET | `/api/shoes/` | None | List all shoes with sizes |
 | POST | `/api/auth/google/` | None | Exchange Google ID token → auth key |
 | DELETE | `/api/auth/delete/` | Token | Delete authenticated user's account |
-| POST | `/api/foot/measure/` | Optional | Upload foot photo → measurements in inches |
+| POST | `/api/foot/measure/` | Token | Upload foot photo → measurements in inches |
+| GET | `/api/measurements/latest/` | Token | Most recent completed measurement |
+| GET | `/api/recommendations/` | Token | Score all shoes against latest measurement |
 
 ---
 
@@ -158,8 +160,8 @@ Stack Navigator
 4. User taps capture → preview shown → user confirms
 5. `FormData` POST to `/api/foot/measure/` with `image` + optional `paper_size`
 6. Backend sends image to Roboflow; detects paper (scale) + foot outline
-7. Backend returns `{ length_in, width_in, area_sq_in, pixels_per_inch }`
-8. Frontend stores in AsyncStorage; navigates to MeasurementsScreen
+7. Backend returns `{ length_in, width_in, area_sq_in, ppi }`
+8. Frontend navigates to MeasurementsScreen with response data via route params
 
 ### Google Auth Flow
 1. `auth.js: googleSignIn()` → triggers native Google picker → returns `idToken`
@@ -213,7 +215,7 @@ npx expo start --dev-client
 - `components/` directory — empty; no shared UI components extracted yet
 - Recommendations — fully wired to real API (`GET /api/recommendations/`); scores DB shoes against the user's latest measurement
 - Avatar/photo change in ProfileScreen — UI present, not implemented
-- Paper size auto-detection uses IP geolocation as fallback (may be unreliable)
+- Paper size is a manual toggle (Letter/A4) in CameraScreen — no auto-detection
 
 ---
 

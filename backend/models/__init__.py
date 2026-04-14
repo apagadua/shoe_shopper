@@ -125,17 +125,16 @@ class Shoe(models.Model):
     function_tags = ArrayField(models.TextField(), default=list, blank=True)
     style_tags = ArrayField(models.TextField(), default=list, blank=True)
     attributes_json = models.JSONField(default=dict, blank=True)
-    insole_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
-    insole_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
-    insole_toebox_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
-    insole_toebox_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     toe_shape = models.CharField(max_length=12, null=True, blank=True)   # round/almond/chisel/pointed
     cap_type = models.CharField(max_length=12, null=True, blank=True)    # none/steel/composite
-    insole_area_sq_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
-    insole_perimeter_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    arch_type = models.TextField(null=True, blank=True)
+    colorway = models.TextField(null=True, blank=True)
+    sku = models.TextField(null=True, blank=True, unique=True)
+    kicks_id = models.TextField(null=True, blank=True, unique=True)
     shoe_image_url = models.TextField(null=True, blank=True)
     product_url = models.TextField(null=True, blank=True)
     price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -159,6 +158,12 @@ class ShoeSize(models.Model):
     us_size = models.DecimalField(max_digits=4, decimal_places=1)
     width = models.CharField(max_length=12, choices=Width.choices, default=Width.REGULAR)
     is_available = models.BooleanField(default=True)
+    insole_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    insole_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    insole_area_sq_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    insole_perimeter_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    insole_toebox_length_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    insole_toebox_width_in = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

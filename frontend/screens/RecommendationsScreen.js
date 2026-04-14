@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Animated, Pressable, ActivityIndicator,
@@ -89,7 +89,8 @@ export default function RecommendationsScreen({ navigation, route }) {
       setLoading(true);
 
       SecureStore.getItemAsync('authToken').then(token => {
-        if (!token || cancelled) { setLoading(false); return; }
+        if (cancelled) return;
+        if (!token) { setLoading(false); return; }
         return fetch(`${API_BASE_URL}/api/recommendations/`, {
           headers: { Authorization: `Token ${token}` },
         });
@@ -111,7 +112,7 @@ export default function RecommendationsScreen({ navigation, route }) {
     }, [])
   );
 
-  const { categories: categoriesDraft, subcategories: subcategoriesDraft } =
+  const { subcategories: subcategoriesDraft } =
     getCategoriesAndSubcategories(pathDraft, selectedCategoryDraft);
 
   useEffect(() => {
@@ -295,6 +296,9 @@ export default function RecommendationsScreen({ navigation, route }) {
               </View>
 
               <Text style={styles.name}>{item.model}</Text>
+              {item.colorway ? (
+                <Text style={styles.colorway}>{item.colorway}</Text>
+              ) : null}
 
               {/* Fit score badge — hidden when no insole data to score against */}
               {item.fit_status !== 'UNSCORED' && (
@@ -528,7 +532,8 @@ const styles = StyleSheet.create({
   },
   heartButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
+  colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
   fitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },

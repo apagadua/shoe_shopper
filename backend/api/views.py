@@ -1,7 +1,10 @@
 import base64
+import logging
 import math
 
 import requests as http_requests
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -15,7 +18,7 @@ from rest_framework.views import APIView
 
 from backend.api.serializers import RecommendationSerializer, ShoeSerializer
 from backend.models import Measurement, Profile, Shoe
-from backend.services.fit_algorithm import ALGORITHM_VERSION, estimate_us_size, score_shoe, status_label
+from backend.services.fit_algorithm import ALGORITHM_VERSION, LENGTH_BIAS_CORRECTION, estimate_us_size, score_shoe, status_label
 
 User = get_user_model()
 
@@ -128,7 +131,8 @@ class FootMeasureView(APIView):
                 timeout=30,
             )
             rf_resp.raise_for_status()
-        except http_requests.RequestException:
+        except http_requests.RequestException as exc:
+            logger.warning("Roboflow request failed for user %s: %s", request.user.id, exc)
             return Response(
                 {"detail": "Measurement service unavailable. Please try again."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -309,7 +313,25 @@ class RecommendationsView(APIView):
             else:
                 attrs = raw_attrs
 
-            can_score = bool(shoe.insole_length_in and shoe.insole_width_in)
+            all_sizes = list(shoe.sizes.all())
+
+            # Estimate the user's size for this shoe (bias-corrected, consistent with algorithm)
+            est_size = estimate_us_size(
+                float(measurement.length_in) + LENGTH_BIAS_CORRECTION,
+                shoe.gender,
+            )
+
+            # Find the size whose insole data we'll use for scoring
+            scoring_size = (
+                min(all_sizes, key=lambda s: abs(float(s.us_size) - est_size))
+                if all_sizes else None
+            )
+
+            can_score = bool(
+                scoring_size
+                and scoring_size.insole_length_in
+                and scoring_size.insole_width_in
+            )
 
             if can_score:
                 shoe_data = {
@@ -317,25 +339,16 @@ class RecommendationsView(APIView):
                     "gender":                   shoe.gender,
                     "function_tags":            shoe.function_tags or [],
                     "style_tags":               shoe.style_tags or [],
-                    "insole_length_in":         float(shoe.insole_length_in),
-                    "insole_width_in":          float(shoe.insole_width_in),
-                    "insole_area_sq_in":        float(shoe.insole_area_sq_in) if shoe.insole_area_sq_in else None,
-                    "insole_toebox_length_in":  float(shoe.insole_toebox_length_in) if shoe.insole_toebox_length_in else None,
-                    "insole_toebox_width_in":   float(shoe.insole_toebox_width_in)  if shoe.insole_toebox_width_in  else None,
+                    "insole_length_in":         float(scoring_size.insole_length_in),
+                    "insole_width_in":          float(scoring_size.insole_width_in),
+                    "insole_area_sq_in":        float(scoring_size.insole_area_sq_in) if scoring_size.insole_area_sq_in else None,
+                    "insole_toebox_length_in":  float(scoring_size.insole_toebox_length_in) if scoring_size.insole_toebox_length_in else None,
+                    "insole_toebox_width_in":   float(scoring_size.insole_toebox_width_in)  if scoring_size.insole_toebox_width_in  else None,
                     "toe_shape":                shoe.toe_shape,
                     "cap_type":                 shoe.cap_type,
                     "attributes_json":          attrs,
                 }
                 fit = score_shoe(foot, shoe_data, sub_type=sub_type)
-
-                # Find the closest available size to the estimated US size
-                est_size = fit.get("estimated_us_size")
-                available_sizes = [s for s in shoe.sizes.all() if s.is_available]
-                if est_size is not None and available_sizes:
-                    best = min(available_sizes, key=lambda s: abs(float(s.us_size) - est_size))
-                    recommended_size = float(best.us_size)
-                else:
-                    recommended_size = None
             else:
                 fit = {
                     "status": "UNSCORED",
@@ -346,18 +359,18 @@ class RecommendationsView(APIView):
                     "adjustments_applied": [],
                     "has_toebox_data": False,
                     "has_area_data": False,
-                    "estimated_us_size": estimate_us_size(float(measurement.length_in), shoe.gender),
+                    "estimated_us_size": est_size,
                     "dimensions": {},
                     "flags": [],
                 }
-                # Still compute recommended size for unscored shoes
-                est_size = fit["estimated_us_size"]
-                available_sizes = [s for s in shoe.sizes.all() if s.is_available]
-                if est_size is not None and available_sizes:
-                    best = min(available_sizes, key=lambda s: abs(float(s.us_size) - est_size))
-                    recommended_size = float(best.us_size)
-                else:
-                    recommended_size = None
+
+            # Find the closest available size for the size recommendation
+            available_sizes = [s for s in all_sizes if s.is_available]
+            if available_sizes:
+                best = min(available_sizes, key=lambda s: abs(float(s.us_size) - est_size))
+                recommended_size = float(best.us_size)
+            else:
+                recommended_size = None
 
             results.append({
                 "shoe":             shoe,
