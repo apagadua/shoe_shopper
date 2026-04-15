@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { Accelerometer, LightSensor } from 'expo-sensors';
 import { API_BASE_URL } from '../config/api';
@@ -144,6 +145,17 @@ export default function CameraScreen({ navigation, route }) {
     setCapturedUri(null);
     setError(null);
     setPhase('camera');
+  };
+
+  const handlePickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      setCapturedUri(result.assets[0].uri);
+      setPhase('preview');
+    }
   };
 
   if (!permission) {
@@ -283,6 +295,9 @@ export default function CameraScreen({ navigation, route }) {
             {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.galleryButton} onPress={handlePickFromGallery}>
+          <Text style={styles.galleryButtonText}>Pick from gallery</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -408,6 +423,17 @@ const styles = StyleSheet.create({
   },
   captureButtonDisabled: {
     opacity: 0.5,
+  },
+  galleryButton: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  galleryButtonText: {
+    color: '#FFFBF5',
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   captureButtonText: {
     color: '#FFFFFF',
