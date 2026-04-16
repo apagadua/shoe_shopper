@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -44,6 +46,9 @@ class Command(BaseCommand):
                 defaults={
                     "gender": item["gender"],
                     "price_usd": item["price_usd"],
+                    # So recommendations can compute fit scores (see dev_backfill_shoe_insoles).
+                    "insole_length_in": Decimal("10.500"),
+                    "insole_width_in": Decimal("3.650"),
                 },
             )
             if was_created:

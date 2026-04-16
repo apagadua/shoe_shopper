@@ -155,6 +155,44 @@ npx expo start --dev-client
 
 ---
 
+## Run the app (two terminals)
+
+Use **two terminals**: one for the Django API, one for Metro / Expo. Configure **root `.env`** and **`frontend/.env`** first (see above).
+
+### Terminal 1 — backend
+
+From the **repository root** (next to `manage.py`), with your virtual environment activated if you use one:
+
+```bash
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
+
+**Windows PowerShell:** If you ever set `DATABASE_URL` in the shell, it overrides `.env`. Clear it before `migrate` / `runserver` if the app should use the URL from the root `.env` file:
+
+```powershell
+if (Test-Path Env:DATABASE_URL) { Remove-Item Env:DATABASE_URL }
+```
+
+**Optional** — if recommendation fit scores are missing because shoes lack insole dimensions in the DB (dev only; uses placeholders):
+
+```bash
+python manage.py dev_backfill_shoe_insoles
+```
+
+### Terminal 2 — frontend
+
+```bash
+cd frontend
+npx expo start --dev-client --clear
+```
+
+Open the app from the Expo dev client on your device or emulator.
+
+**Emulator without a camera:** In `frontend/.env`, set `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1` (exact prefix `EXPO_PUBLIC_`), restart Metro, and ensure the backend allows the dev mock route (`DJANGO_DEBUG=1` or `ENABLE_DEV_MOCK_MEASUREMENT=1` in the root `.env`).
+
+---
+
 ## API Endpoints
 
 | Method | Path | Auth | Description |

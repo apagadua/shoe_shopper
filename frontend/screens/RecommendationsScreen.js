@@ -8,8 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSavedShoes } from '../SavedShoesContext';
+import { useOwnedShoes } from '../ClosetContext';
 import { ATTRIBUTE_FILTERS } from '../constants/attributes';
 import { API_BASE_URL } from '../config/api';
+import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(172, SCREEN_WIDTH * 0.5);
@@ -45,6 +47,9 @@ const FIT_STATUS_COLOR = {
   REJECTED:   '#9E9E9E',
 };
 
+/** Active “owned” bag icon — distinct from saved-heart bronze */
+const OWNED_ICON_ACTIVE = '#5D8A7E';
+
 export default function RecommendationsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
 
@@ -71,6 +76,7 @@ export default function RecommendationsScreen({ navigation, route }) {
   const isAnimatingRef = useRef(false);
 
   const { toggleSaved, isSaved } = useSavedShoes();
+  const { toggleOwned, isOwned } = useOwnedShoes();
   const [toastMessage, setToastMessage] = useState(null);
   const toastTimeoutRef = useRef(null);
 
@@ -80,7 +86,7 @@ export default function RecommendationsScreen({ navigation, route }) {
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 1800);
   };
 
-  // Fetch recommendations from backend
+  // Fetch recommendations from backend (after dev mock on Android emulator)
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -88,24 +94,37 @@ export default function RecommendationsScreen({ navigation, route }) {
       setNoMeasurement(false);
       setLoading(true);
 
-      SecureStore.getItemAsync('authToken').then(token => {
-        if (!token || cancelled) { setLoading(false); return; }
-        return fetch(`${API_BASE_URL}/api/recommendations/`, {
-          headers: { Authorization: `Token ${token}` },
-        });
-      }).then(res => {
-        if (!res || cancelled) return;
-        if (res.status === 404) { setNoMeasurement(true); setLoading(false); return; }
-        if (!res.ok) throw new Error('fetch failed');
-        return res.json();
-      }).then(data => {
-        if (!data || cancelled) return;
-        setAllResults(data.results || []);
-        setHasToebox(data.has_toebox_data || false);
-        setLoading(false);
-      }).catch(() => {
-        if (!cancelled) { setFetchError(true); setLoading(false); }
-      });
+      (async () => {
+        try {
+          await ensureDevMockMeasurementIfNeeded();
+          if (cancelled) return;
+          const token = await SecureStore.getItemAsync('authToken');
+          if (!token || cancelled) {
+            setLoading(false);
+            return;
+          }
+          const res = await fetch(`${API_BASE_URL}/api/recommendations/`, {
+            headers: { Authorization: `Token ${token}` },
+          });
+          if (cancelled) return;
+          if (res.status === 404) {
+            setNoMeasurement(true);
+            setLoading(false);
+            return;
+          }
+          if (!res.ok) throw new Error('fetch failed');
+          const data = await res.json();
+          if (cancelled) return;
+          setAllResults(data.results || []);
+          setHasToebox(data.has_toebox_data || false);
+          setLoading(false);
+        } catch {
+          if (!cancelled) {
+            setFetchError(true);
+            setLoading(false);
+          }
+        }
+      })();
 
       return () => { cancelled = true; };
     }, [])
@@ -259,6 +278,7 @@ export default function RecommendationsScreen({ navigation, route }) {
 
         {displayedResults.map(item => {
           const saved = isSaved(item.id);
+          const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
           const tags = (path === 'function' ? item.function_tags : item.style_tags) || [];
 
@@ -277,21 +297,38 @@ export default function RecommendationsScreen({ navigation, route }) {
             <View key={item.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.brand}>{item.brand}</Text>
-                <TouchableOpacity
-                  style={styles.heartButton}
-                  onPress={() => {
-                    const wasSaved = isSaved(item.id);
-                    toggleSaved(item);
-                    showToast(wasSaved ? 'Removed from Saved Shoes' : 'Added to Saved Shoes');
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons
-                    name={saved ? 'heart' : 'heart-outline'}
-                    size={20}
-                    color={saved ? '#C28A5B' : '#B0A499'}
-                  />
-                </TouchableOpacity>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => {
+                      const wasSaved = isSaved(item.id);
+                      toggleSaved(item);
+                      showToast(wasSaved ? 'Removed from Saved Shoes' : 'Added to Saved Shoes');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={saved ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={saved ? '#C28A5B' : '#B0A499'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => {
+                      const wasOwned = isOwned(item.id);
+                      toggleOwned(item);
+                      showToast(wasOwned ? 'Removed from Owned Shoes' : 'Added to Owned Shoes');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={owned ? 'bag-handle' : 'bag-handle-outline'}
+                      size={20}
+                      color={owned ? OWNED_ICON_ACTIVE : '#B0A499'}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <Text style={styles.name}>{item.model}</Text>
@@ -526,7 +563,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 4,
   },
-  heartButton: { paddingHorizontal: 4, paddingVertical: 2 },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
   fitRow: {

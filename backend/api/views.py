@@ -1,10 +1,12 @@
 import base64
 import math
+from decimal import Decimal
 
 import requests as http_requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from google.auth import exceptions as google_auth_exceptions
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import status
@@ -384,6 +386,48 @@ class RecommendationsView(APIView):
         })
 
 
+class DevMockMeasurementView(APIView):
+    """
+    Insert a COMPLETE Measurement for the current user (dev / emulator testing only).
+    Disabled unless DEBUG or ENABLE_DEV_MOCK_MEASUREMENT is set.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        allowed = settings.DEBUG or settings.ENABLE_DEV_MOCK_MEASUREMENT
+        if not allowed:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if Measurement.objects.filter(user=request.user, status=Measurement.Status.COMPLETE).exists():
+            return Response(
+                {"skipped": True, "detail": "A completed measurement already exists"},
+                status=status.HTTP_200_OK,
+            )
+
+        m = Measurement.objects.create(
+            user=request.user,
+            status=Measurement.Status.COMPLETE,
+            image_url="dev://mock-foot-scan",
+            paper_type=Measurement.PaperType.LETTER,
+            length_in=Decimal("10.200"),
+            width_in=Decimal("3.950"),
+            area_sq_in=Decimal("40.250"),
+            toebox_length_in=Decimal("4.350"),
+            toebox_width_in=Decimal("3.200"),
+            algorithm_version="dev-mock",
+        )
+        return Response(
+            {
+                "id": m.id,
+                "length_in": float(m.length_in),
+                "width_in": float(m.width_in),
+                "detail": "Mock measurement created for emulator/dev testing",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -421,17 +465,28 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        audience_list = []
+        for x in (settings.GOOGLE_CLIENT_ID, settings.GOOGLE_ANDROID_CLIENT_ID):
+            if x and x not in audience_list:
+                audience_list.append(x)
+        if not audience_list:
+            return Response(
+                {'detail': 'Server missing GOOGLE_CLIENT_ID'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        audience = audience_list[0] if len(audience_list) == 1 else audience_list
         try:
             idinfo = google_id_token.verify_oauth2_token(
                 token,
                 google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
+                audience,
+                clock_skew_in_seconds=120,
             )
-        except ValueError:
-            return Response(
-                {'detail': 'Invalid ID token'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        except (ValueError, google_auth_exceptions.GoogleAuthError) as exc:
+            body = {'detail': 'Invalid ID token'}
+            if settings.DEBUG:
+                body['debug'] = str(exc)
+            return Response(body, status=status.HTTP_400_BAD_REQUEST)
 
         email = idinfo.get('email')
         if not email:

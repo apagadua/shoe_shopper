@@ -131,9 +131,9 @@ Stack Navigator
 ├── Login            (LoginScreen.js)     — Google Sign-In
 └── MainTabs (Bottom Tab Navigator)
     ├── Closet tab
-    │   ├── ClosetHome  (ClosetScreen.js)
-    │   ├── SavedShoes  (SavedShoesScreen.js)
-    │   ├── OwnedShoes  (OwnedShoesScreen.js)
+    │   ├── ClosetHome  (Dashboard.js)
+    │   ├── SavedShoes  (Wishlist.js)
+    │   ├── OwnedShoes  (Closet.js)
     │   ├── FootCapture (FootCaptureScreen.js) — instructions
     │   ├── Camera      (CameraScreen.js)      — live capture
     │   └── Measurements (MeasurementsScreen.js)
@@ -209,7 +209,7 @@ npx expo start --dev-client
 
 ## Known Stubs / Incomplete Features
 
-- `SavedShoesScreen` and `OwnedShoesScreen` — exist but are placeholder screens
+- `Wishlist.js` and `Closet.js` (owned list) — wishlist/owned shoe lists with cards; `ClosetContext.js` holds owned-shoe AsyncStorage state
 - `components/` directory — empty; no shared UI components extracted yet
 - Recommendations — fully wired to real API (`GET /api/recommendations/`); scores DB shoes against the user's latest measurement
 - Avatar/photo change in ProfileScreen — UI present, not implemented

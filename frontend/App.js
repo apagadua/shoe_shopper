@@ -10,15 +10,16 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LoginScreen from './screens/LoginScreen';
-import ClosetScreen from './screens/ClosetScreen';
-import SavedShoesScreen from './screens/SavedShoesScreen';
-import OwnedShoesScreen from './screens/OwnedShoesScreen';
+import Dashboard from './screens/Dashboard';
+import Wishlist from './screens/Wishlist';
+import Closet from './screens/Closet';
 import FootCaptureScreen from './screens/FootCaptureScreen';
 import CameraScreen from './screens/CameraScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import { SavedShoesProvider } from './SavedShoesContext';
+import { OwnedShoesProvider } from './ClosetContext';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -59,22 +60,22 @@ function ClosetStackNavigator() {
     <ClosetStack.Navigator screenOptions={sharedHeaderOptions}>
       <ClosetStack.Screen
         name="ClosetHome"
-        component={ClosetScreen}
-        options={{ title: 'My Closet', headerBackVisible: false }}
+        component={Dashboard}
+        options={{ title: 'Dashboard', headerBackVisible: false }}
       />
       <ClosetStack.Screen
         name="SavedShoes"
-        component={SavedShoesScreen}
+        component={Wishlist}
         options={({ navigation }) => ({
-          title: 'Saved Shoes',
+          title: 'Wishlist',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
       <ClosetStack.Screen
         name="OwnedShoes"
-        component={OwnedShoesScreen}
+        component={Closet}
         options={({ navigation }) => ({
-          title: 'Owned Shoes',
+          title: 'My Closet',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
@@ -207,6 +208,7 @@ export default function App() {
 
   return (
     <SavedShoesProvider>
+    <OwnedShoesProvider>
     <NavigationContainer>
       <StatusBar style="dark" />
       <RootStack.Navigator
@@ -271,6 +273,7 @@ export default function App() {
         />
       </RootStack.Navigator>
     </NavigationContainer>
+    </OwnedShoesProvider>
     </SavedShoesProvider>
   );
 }
