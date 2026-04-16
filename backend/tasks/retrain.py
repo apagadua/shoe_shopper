@@ -22,7 +22,10 @@ def retrain():
 
     old_count = tolerances["meta"]["total_feedback_count"]
     new_count = len(feedback_rows)
-    alpha = new_count / (old_count + new_count + 1e-6)
+    if old_count == 0:
+        alpha = 0.1
+    else:
+        alpha = new_count / (old_count + new_count + 1e-6)
 
     new_tolerances = compute_tolerances(
         width_signal,
