@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Animated, Pressable, ActivityIndicator,
@@ -8,10 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSavedShoes } from '../SavedShoesContext';
-import { useOwnedShoes } from '../ClosetContext';
+import { useOwnedShoes } from '../OwnedShoesContext';
 import { ATTRIBUTE_FILTERS } from '../constants/attributes';
 import { API_BASE_URL } from '../config/api';
-import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(172, SCREEN_WIDTH * 0.5);
@@ -46,9 +45,6 @@ const FIT_STATUS_COLOR = {
   POOR:       '#B71C1C',
   REJECTED:   '#9E9E9E',
 };
-
-/** Active “owned” bag icon — distinct from saved-heart bronze */
-const OWNED_ICON_ACTIVE = '#5D8A7E';
 
 export default function RecommendationsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
@@ -86,7 +82,7 @@ export default function RecommendationsScreen({ navigation, route }) {
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 1800);
   };
 
-  // Fetch recommendations from backend (after dev mock on Android emulator)
+  // Fetch recommendations from backend
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -94,43 +90,31 @@ export default function RecommendationsScreen({ navigation, route }) {
       setNoMeasurement(false);
       setLoading(true);
 
-      (async () => {
-        try {
-          await ensureDevMockMeasurementIfNeeded();
-          if (cancelled) return;
-          const token = await SecureStore.getItemAsync('authToken');
-          if (!token || cancelled) {
-            setLoading(false);
-            return;
-          }
-          const res = await fetch(`${API_BASE_URL}/api/recommendations/`, {
-            headers: { Authorization: `Token ${token}` },
-          });
-          if (cancelled) return;
-          if (res.status === 404) {
-            setNoMeasurement(true);
-            setLoading(false);
-            return;
-          }
-          if (!res.ok) throw new Error('fetch failed');
-          const data = await res.json();
-          if (cancelled) return;
-          setAllResults(data.results || []);
-          setHasToebox(data.has_toebox_data || false);
-          setLoading(false);
-        } catch {
-          if (!cancelled) {
-            setFetchError(true);
-            setLoading(false);
-          }
-        }
-      })();
+      SecureStore.getItemAsync('authToken').then(token => {
+        if (cancelled) return;
+        if (!token) { setLoading(false); return; }
+        return fetch(`${API_BASE_URL}/api/recommendations/`, {
+          headers: { Authorization: `Token ${token}` },
+        });
+      }).then(res => {
+        if (!res || cancelled) return;
+        if (res.status === 404) { setNoMeasurement(true); setLoading(false); return; }
+        if (!res.ok) throw new Error('fetch failed');
+        return res.json();
+      }).then(data => {
+        if (!data || cancelled) return;
+        setAllResults(data.results || []);
+        setHasToebox(data.has_toebox_data || false);
+        setLoading(false);
+      }).catch(() => {
+        if (!cancelled) { setFetchError(true); setLoading(false); }
+      });
 
       return () => { cancelled = true; };
     }, [])
   );
 
-  const { categories: categoriesDraft, subcategories: subcategoriesDraft } =
+  const { subcategories: subcategoriesDraft } =
     getCategoriesAndSubcategories(pathDraft, selectedCategoryDraft);
 
   useEffect(() => {
@@ -172,6 +156,8 @@ export default function RecommendationsScreen({ navigation, route }) {
     const pathKey = path === 'function' ? 'function_tags' : 'style_tags';
     return allResults.filter(item => {
       if (item.fit_status === 'REJECTED') return false;
+      // Once moved to Wishlist/Closet, hide from Recommendations.
+      if (isSaved(item.id) || isOwned(item.id)) return false;
 
       const tags = (item[pathKey] || []).map(t => t.toLowerCase());
       const matchCat = !selectedCategory || tags.includes(selectedCategory.toLowerCase());
@@ -185,7 +171,7 @@ export default function RecommendationsScreen({ navigation, route }) {
       }
       return true;
     });
-  }, [allResults, path, selectedCategory, selectedSubcategory, attributeFilters]);
+  }, [allResults, path, selectedCategory, selectedSubcategory, attributeFilters, isSaved, isOwned]);
 
   const applyFilters = () => {
     setPath(pathDraft);
@@ -251,7 +237,9 @@ export default function RecommendationsScreen({ navigation, route }) {
 
   const displayedResults = hasActiveFilters
     ? filteredResults
-    : allResults.filter(r => r.fit_status !== 'REJECTED');
+    : allResults.filter(
+      (r) => r.fit_status !== 'REJECTED' && !isSaved(r.id) && !isOwned(r.id)
+    );
 
   return (
     <View style={styles.container}>
@@ -299,11 +287,11 @@ export default function RecommendationsScreen({ navigation, route }) {
                 <Text style={styles.brand}>{item.brand}</Text>
                 <View style={styles.cardActions}>
                   <TouchableOpacity
-                    style={styles.iconButton}
+                    style={styles.heartButton}
                     onPress={() => {
                       const wasSaved = isSaved(item.id);
                       toggleSaved(item);
-                      showToast(wasSaved ? 'Removed from Saved Shoes' : 'Added to Saved Shoes');
+                      showToast(wasSaved ? 'Removed from Wishlist' : 'Moved to Wishlist');
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
@@ -314,24 +302,27 @@ export default function RecommendationsScreen({ navigation, route }) {
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.iconButton}
+                    style={styles.heartButton}
                     onPress={() => {
                       const wasOwned = isOwned(item.id);
                       toggleOwned(item);
-                      showToast(wasOwned ? 'Removed from Owned Shoes' : 'Added to Owned Shoes');
+                      showToast(wasOwned ? 'Removed from Closet' : 'Moved to Closet');
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons
                       name={owned ? 'bag-handle' : 'bag-handle-outline'}
                       size={20}
-                      color={owned ? OWNED_ICON_ACTIVE : '#B0A499'}
+                      color={owned ? '#C28A5B' : '#B0A499'}
                     />
                   </TouchableOpacity>
                 </View>
               </View>
 
               <Text style={styles.name}>{item.model}</Text>
+              {item.colorway ? (
+                <Text style={styles.colorway}>{item.colorway}</Text>
+              ) : null}
 
               {/* Fit score badge — hidden when no insole data to score against */}
               {item.fit_status !== 'UNSCORED' && (
@@ -524,10 +515,10 @@ export default function RecommendationsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5EFE6' },
+  container: { flex: 1, backgroundColor: '#FCFAF7' },
   scrollContent: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
   centerContainer: {
-    flex: 1, backgroundColor: '#F5EFE6',
+    flex: 1, backgroundColor: '#FCFAF7',
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 32,
   },
@@ -563,14 +554,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 4,
   },
-  cardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
+  heartButton: { paddingHorizontal: 4, paddingVertical: 2 },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
+  colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
   fitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },

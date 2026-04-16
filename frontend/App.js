@@ -19,7 +19,7 @@ import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import { SavedShoesProvider } from './SavedShoesContext';
-import { OwnedShoesProvider } from './ClosetContext';
+import { OwnedShoesProvider } from './OwnedShoesContext';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -30,9 +30,10 @@ const ProfileStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const sharedHeaderOptions = {
-  headerStyle: { backgroundColor: '#FFF8F0' },
+  headerStyle: { backgroundColor: '#F5EFE6' },
   headerShadowVisible: false,
   headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
+  contentStyle: { backgroundColor: '#FCFAF7' },
 };
 
 const headerLeftBack = (navigation) => (
@@ -61,7 +62,11 @@ function ClosetStackNavigator() {
       <ClosetStack.Screen
         name="ClosetHome"
         component={Dashboard}
-        options={{ title: 'Dashboard', headerBackVisible: false }}
+        options={{
+          title: 'Dashboard',
+          headerBackVisible: false,
+          headerTitleStyle: { fontFamily: 'Outfit_600SemiBold', fontSize: 24 },
+        }}
       />
       <ClosetStack.Screen
         name="SavedShoes"
@@ -145,6 +150,7 @@ function MainTabs() {
         const hideTabBar = stackRoute && HIDE_TAB_BAR_SCREENS.includes(stackRoute.name);
         return {
           headerShown: false,
+          sceneStyle: { backgroundColor: '#FCFAF7' },
           tabBarStyle: hideTabBar ? { display: 'none' } : TAB_BAR_STYLE_VISIBLE,
           tabBarActiveTintColor: '#C28A5B',
           tabBarInactiveTintColor: '#6B5F52',
@@ -156,6 +162,7 @@ function MainTabs() {
         name="Closet"
         component={ClosetStackNavigator}
         options={{
+          tabBarLabel: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="file-tray-full" size={size} color={color} />
           ),
@@ -207,18 +214,14 @@ export default function App() {
   SplashScreen.hideAsync();
 
   return (
-    <SavedShoesProvider>
     <OwnedShoesProvider>
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      <RootStack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{
-          headerStyle: { backgroundColor: '#FFF8F0' },
-          headerShadowVisible: false,
-          headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
-        }}
-      >
+      <SavedShoesProvider>
+        <NavigationContainer>
+        <StatusBar style="dark" />
+        <RootStack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={sharedHeaderOptions}
+        >
         <RootStack.Screen
           name="Welcome"
           component={WelcomeScreen}
@@ -271,10 +274,10 @@ export default function App() {
             headerLeft: () => headerLeftBack(navigation),
           })}
         />
-      </RootStack.Navigator>
-    </NavigationContainer>
+        </RootStack.Navigator>
+        </NavigationContainer>
+      </SavedShoesProvider>
     </OwnedShoesProvider>
-    </SavedShoesProvider>
   );
 }
 

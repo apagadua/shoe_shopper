@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { Accelerometer, LightSensor } from 'expo-sensors';
 import { API_BASE_URL } from '../config/api';
@@ -146,6 +147,17 @@ export default function CameraScreen({ navigation, route }) {
     setPhase('camera');
   };
 
+  const handlePickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      setCapturedUri(result.assets[0].uri);
+      setPhase('preview');
+    }
+  };
+
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
@@ -274,15 +286,20 @@ export default function CameraScreen({ navigation, route }) {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
-          onPress={handleTakePhoto}
-          disabled={!canCapture}
-        >
-          <Text style={styles.captureButtonText}>
-            {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
+            onPress={handleTakePhoto}
+            disabled={!canCapture}
+          >
+            <Text style={styles.captureButtonText}>
+              {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryButton} onPress={handlePickFromGallery}>
+            <Text style={styles.galleryButtonText}>Pick from gallery</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -302,6 +319,10 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 112,
     justifyContent: 'space-between',
+  },
+  bottomActions: {
+    width: '100%',
+    alignItems: 'center',
   },
   topGuidance: {
     width: '100%',
@@ -393,47 +414,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  infoCardsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  infoCard: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  infoTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFE0B2',
-    marginBottom: 2,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#F5EFE6',
-    lineHeight: 16,
-  },
-  tiltCard: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tiltLabel: {
-    fontSize: 13,
-    color: '#F5EFE6',
-  },
-  tiltStatus: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   errorText: {
     fontSize: 13,
     color: '#FFCDD2',
@@ -442,6 +422,7 @@ const styles = StyleSheet.create({
   },
   captureButton: {
     marginTop: 4,
+    width: '90%',
     backgroundColor: '#C28A5B',
     paddingVertical: 14,
     borderRadius: 999,
@@ -449,6 +430,17 @@ const styles = StyleSheet.create({
   },
   captureButtonDisabled: {
     opacity: 0.5,
+  },
+  galleryButton: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  galleryButtonText: {
+    color: '#FFFBF5',
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   captureButtonText: {
     color: '#FFFFFF',

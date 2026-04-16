@@ -18,6 +18,7 @@ export function SavedShoesProvider({ children }) {
   }, []);
 
   function toggleSaved(shoe) {
+    if (!shoe?.id) return;
     setSavedMap(prev => {
       const next = { ...prev };
       if (next[shoe.id]) {
@@ -34,8 +35,10 @@ export function SavedShoesProvider({ children }) {
     return Boolean(savedMap[id]);
   }
 
+  const savedShoes = Object.values(savedMap);
+
   return (
-    <SavedShoesContext.Provider value={{ savedMap, toggleSaved, isSaved }}>
+    <SavedShoesContext.Provider value={{ savedMap, savedShoes, toggleSaved, isSaved }}>
       {children}
     </SavedShoesContext.Provider>
   );
