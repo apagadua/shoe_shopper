@@ -1,0 +1,7 @@
+{
+  "meta": {"total_feedback_count": 0},
+  "width": { "type": "width", "min": 0, "opt_low": 0, "opt_high": 0, "max": 0 },
+  "length": { "type": "length", "min": 0, "opt_low": 0, "opt_high": 0, "max": 0 },
+  "toebox_width": { "type": "width", "min": 0, "opt_low": 0, "opt_high": 0, "max": 0 },
+  "toebox_length": { "type": "length", "min": 0, "opt_low": 0, "opt_high": 0, "max": 0 }
+}
