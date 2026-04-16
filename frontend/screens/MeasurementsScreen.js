@@ -37,7 +37,7 @@ export default function MeasurementsScreen({ navigation, route }) {
             {measurements ? formatInches(measurements.width_in) : '—'}
           </Text>
         </View>
-        {measurements ? (
+        {measurements?.area_sq_in != null ? (
           <View style={[styles.row, styles.rowLast]}>
             <Text style={styles.label}>Foot area</Text>
             <Text style={styles.value}>{measurements.area_sq_in.toFixed(1)} sq in</Text>
