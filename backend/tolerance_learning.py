@@ -1,6 +1,6 @@
 MAX_SHOE_SCORE = 100  # max shoe fit score
 EPSILON = 1e-6  # prevents div by 0
-K = 0.2  # helps keeps scale of tolerance shift reasonable
+K = 0.05  # helps keeps scale of tolerance shift reasonable
 
 # sample feedback row format
 '''feedback_rows = [
@@ -59,6 +59,8 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
     new_tolerances = {"meta": {"total_feedback_count": 
                                tolerances["meta"]["total_feedback_count"] + count}}
     
+    type = ""
+    
     for name, tol in tolerances.items():
         if name == "meta":
             continue
@@ -66,14 +68,22 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
         delta_low = tol["opt_low"] - tol["min"]
         delta_high = tol["max"] - tol["opt_high"]
 
-        signal = width_signal if tol["type"] == "width" else length_signal
+        if tol["type"] == "width":
+            signal = width_signal
+            type = "width"
+        else:
+            signal = length_signal
+            type = "length"
 
         opt_low = tol["opt_low"]
         opt_high = tol["opt_high"]
 
-        # Assumes opt_low will never be 0, which should be the case
-        new_opt_low = opt_low + alpha * K * signal * opt_low
-        new_opt_high = opt_high - alpha * K * signal * opt_high
+        print(f"Updating {name}: signal={signal:.4f}, alpha={alpha:.4f}, "
+                f"old_opt_low={opt_low:.4f}, old_opt_high={opt_high:.4f}, shift={alpha * K * signal:.4f}")
+        # Assumes opt_low will never be 0 FIX!!!!
+        shift = alpha * K * signal
+        new_opt_low = opt_low + shift
+        new_opt_high = opt_high + shift
 
         # Ensure we don't flip the optimal range
         if new_opt_low > new_opt_high:
@@ -82,6 +92,7 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
         new_min = new_opt_low - delta_low
         new_max = new_opt_high + delta_high
         new_tolerances[name] = {
+            "type": type,
             "min": new_min,
             "opt_low": new_opt_low,
             "opt_high": new_opt_high,
