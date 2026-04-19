@@ -1,6 +1,6 @@
 from backend.services.feedback_service import get_feedback_rows
 
-from backend.tolerance_learning import (
+from backend.services.tolerance_learning import (
     compute_dimension_vals,
     compute_signals,
     compute_tolerances

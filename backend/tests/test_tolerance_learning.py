@@ -1,4 +1,4 @@
-from backend.tolerance_learning import compute_dimension_vals, compute_signals, compute_tolerances
+from backend.services.tolerance_learning import compute_dimension_vals, compute_signals, compute_tolerances
 
 def test_too_wide():  # should shrink width
     print("Running test_too_wide...")
