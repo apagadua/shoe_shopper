@@ -78,9 +78,9 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
         opt_low = tol["opt_low"]
         opt_high = tol["opt_high"]
 
-        print(f"Updating {name}: signal={signal:.4f}, alpha={alpha:.4f}, "
-                f"old_opt_low={opt_low:.4f}, old_opt_high={opt_high:.4f}, shift={alpha * K * signal:.4f}")
-        # Assumes opt_low will never be 0 FIX!!!!
+        # print(f"Updating {name}: signal={signal:.4f}, alpha={alpha:.4f}, "
+        #         f"old_opt_low={opt_low:.4f}, old_opt_high={opt_high:.4f}, shift={alpha * K * signal:.4f}")
+        # Assumes opt_low, shouldn't be the case
         shift = alpha * K * signal
         new_opt_low = opt_low + shift
         new_opt_high = opt_high + shift
