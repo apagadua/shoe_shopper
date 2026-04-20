@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
@@ -23,7 +22,7 @@ const FIT_STATUS_COLOR = {
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
 
-export default function Closet() {
+export default function Closet({ navigation }) {
   const { toggleSaved, isSaved } = useSavedShoes();
   const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
   const items = Object.values(ownedMap).filter(Boolean);
@@ -112,11 +111,12 @@ export default function Closet() {
                 </View>
               )}
 
-              {item.product_url ? (
-                <TouchableOpacity style={styles.primaryButton} onPress={() => Linking.openURL(item.product_url)}>
-                  <Text style={styles.primaryButtonText}>View details</Text>
-                </TouchableOpacity>
-              ) : null}
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => navigation.navigate('Feedback', { shoe: item })}
+              >
+                  <Text style={styles.primaryButtonText}>Fit Feedback</Text>
+              </TouchableOpacity>
             </View>
           );
         })

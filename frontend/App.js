@@ -18,6 +18,7 @@ import CameraScreen from './screens/CameraScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import FeedbackScreen from './screens/feedback';
 import { SavedShoesProvider } from './SavedShoesContext';
 import { OwnedShoesProvider } from './OwnedShoesContext';
 // Keep the splash screen visible while we fetch resources
@@ -81,6 +82,14 @@ function ClosetStackNavigator() {
         component={Closet}
         options={({ navigation }) => ({
           title: 'My Closet',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="Feedback"
+        component={FeedbackScreen}
+        options={({ navigation }) => ({
+          title: 'Fit Feedback',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
