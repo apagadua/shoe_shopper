@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
-import { useOwnedShoes } from '../ClosetContext';
+import { useOwnedShoes } from '../OwnedShoesContext';
 
 const FIT_STATUS_COLOR = {
   PERFECT: '#2E7D32',
@@ -25,8 +25,8 @@ const OWNED_ICON_ACTIVE = '#5D8A7E';
 
 export default function Wishlist() {
   const { savedMap, toggleSaved, isSaved } = useSavedShoes();
-  const { toggleOwned, isOwned } = useOwnedShoes();
-  const items = Object.values(savedMap).filter(Boolean);
+  const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
+  const items = Object.values(savedMap).filter((item) => item && !ownedMap[item.id]);
 
   return (
     <ScrollView
@@ -67,7 +67,18 @@ export default function Wishlist() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.iconButton}
-                    onPress={() => toggleOwned(item)}
+                    onPress={() => {
+                      const owned = isOwned(item.id);
+                      if (owned) {
+                        toggleOwned(item);
+                        return;
+                      }
+                      // Move Wishlist -> Closet and remember to restore when unowned.
+                      toggleOwned({ ...item, returnToWishlistOnRemove: true });
+                      if (isSaved(item.id)) {
+                        toggleSaved(item);
+                      }
+                    }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons

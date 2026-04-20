@@ -16,7 +16,7 @@ import { API_BASE_URL } from '../config/api';
 import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement';
 import { getBestSize } from '../utils/shoeSize';
 import { useSavedShoes } from '../SavedShoesContext';
-import { useOwnedShoes } from '../ClosetContext';
+import { useOwnedShoes } from '../OwnedShoesContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 24;
@@ -74,10 +74,12 @@ export default function Dashboard({ navigation }) {
 
   const { savedMap } = useSavedShoes();
   const { ownedMap } = useOwnedShoes();
-  const savedItems = Object.values(savedMap).filter(Boolean);
+  const savedItems = Object.values(savedMap).filter((item) => item && !ownedMap[item.id]);
   const ownedItems = Object.values(ownedMap).filter(Boolean);
 
-  const recPreview = dedupeRecommendationsByBrandModel(recResults).slice(0, PREVIEW_LIMIT);
+  const recPreview = dedupeRecommendationsByBrandModel(recResults)
+    .filter((item) => !savedMap[item.id] && !ownedMap[item.id])
+    .slice(0, PREVIEW_LIMIT);
   const savedPreview = savedItems.slice(0, PREVIEW_LIMIT);
   const ownedPreview = ownedItems.slice(0, PREVIEW_LIMIT);
   const recSlotWidth = REC_CARD_WIDTH + REC_GAP;
@@ -242,7 +244,9 @@ export default function Dashboard({ navigation }) {
       <View style={styles.sectionSpacer} />
       <SectionHeader title="Wishlist" onViewAll={() => navigation.navigate('SavedShoes')} />
       {savedItems.length === 0 ? (
-        <Text style={styles.sectionEmpty}>No saved shoes yet.</Text>
+        <Text style={styles.sectionEmpty}>
+          Tap the heart icon on the Recommended page to add your favorite shoes here.
+        </Text>
       ) : (
         <ScrollView
           horizontal
@@ -278,7 +282,9 @@ export default function Dashboard({ navigation }) {
       <View style={styles.sectionSpacer} />
       <SectionHeader title="My Closet" onViewAll={() => navigation.navigate('OwnedShoes')} />
       {ownedItems.length === 0 ? (
-        <Text style={styles.sectionEmpty}>No owned shoes yet.</Text>
+        <Text style={styles.sectionEmpty}>
+          Tap the bag icon on the Recommended page to add the shoes you own here.
+        </Text>
       ) : (
         <ScrollView
           horizontal

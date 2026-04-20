@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
-import { useOwnedShoes } from '../ClosetContext';
+import { useOwnedShoes } from '../OwnedShoesContext';
 
 const FIT_STATUS_COLOR = {
   PERFECT: '#2E7D32',
@@ -41,7 +41,7 @@ export default function Closet() {
           </View>
           <Text style={styles.emptyTitle}>No owned shoes yet</Text>
           <Text style={styles.emptySubtitle}>
-            Mark shoes you own from Recommendations (bag icon) to track them here.
+            Tap the bag icon on the Recommended page to add the shoes you own here.
           </Text>
         </View>
       ) : (
@@ -67,7 +67,18 @@ export default function Closet() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.iconButton}
-                    onPress={() => toggleOwned(item)}
+                    onPress={() => {
+                      const owned = isOwned(item.id);
+                      if (!owned) {
+                        toggleOwned({ ...item, returnToWishlistOnRemove: false });
+                        return;
+                      }
+                      toggleOwned(item);
+                      if (item.returnToWishlistOnRemove && !isSaved(item.id)) {
+                        const { returnToWishlistOnRemove, ...shoeForWishlist } = item;
+                        toggleSaved(shoeForWishlist);
+                      }
+                    }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons

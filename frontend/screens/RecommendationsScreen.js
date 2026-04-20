@@ -291,7 +291,7 @@ export default function RecommendationsScreen({ navigation, route }) {
                     onPress={() => {
                       const wasSaved = isSaved(item.id);
                       toggleSaved(item);
-                      showToast(wasSaved ? 'Removed from Wishlist' : 'Moved to Wishlist');
+                      showToast(wasSaved ? 'Removed from Wishlist' : 'Added to Wishlist');
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
@@ -305,8 +305,11 @@ export default function RecommendationsScreen({ navigation, route }) {
                     style={styles.heartButton}
                     onPress={() => {
                       const wasOwned = isOwned(item.id);
-                      toggleOwned(item);
-                      showToast(wasOwned ? 'Removed from Closet' : 'Moved to Closet');
+                      if (!wasOwned && isSaved(item.id)) {
+                        toggleSaved(item);
+                      }
+                      toggleOwned({ ...item, returnToWishlistOnRemove: false });
+                      showToast(wasOwned ? 'Removed from Closet' : 'Added to Closet');
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
