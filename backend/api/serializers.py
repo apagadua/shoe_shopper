@@ -51,8 +51,9 @@ class RecommendationSerializer(serializers.Serializer):
     fit_flags        = serializers.SerializerMethodField()
     fit_dimensions   = serializers.SerializerMethodField()
     reject_reason    = serializers.SerializerMethodField()
-    recommended_size = serializers.SerializerMethodField()
+    recommended_size  = serializers.SerializerMethodField()
     estimated_us_size = serializers.SerializerMethodField()
+    colorway_options  = serializers.SerializerMethodField()
 
     def get_id(self, obj):             return obj["shoe"].id
     def get_brand(self, obj):          return obj["shoe"].brand
@@ -66,14 +67,15 @@ class RecommendationSerializer(serializers.Serializer):
     def get_function_tags(self, obj):  return obj["shoe"].function_tags or []
     def get_style_tags(self, obj):     return obj["shoe"].style_tags or []
 
-    def get_attributes_json(self, obj): return obj.get("attributes", {})
+    def get_attributes_json(self, obj):   return obj.get("attributes", {})
 
-    def get_fit_score(self, obj):        return obj["fit"]["total_score"]
-    def get_fit_status(self, obj):       return obj["fit"]["status"]
-    def get_fit_status_label(self, obj): return status_label(obj["fit"]["status"])
-    def get_fit_profile(self, obj):      return obj["fit"]["profile_used"]
-    def get_fit_flags(self, obj):        return obj["fit"]["flags"]
-    def get_fit_dimensions(self, obj):   return obj["fit"]["dimensions"]
-    def get_reject_reason(self, obj):      return obj["fit"]["reject_reason"]
+    def get_fit_score(self, obj):         return obj["fit"]["total_score"]
+    def get_fit_status(self, obj):        return obj["fit"]["status"]
+    def get_fit_status_label(self, obj):  return status_label(obj["fit"]["status"])
+    def get_fit_profile(self, obj):       return obj["fit"]["profile_used"]
+    def get_fit_flags(self, obj):         return obj["fit"]["flags"]
+    def get_fit_dimensions(self, obj):    return obj["fit"]["dimensions"]
+    def get_reject_reason(self, obj):     return obj["fit"]["reject_reason"]
     def get_recommended_size(self, obj):  return obj.get("recommended_size")
     def get_estimated_us_size(self, obj): return obj["fit"].get("estimated_us_size")
+    def get_colorway_options(self, obj):  return obj.get("colorway_options", [])

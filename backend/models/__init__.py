@@ -46,6 +46,10 @@ class Measurement(models.Model):
         LETTER = "letter", "Letter"
         A4 = "a4", "A4"
 
+    class MeasurementMethod(models.TextChoices):
+        PAPER = "paper", "Paper"
+        ARCORE = "arcore", "ARCore"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -71,6 +75,11 @@ class Measurement(models.Model):
     area_sq_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     perimeter_in = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     paper_type = models.CharField(max_length=10, choices=PaperType.choices, null=True, blank=True)
+    measurement_method = models.CharField(
+        max_length=10,
+        choices=MeasurementMethod.choices,
+        default=MeasurementMethod.PAPER,
+    )
     confidence = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True)
     algorithm_version = models.TextField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
@@ -134,6 +143,7 @@ class Shoe(models.Model):
     shoe_image_url = models.TextField(null=True, blank=True)
     product_url = models.TextField(null=True, blank=True)
     price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -173,6 +183,40 @@ class ShoeSize(models.Model):
         ]
         indexes = [
             models.Index(fields=["shoe", "us_size", "width", "is_available"], name="idx_shoe_size_lookup"),
+        ]
+
+
+class ShoeColorway(models.Model):
+    shoe = models.ForeignKey(Shoe, on_delete=models.CASCADE, related_name="colorways")
+    goat_id = models.TextField(unique=True)
+    sku = models.TextField(null=True, blank=True)
+    name = models.TextField()
+    image_url = models.TextField(null=True, blank=True)
+    product_url = models.TextField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shoe_colorway"
+        indexes = [
+            models.Index(fields=["shoe", "goat_id"], name="idx_shoe_colorway_shoe_goat"),
+        ]
+
+
+class ShoeColorwaySize(models.Model):
+    colorway = models.ForeignKey(ShoeColorway, on_delete=models.CASCADE, related_name="sizes")
+    us_size = models.DecimalField(max_digits=4, decimal_places=1)
+    price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_available = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "shoe_colorway_size"
+        constraints = [
+            models.UniqueConstraint(fields=["colorway", "us_size"], name="shoe_colorway_size_colorway_us_size_key"),
+        ]
+        indexes = [
+            models.Index(fields=["colorway", "us_size", "is_available"], name="idx_shoe_colorway_size_lookup"),
         ]
 
 
@@ -264,6 +308,8 @@ __all__ = [
     "Measurement",
     "Shoe",
     "ShoeSize",
+    "ShoeColorway",
+    "ShoeColorwaySize",
     "UserCollection",
     "Recommendation",
     "TrainingImage",

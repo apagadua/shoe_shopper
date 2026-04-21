@@ -1,10 +1,9 @@
 import base64
+import json
 import logging
 import math
 
 import requests as http_requests
-
-logger = logging.getLogger(__name__)
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -17,9 +16,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from backend.api.serializers import RecommendationSerializer, ShoeSerializer
-from backend.models import Measurement, Profile, Shoe
+from backend.models import Measurement, Profile, Shoe, ShoeColorwaySize
+from backend.services.ar_measurement import compute_dimensions as ar_compute_dimensions
 from backend.services.fit_algorithm import ALGORITHM_VERSION, LENGTH_BIAS_CORRECTION, estimate_us_size, score_shoe, status_label
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -80,6 +81,64 @@ def _foot_dimensions_px(points):
     return max_dist, width_px
 
 
+class _RoboflowError(Exception):
+    """Raised by _run_roboflow when the upstream call fails.
+
+    Carries an HTTP status code and a user-facing detail string so the
+    caller can build the appropriate Response without knowing why it failed.
+    """
+    def __init__(self, detail, http_status):
+        super().__init__(detail)
+        self.detail = detail
+        self.http_status = http_status
+
+
+def _validate_ar_snapshot(snapshot):
+    """
+    Validate that ar_snapshot has the expected structure before passing to numpy.
+    Returns an error string, or None if valid.
+    """
+    required = {
+        "camera_intrinsics": (list, 3),
+        "camera_pose":       (list, 4),
+        "plane_center":      (list, 3),
+        "plane_normal":      (list, 3),
+        "image_dimensions":  (list, 2),
+    }
+    for key, (typ, length) in required.items():
+        val = snapshot.get(key)
+        if not isinstance(val, typ) or len(val) != length:
+            return f"ar_snapshot.{key} must be a list of length {length}"
+    for row in snapshot["camera_intrinsics"]:
+        if not isinstance(row, list) or len(row) != 3:
+            return "camera_intrinsics must be a 3x3 matrix"
+    for row in snapshot["camera_pose"]:
+        if not isinstance(row, list) or len(row) != 4:
+            return "camera_pose must be a 4x4 matrix"
+    try:
+        for row in snapshot["camera_intrinsics"]:
+            [float(v) for v in row]
+        for row in snapshot["camera_pose"]:
+            [float(v) for v in row]
+        [float(v) for v in snapshot["plane_center"]]
+        [float(v) for v in snapshot["plane_normal"]]
+        [float(v) for v in snapshot["image_dimensions"]]
+    except (TypeError, ValueError):
+        return "All ar_snapshot matrix/vector values must be numeric"
+
+    # Gate on tracking state: only TRACKING guarantees a valid floor plane.
+    tracking_state = snapshot.get("tracking_state")
+    if tracking_state is None:
+        return "ar_snapshot.tracking_state is required"
+    if tracking_state != "TRACKING":
+        return (
+            f"AR tracking state is '{tracking_state}' — capture is only valid "
+            "when tracking_state is 'TRACKING'. Hold the phone steady and retry."
+        )
+
+    return None
+
+
 class FootMeasureView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -96,18 +155,40 @@ class FootMeasureView(APIView):
         if image_file.content_type not in ALLOWED_MIME_TYPES:
             return Response({"detail": "Unsupported image type"}, status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
+        measurement_method = request.data.get("measurement_method", "paper").lower()
+
+        if measurement_method == "arcore":
+            ar_snapshot_raw = request.data.get("ar_snapshot")
+            if not ar_snapshot_raw:
+                return Response(
+                    {"detail": "ar_snapshot required for ARCore method"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # 64 KB is far more than a 4x4 matrix + 3-vectors ever needs.
+            # Guard before json.loads() to prevent memory exhaustion from a
+            # deliberately oversized payload.
+            if len(ar_snapshot_raw) > 64 * 1024:
+                return Response(
+                    {"detail": "ar_snapshot payload too large"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                ar_snapshot = json.loads(ar_snapshot_raw)
+            except (json.JSONDecodeError, TypeError):
+                return Response(
+                    {"detail": "ar_snapshot must be valid JSON"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            error = _validate_ar_snapshot(ar_snapshot)
+            if error:
+                return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
+            return self._measure_with_ar(request, image_file, ar_snapshot)
+        else:
+            return self._measure_with_paper(request, image_file)
+
+    def _measure_with_paper(self, request, image_file):
         image_bytes = image_file.read()
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
-
-        workspace = settings.ROBOFLOW_WORKSPACE
-        project = settings.ROBOFLOW_PROJECT
-        api_key = settings.ROBOFLOW_API_KEY
-
-        if not all([workspace, project, api_key]):
-            return Response(
-                {"detail": "Roboflow not configured"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
 
         # Resolve paper size: explicit param or default to Letter
         paper_size_param = request.data.get("paper_size", "").lower()
@@ -118,39 +199,10 @@ class FootMeasureView(APIView):
             paper_short_in, paper_long_in = PAPER_WIDTH_LETTER, PAPER_LONG_LETTER
             paper_size_used = "letter"
 
-        rf_url = f"https://detect.roboflow.com/{workspace}/workflows/{project}"
         try:
-            rf_resp = http_requests.post(
-                rf_url,
-                json={
-                    "api_key": api_key,
-                    "inputs": {
-                        "image": {"type": "base64", "value": b64_image}
-                    },
-                },
-                timeout=30,
-            )
-            rf_resp.raise_for_status()
-        except http_requests.RequestException as exc:
-            logger.warning("Roboflow request failed for user %s: %s", request.user.id, exc)
-            return Response(
-                {"detail": "Measurement service unavailable. Please try again."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        response_json = rf_resp.json()
-
-        all_preds = []
-        for output in response_json.get("outputs", []):
-            for val in output.values():
-                if not isinstance(val, dict):
-                    continue
-                preds = val.get("predictions", [])
-                # Workflows API sometimes wraps: {"predictions": [...], "image": {...}}
-                if isinstance(preds, dict):
-                    preds = preds.get("predictions", [])
-                if isinstance(preds, list):
-                    all_preds.extend(preds)
+            all_preds = self._run_roboflow(request, b64_image)
+        except _RoboflowError as e:
+            return Response({"detail": e.detail}, status=e.http_status)
 
         paper = next((p for p in all_preds if p.get("class", "").lower() == "paper"), None)
         if paper is None:
@@ -160,7 +212,6 @@ class FootMeasureView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Compute PPI from paper bounding box with orientation detection
         ppi = _ppi_from_paper_bbox(paper, paper_short_in, paper_long_in)
         if not ppi:
             return Response(
@@ -181,14 +232,12 @@ class FootMeasureView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Compute foot dimensions from polygon if available, fall back to bbox
         foot_pts = _pts(foot)
         if len(foot_pts) >= 3:
             length_px, width_px = _foot_dimensions_px(foot_pts)
             length_in = length_px / ppi
             width_in  = width_px  / ppi
 
-            # Area via shoelace formula on the polygon
             n = len(foot_pts)
             area_px = abs(sum(
                 foot_pts[i][0] * foot_pts[(i + 1) % n][1]
@@ -208,19 +257,7 @@ class FootMeasureView(APIView):
             width_in   = foot_width  / ppi
             area_sq_in = length_in * width_in * 0.70
 
-        # Extract toebox dimensions from "Toe Box" prediction if present
-        toebox_length_in = None
-        toebox_width_in  = None
-        toebox_pred = next(
-            (p for p in all_preds if p.get("class", "").lower() == "toe box"),
-            None,
-        )
-        if toebox_pred:
-            tb_pts = _pts(toebox_pred)
-            if len(tb_pts) >= 3:
-                tb_length_px, tb_width_px = _foot_dimensions_px(tb_pts)
-                toebox_length_in = round(tb_length_px / ppi, 3)
-                toebox_width_in  = round(tb_width_px  / ppi, 3)
+        toebox_length_in, toebox_width_in = self._extract_toebox(all_preds, ppi=ppi)
 
         measurement = Measurement.objects.create(
             user=request.user,
@@ -232,6 +269,7 @@ class FootMeasureView(APIView):
             toebox_width_in=toebox_width_in,
             area_sq_in=round(area_sq_in, 3),
             paper_type=paper_size_used,
+            measurement_method=Measurement.MeasurementMethod.PAPER,
         )
 
         return Response({
@@ -243,7 +281,177 @@ class FootMeasureView(APIView):
             "area_sq_in": round(area_sq_in, 3),
             "ppi": round(ppi, 3),
             "paper_size": paper_size_used,
+            "measurement_method": "paper",
         })
+
+    def _measure_with_ar(self, request, image_file, ar_snapshot):
+        image_bytes = image_file.read()
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+        try:
+            all_preds = self._run_roboflow(request, b64_image)
+        except _RoboflowError as e:
+            return Response({"detail": e.detail}, status=e.http_status)
+
+        foot = None
+        for cls in ("foot", "insole"):
+            candidates = [p for p in all_preds if p.get("class", "").lower() == cls]
+            if candidates:
+                foot = max(candidates, key=lambda p: p.get("confidence", 0))
+                break
+
+        if foot is None:
+            return Response(
+                {"detail": "No foot or insole detected in image."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        foot_pts = _pts(foot)
+        if len(foot_pts) < 3:
+            return Response(
+                {"detail": "Foot polygon has too few points for AR measurement."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dims = ar_compute_dimensions(foot_pts, ar_snapshot)
+        except ValueError as exc:
+            logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc)
+            return Response(
+                {"detail": f"AR measurement failed: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        length_in  = dims["length_in"]
+        width_in   = dims["width_in"]
+        area_sq_in = dims["area_sq_in"]
+
+        # Sanity-check before writing to DB. A human foot is always 3–16 inches.
+        # Values outside this window indicate corrupt AR plane data (e.g., a
+        # stale plane from a different session, or a near-zero normal vector).
+        FOOT_MIN_IN, FOOT_MAX_IN = 3.0, 16.0
+        if not (FOOT_MIN_IN <= length_in <= FOOT_MAX_IN):
+            logger.warning(
+                "AR measurement out of range for user %s: length_in=%s",
+                request.user.id, length_in,
+            )
+            return Response(
+                {
+                    "detail": (
+                        "AR measurement result is outside the expected range "
+                        f"({length_in:.2f} in). Ensure the floor is flat and "
+                        "well-lit, then try again."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        toebox_length_in, toebox_width_in = self._extract_toebox(all_preds, ar_snapshot=ar_snapshot)
+
+        # paper_type intentionally omitted (left NULL) — AR measurements have
+        # no paper reference, so the field doesn't apply.
+        measurement = Measurement.objects.create(
+            user=request.user,
+            status=Measurement.Status.COMPLETE,
+            image_url="",
+            length_in=length_in,
+            width_in=width_in,
+            toebox_length_in=toebox_length_in,
+            toebox_width_in=toebox_width_in,
+            area_sq_in=area_sq_in,
+            measurement_method=Measurement.MeasurementMethod.ARCORE,
+        )
+
+        return Response({
+            "id": measurement.id,
+            "length_in": length_in,
+            "width_in": width_in,
+            "toebox_length_in": toebox_length_in,
+            "toebox_width_in": toebox_width_in,
+            "area_sq_in": area_sq_in,
+            "measurement_method": "arcore",
+        })
+
+    def _run_roboflow(self, request, b64_image):
+        """
+        Call Roboflow and return the flat list of predictions.
+
+        Raises:
+            _RoboflowError: if the upstream call fails or Roboflow is not
+                            configured.  The caller should catch this and
+                            return Response({"detail": e.detail}, status=e.http_status).
+        """
+        workspace = settings.ROBOFLOW_WORKSPACE
+        project   = settings.ROBOFLOW_PROJECT
+        api_key   = settings.ROBOFLOW_API_KEY
+
+        if not all([workspace, project, api_key]):
+            raise _RoboflowError(
+                "Roboflow not configured",
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        rf_url = f"https://detect.roboflow.com/{workspace}/workflows/{project}"
+        try:
+            rf_resp = http_requests.post(
+                rf_url,
+                json={
+                    "api_key": api_key,
+                    "inputs": {"image": {"type": "base64", "value": b64_image}},
+                },
+                timeout=30,
+            )
+            rf_resp.raise_for_status()
+        except http_requests.RequestException as exc:
+            logger.warning("Roboflow request failed for user %s: %s", request.user.id, exc)
+            raise _RoboflowError(
+                "Measurement service unavailable. Please try again.",
+                status.HTTP_502_BAD_GATEWAY,
+            ) from exc
+
+        response_json = rf_resp.json()
+        all_preds = []
+        for output in response_json.get("outputs", []):
+            for val in output.values():
+                if not isinstance(val, dict):
+                    continue
+                preds = val.get("predictions", [])
+                if isinstance(preds, dict):
+                    preds = preds.get("predictions", [])
+                if isinstance(preds, list):
+                    all_preds.extend(preds)
+        return all_preds
+
+    def _extract_toebox(self, all_preds, ppi=None, ar_snapshot=None):
+        """
+        Extract toebox dimensions from a 'Toe Box' Roboflow prediction.
+        Uses ppi (paper method) or ar_snapshot (AR method) to convert to inches.
+        Returns (toebox_length_in, toebox_width_in) — both None if not found.
+        """
+        toebox_pred = next(
+            (p for p in all_preds if p.get("class", "").lower() == "toe box"),
+            None,
+        )
+        if not toebox_pred:
+            return None, None
+
+        tb_pts = _pts(toebox_pred)
+        if len(tb_pts) < 3:
+            return None, None
+
+        if ppi is not None:
+            tb_length_px, tb_width_px = _foot_dimensions_px(tb_pts)
+            return round(tb_length_px / ppi, 3), round(tb_width_px / ppi, 3)
+
+        if ar_snapshot is not None:
+            try:
+                dims = ar_compute_dimensions(tb_pts, ar_snapshot)
+                return dims["length_in"], dims["width_in"]
+            except ValueError as exc:
+                logger.debug("AR toebox unprojection failed (non-fatal): %s", exc)
+                return None, None
+
+        return None, None
 
 
 class LatestMeasurementView(APIView):
@@ -302,7 +510,7 @@ class RecommendationsView(APIView):
 
         sub_type = request.query_params.get("sub_type") or None
 
-        shoes = Shoe.objects.prefetch_related("sizes").all()
+        shoes = Shoe.objects.prefetch_related("sizes").filter(is_active=True)
 
         results = []
         for shoe in shoes:
@@ -364,19 +572,68 @@ class RecommendationsView(APIView):
                     "flags": [],
                 }
 
-            # Find the closest available size for the size recommendation
-            available_sizes = [s for s in all_sizes if s.is_available]
-            if available_sizes:
-                best = min(available_sizes, key=lambda s: abs(float(s.us_size) - est_size))
-                recommended_size = float(best.us_size)
+            # Sizes available in at least one live colorway
+            available_us_sizes = set(
+                float(v)
+                for v in ShoeColorwaySize.objects.filter(
+                    colorway__shoe=shoe,
+                    is_available=True,
+                ).values_list("us_size", flat=True)
+            )
+
+            if available_us_sizes:
+                # Pick the insole-measured size closest to user's estimated size
+                # that also has a live colorway available
+                candidates = [s for s in all_sizes if float(s.us_size) in available_us_sizes]
+                if candidates:
+                    best = min(candidates, key=lambda s: abs(float(s.us_size) - est_size))
+                    recommended_size = float(best.us_size)
+                else:
+                    recommended_size = None
             else:
-                recommended_size = None
+                # Fall back to insole-measured sizes (pre-colorway-sync behaviour)
+                insole_sizes = [s for s in all_sizes if s.insole_length_in is not None]
+                if insole_sizes:
+                    best = min(insole_sizes, key=lambda s: abs(float(s.us_size) - est_size))
+                    recommended_size = float(best.us_size)
+                else:
+                    recommended_size = None
+
+            # Build colorway options for the recommended size (cheapest first)
+            colorway_options = []
+            if recommended_size is not None:
+                colorway_options = list(
+                    ShoeColorwaySize.objects.filter(
+                        colorway__shoe=shoe,
+                        us_size=recommended_size,
+                        is_available=True,
+                    )
+                    .select_related("colorway")
+                    .order_by("price_usd")
+                    .values(
+                        "colorway__name",
+                        "colorway__image_url",
+                        "colorway__product_url",
+                        "price_usd",
+                    )
+                )
+                # Rename keys for the serializer / frontend
+                colorway_options = [
+                    {
+                        "name":        row["colorway__name"],
+                        "image_url":   row["colorway__image_url"],
+                        "product_url": row["colorway__product_url"],
+                        "price_usd":   str(row["price_usd"]) if row["price_usd"] is not None else None,
+                    }
+                    for row in colorway_options
+                ]
 
             results.append({
                 "shoe":             shoe,
                 "fit":              fit,
                 "attributes":       attrs,
                 "recommended_size": recommended_size,
+                "colorway_options": colorway_options,
             })
 
         # Sort: scored non-rejected first (by score desc), then unscored, then rejected

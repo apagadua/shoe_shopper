@@ -15,6 +15,8 @@ import SavedShoesScreen from './screens/SavedShoesScreen';
 import OwnedShoesScreen from './screens/OwnedShoesScreen';
 import FootCaptureScreen from './screens/FootCaptureScreen';
 import CameraScreen from './screens/CameraScreen';
+import ARFootCaptureScreen from './screens/ARFootCaptureScreen';
+import ARCameraScreen from './screens/ARCameraScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -95,6 +97,22 @@ function ClosetStackNavigator() {
         })}
       />
       <ClosetStack.Screen
+        name="ARFootCapture"
+        component={ARFootCaptureScreen}
+        options={({ navigation }) => ({
+          title: 'Measure with AR',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="ARCamera"
+        component={ARCameraScreen}
+        options={({ navigation }) => ({
+          title: 'AR Camera',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
         name="Measurements"
         component={MeasurementsScreen}
         options={{
@@ -132,7 +150,7 @@ function ProfileStackNavigator() {
 }
 
 const TAB_BAR_STYLE_VISIBLE = { backgroundColor: '#FFFBF5', borderTopColor: '#E2D4C0' };
-const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'Measurements'];
+const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'Measurements'];
 
 function MainTabs() {
   return (
@@ -245,6 +263,22 @@ export default function App() {
           component={CameraScreen}
           options={({ navigation }) => ({
             title: 'Camera',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
+          name="ARFootCapture"
+          component={ARFootCaptureScreen}
+          options={({ navigation }) => ({
+            title: 'Measure with AR',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
+          name="ARCamera"
+          component={ARCameraScreen}
+          options={({ navigation }) => ({
+            title: 'AR Camera',
             headerLeft: () => headerLeftBack(navigation),
           })}
         />

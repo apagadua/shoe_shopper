@@ -102,6 +102,19 @@ export default function ClosetScreen({ navigation }) {
         </View>
         <Text style={styles.actionButtonPrimaryTitle}>Update Foot Profile</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.actionButtonAR}
+        onPress={() => navigation.navigate('ARFootCapture')}
+      >
+        <View style={styles.actionButtonIcon}>
+          <Ionicons name="scan" size={32} color="#C28A5B" />
+        </View>
+        <View style={styles.actionButtonARContent}>
+          <Text style={styles.actionButtonTitle}>Measure with AR</Text>
+          <Text style={styles.actionButtonARSubtitle}>No paper needed · Beta</Text>
+        </View>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -203,5 +216,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  actionButtonAR: {
+    backgroundColor: '#FFFBF5',
+    borderRadius: 24,
+    padding: 26,
+    borderWidth: 1.5,
+    borderColor: '#C28A5B',
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButtonARContent: {
+    flex: 1,
+  },
+  actionButtonARSubtitle: {
+    fontSize: 13,
+    color: '#6B5F52',
+    marginTop: 3,
   },
 });
