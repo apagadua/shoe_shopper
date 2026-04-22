@@ -46,6 +46,13 @@ const FIT_STATUS_COLOR = {
   REJECTED:   '#9E9E9E',
 };
 
+function formatUsd(price) {
+  if (price == null || price === '') return '—';
+  const n = typeof price === 'string' ? parseFloat(price) : Number(price);
+  if (Number.isNaN(n)) return '—';
+  return `$${n.toFixed(2)}`;
+}
+
 export default function RecommendationsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
 
@@ -269,6 +276,7 @@ export default function RecommendationsScreen({ navigation, route }) {
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
           const tags = (path === 'function' ? item.function_tags : item.style_tags) || [];
+          const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
 
           const cardTags = [];
           if (selectedCategory && tags.includes(selectedCategory)) cardTags.push(selectedCategory);
@@ -326,6 +334,12 @@ export default function RecommendationsScreen({ navigation, route }) {
               {item.colorway ? (
                 <Text style={styles.colorway}>{item.colorway}</Text>
               ) : null}
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText}>
+                  Size: {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
+                </Text>
+                <Text style={styles.metaText}>Price: {formatUsd(item.price_usd)}</Text>
+              </View>
 
               {/* Fit score badge — hidden when no insole data to score against */}
               {item.fit_status !== 'UNSCORED' && (
@@ -562,6 +576,13 @@ const styles = StyleSheet.create({
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
   colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  metaText: { fontSize: 14, color: '#6B5F52', fontWeight: '500' },
   fitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },

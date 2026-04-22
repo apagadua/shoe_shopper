@@ -23,6 +23,13 @@ const FIT_STATUS_COLOR = {
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
 
+function formatUsd(price) {
+  if (price == null || price === '') return '—';
+  const n = typeof price === 'string' ? parseFloat(price) : Number(price);
+  if (Number.isNaN(n)) return '—';
+  return `$${n.toFixed(2)}`;
+}
+
 export default function Wishlist() {
   const { savedMap, toggleSaved, isSaved } = useSavedShoes();
   const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
@@ -49,6 +56,7 @@ export default function Wishlist() {
           const saved = isSaved(item.id);
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
+          const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
           return (
             <View key={String(item.id)} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -90,6 +98,12 @@ export default function Wishlist() {
                 </View>
               </View>
               <Text style={styles.name}>{item.model}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText}>
+                  Size: {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
+                </Text>
+                <Text style={styles.metaText}>Price: {formatUsd(item.price_usd)}</Text>
+              </View>
 
               {item.fit_status && item.fit_status !== 'UNSCORED' && (
                 <View style={styles.fitRow}>
@@ -175,7 +189,14 @@ const styles = StyleSheet.create({
   },
   iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 4 },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  metaText: { fontSize: 14, color: '#6B5F52', fontWeight: '500' },
   fitRow: {
     flexDirection: 'row',
     alignItems: 'center',
