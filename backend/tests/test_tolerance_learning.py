@@ -1,4 +1,14 @@
-from backend.services.tolerance_learning import compute_dimension_vals, compute_signals, compute_tolerances
+import sys
+import os
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+)
+from services.tolerance_learning import (
+    compute_dimension_vals,
+    compute_signals,
+    compute_tolerances
+)
 
 def test_too_wide():  # should shrink width
     print("Running test_too_wide...")
@@ -27,13 +37,18 @@ def test_too_wide():  # should shrink width
     # print("new tolerances:")
     # for key, value in new_tolerances.items():
     #     print(f"{key}: {value}")
+
+    # Ensure width shrinks
     assert new_tolerances["width"]["opt_low"] < tolerances["width"]["opt_low"]
     assert new_tolerances["width"]["opt_high"] < tolerances["width"]["opt_high"]
     assert new_tolerances["tb_width"]["opt_low"] < tolerances["tb_width"]["opt_low"]
     assert new_tolerances["tb_width"]["opt_high"] < tolerances["tb_width"]["opt_high"]
-    assert new_tolerances["length"] == tolerances["length"]
-    assert new_tolerances["tb_len"] == tolerances["tb_len"]
-    print("test_too_wide passed")
+    # And length stays the same
+    assert abs(new_tolerances["length"]["opt_low"] - tolerances["length"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["length"]["opt_high"] - tolerances["length"]["opt_high"]) < 1e-9
+    assert abs(new_tolerances["tb_len"]["opt_low"] - tolerances["tb_len"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["tb_len"]["opt_high"] - tolerances["tb_len"]["opt_high"]) < 1e-9 
+    print("test_too_wide:   passed!")
 
 def test_too_narrow():  # should expand width
     print("Running test_too_narrow...")
@@ -68,13 +83,18 @@ def test_too_narrow():  # should expand width
     # print("new tolerances:")
     # for key, value in new_tolerances.items():
     #     print(f"{key}: {value}")
+
+    # Ensure width expands
     assert new_tolerances["width"]["opt_low"] > tolerances["width"]["opt_low"]
     assert new_tolerances["width"]["opt_high"] > tolerances["width"]["opt_high"]
     assert new_tolerances["tb_width"]["opt_low"] > tolerances["tb_width"]["opt_low"]
     assert new_tolerances["tb_width"]["opt_high"] > tolerances["tb_width"]["opt_high"]
-    assert new_tolerances["length"] == tolerances["length"]
-    assert new_tolerances["tb_len"] == tolerances["tb_len"]
-    print("test_too_narrow passed")
+    # And length stays the same
+    assert abs(new_tolerances["length"]["opt_low"] - tolerances["length"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["length"]["opt_high"] - tolerances["length"]["opt_high"]) < 1e-9
+    assert abs(new_tolerances["tb_len"]["opt_low"] - tolerances["tb_len"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["tb_len"]["opt_high"] - tolerances["tb_len"]["opt_high"]) < 1e-9
+    print("test_too_narrow: passed!")
 
 def test_too_long():  # should shrink length
     print("Running test_too_long...")
@@ -109,13 +129,18 @@ def test_too_long():  # should shrink length
     # print("new tolerances:")
     # for key, value in new_tolerances.items():
     #     print(f"{key}: {value}")
+
+    # Ensure length shrinks
     assert new_tolerances["length"]["opt_low"] < tolerances["length"]["opt_low"]
     assert new_tolerances["length"]["opt_high"] < tolerances["length"]["opt_high"]
     assert new_tolerances["tb_len"]["opt_low"] < tolerances["tb_len"]["opt_low"]
     assert new_tolerances["tb_len"]["opt_high"] < tolerances["tb_len"]["opt_high"]
-    assert new_tolerances["width"] == tolerances["width"]
-    # assert new_tolerances["tb_width"] == tolerances["tb_width"]
-    print("test_too_long passed")
+    # And width stays the same
+    assert abs(new_tolerances["width"]["opt_low"] - tolerances["width"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["width"]["opt_high"] - tolerances["width"]["opt_high"]) < 1e-9
+    assert abs(new_tolerances["tb_width"]["opt_low"] - tolerances["tb_width"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["tb_width"]["opt_high"] - tolerances["tb_width"]["opt_high"]) < 1e-9
+    print("test_too_long:   passed!")
 
 def test_too_short():  # should expand length
     print("Running test_too_short...")
@@ -150,15 +175,21 @@ def test_too_short():  # should expand length
     # print("new tolerances:")
     # for key, value in new_tolerances.items():
     #     print(f"{key}: {value}")
+
+    # Ensure length expands
     assert new_tolerances["length"]["opt_low"] > tolerances["length"]["opt_low"]
     assert new_tolerances["length"]["opt_high"] > tolerances["length"]["opt_high"]
     assert new_tolerances["tb_len"]["opt_low"] > tolerances["tb_len"]["opt_low"]
     assert new_tolerances["tb_len"]["opt_high"] > tolerances["tb_len"]["opt_high"]
-    assert new_tolerances["width"] == tolerances["width"]
-    # assert new_tolerances["tb_width"] == tolerances["tb_width"]
-    print("test_too_short passed")
+    # And width stays the same
+    assert abs(new_tolerances["width"]["opt_low"] - tolerances["width"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["width"]["opt_high"] - tolerances["width"]["opt_high"]) < 1e-9
+    assert abs(new_tolerances["tb_width"]["opt_low"] - tolerances["tb_width"]["opt_low"]) < 1e-9
+    assert abs(new_tolerances["tb_width"]["opt_high"] - tolerances["tb_width"]["opt_high"]) < 1e-9
+    print("test_too_short:  passed!")
 
 def test_balanced():  # shouldn't change things much
+    print("Running test_balanced...")
     feedback_rows = [
         {"feedback_type": "too wide", "total_score": 90, "severity": 5},
         {"feedback_type": "too narrow", "total_score": 90, "severity": 3},
@@ -190,6 +221,8 @@ def test_balanced():  # shouldn't change things much
     # print("new tolerances:")
     # for key, value in new_tolerances.items():
     #     print(f"{key}: {value}")
+
+    # Ensure width and length don't change much (alpha=0.5 but signals should be small)
     assert abs(new_tolerances["width"]["opt_low"] - tolerances["width"]["opt_low"]) < 0.25
     assert abs(new_tolerances["width"]["opt_high"] - tolerances["width"]["opt_high"]) < 0.25
     assert abs(new_tolerances["length"]["opt_low"] - tolerances["length"]["opt_low"]) < 0.25
@@ -198,10 +231,9 @@ def test_balanced():  # shouldn't change things much
     assert abs(new_tolerances["tb_len"]["opt_high"] - tolerances["tb_len"]["opt_high"]) < 0.25
     assert abs(new_tolerances["tb_width"]["opt_low"] - tolerances["tb_width"]["opt_low"]) < 0.25
     assert abs(new_tolerances["tb_width"]["opt_high"] - tolerances["tb_width"]["opt_high"]) < 0.25
-    print("test_balanced passed")
+    print("test_balanced:   passed!")
 
 if __name__ == "__main__":
-    print("Running tolerance learning tests...")
     test_too_wide()  # good so far
     test_too_narrow()  # good so far
     test_too_long()  # tb_width min is incrementing a tiny bit instead of remaining the same, but otherwise good
