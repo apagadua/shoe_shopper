@@ -6,8 +6,8 @@ K = 0.05  # helps keeps scale of tolerance shift reasonable
 '''feedback_rows = [
     {
      "feedback_type": "too wide",
-     "total_score": 72,
-     "severity": 3
+     "fit_score": 72,
+     "severity": 3,
     }, etc....
 ]'''
 
@@ -23,7 +23,9 @@ def compute_dimension_vals(feedback_rows):
     
     # gather feedback
     for feedback in feedback_rows:
-        stats[feedback["feedback_type"]]["score"] += feedback["total_score"]
+        if feedback["fit_score"] is None or feedback["severity"] is None:
+            continue
+        stats[feedback["feedback_type"]]["score"] += feedback["fit_score"]
         stats[feedback["feedback_type"]]["count"] += 1
         if feedback["feedback_type"] != "perfect":
             stats[feedback["feedback_type"]]["severity"] += feedback["severity"]
