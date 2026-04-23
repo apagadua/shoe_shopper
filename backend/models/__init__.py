@@ -246,6 +246,56 @@ class TrainingImage(models.Model):
             models.Index(fields=["user", "-created_at"], name="idx_training_user_created"),
         ]
 
+class UserFeedback(models.Model):
+    class FeedbackType(models.TextChoices):
+        TOO_NARROW = "too_narrow", "Too Narrow"
+        TOO_WIDE = "too_wide", "Too Wide"
+        TOO_SHORT = "too_short", "Too Short"
+        TOO_LONG = "too_long", "Too Long"
+        PERFECT = "perfect", "Perfect"
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    shoe = models.ForeignKey(
+        Shoe,
+        on_delete=models.PROTECT,
+        related_name="feedback"
+    )
+    
+    feedback_type = models.CharField(
+        max_length=20,
+        choices=FeedbackType.choices
+    )
+
+    fit_score = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    measurements = models.ForeignKey(
+        Measurement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    severity_rating = models.IntegerField(
+        null=True,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "user_feedback"
+        models.Index(fields=["shoe", "feedback_type"], name="idx_feedback_shoe_type"),
+        models.Index(fields=["created_at"], name="idx_feedback_created_at"),
 
 __all__ = [
     "Profile",
