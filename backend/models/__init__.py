@@ -271,6 +271,8 @@ class UserFeedback(models.Model):
         choices=FeedbackType.choices
     )
 
+    current_tolerances = models.JSONField()
+
     fit_score = models.DecimalField(
         max_digits=4,
         decimal_places=2,
@@ -294,8 +296,11 @@ class UserFeedback(models.Model):
 
     class Meta:
         db_table = "user_feedback"
-        models.Index(fields=["shoe", "feedback_type"], name="idx_feedback_shoe_type"),
-        models.Index(fields=["created_at"], name="idx_feedback_created_at"),
+        indexes = [
+            models.Index(fields=["shoe"], name="idx_feedback_shoe"),
+            models.Index(fields=["created_at"], name="idx_feedback_created_at"),
+            models.Index(fields=["feedback_type"], name="idx_feedback_type")
+        ]
 
 __all__ = [
     "Profile",
