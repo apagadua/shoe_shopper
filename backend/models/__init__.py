@@ -253,18 +253,38 @@ class UserFeedback(models.Model):
         TOO_SHORT = "too_short", "Too Short"
         TOO_LONG = "too_long", "Too Long"
         PERFECT = "perfect", "Perfect"
+
+    class ShoeProfile(models.TextChoices):
+        ROAD_RUNNING = "road_running", "Road Running"
+        TRAIL_RUNNING = "trail_running", "Trail Running"
+        INDOOR_TRACK = "indoor_track", "Indoor Track"
+        TRAINING = "training", "Training"
+        BASKETBALL = "basketball", "Basketball"
+        CLEATED_SPORT = "cleated_sport", "Cleated Sport"
+        TENNIS = "tennis", "Tennis"
+        SKATE = "skate", "Skate"
+        HIKING = "hiking", "Hiking"
+        CASUAL = "casual", "Casual"
+        CASUAL_SLIPON = "casual_slipon", "Casual Slip-On"
+        WORK_INDOOR = "work_indoor", "Work Indoor"
+        WORK_OUTDOOR = "work_outdoor", "Work Outdoor"
+        DRESS = "dress", "Dress"
+
     
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False
     )
-
-    shoe_profile = models.CharField(max_length=255)
     
     feedback_type = models.CharField(
         max_length=20,
         choices=FeedbackType.choices
+    )
+
+    shoe_profile = models.CharField(
+        max_length=255,
+        choices=ShoeProfile.choices
     )
 
     current_tolerances = models.JSONField()
