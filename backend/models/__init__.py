@@ -260,11 +260,7 @@ class UserFeedback(models.Model):
         editable=False
     )
 
-    shoe = models.ForeignKey(
-        Shoe,
-        on_delete=models.PROTECT,
-        related_name="feedback"
-    )
+    shoe_profile = models.CharField(max_length=255)
     
     feedback_type = models.CharField(
         max_length=20,
@@ -280,9 +276,7 @@ class UserFeedback(models.Model):
         blank=True
     )
 
-    measurements = models.ForeignKey(
-        Measurement,
-        on_delete=models.SET_NULL,
+    measurements = models.JSONField(
         null=True,
         blank=True
     )
@@ -297,7 +291,7 @@ class UserFeedback(models.Model):
     class Meta:
         db_table = "user_feedback"
         indexes = [
-            models.Index(fields=["shoe"], name="idx_feedback_shoe"),
+            models.Index(fields=["shoe_profile"], name="idx_feedback_shoe_profile"),
             models.Index(fields=["created_at"], name="idx_feedback_created_at"),
             models.Index(fields=["feedback_type"], name="idx_feedback_type")
         ]
@@ -311,4 +305,5 @@ __all__ = [
     "UserCollection",
     "Recommendation",
     "TrainingImage",
+    "UserFeedback"
 ]
