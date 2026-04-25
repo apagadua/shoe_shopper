@@ -1,0 +1,496 @@
+[
+  {
+    "shoe_id": 19,
+    "brand": "Converse",
+    "model": "All Star Low Top Wide",
+    "sku": null,
+    "measured_sizes": [
+      9.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 6,
+    "brand": "Under Armour",
+    "model": "Charged Rogue Twist",
+    "sku": null,
+    "measured_sizes": [
+      10.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 7,
+    "brand": "Universe Point",
+    "model": "Base Model",
+    "sku": null,
+    "measured_sizes": [
+      10.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 5,
+    "brand": "Puma",
+    "model": "Pacer Next Apex",
+    "sku": null,
+    "measured_sizes": [
+      10.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 25,
+    "brand": "Hoka",
+    "model": "Torrent 4",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 3,
+    "brand": "Nike",
+    "model": "Pegasus Premium",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 34,
+    "brand": "New Balance",
+    "model": "FreezeLX v5",
+    "sku": null,
+    "measured_sizes": [
+      8.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 31,
+    "brand": "Taylor Stitch",
+    "model": "Ranch Boot",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 16,
+    "brand": "New Balance",
+    "model": "Nitrel",
+    "sku": null,
+    "measured_sizes": [
+      8.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 20,
+    "brand": "Converse",
+    "model": "All Star High Top",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 38,
+    "brand": "Wolf & Shepherd",
+    "model": "Crossover",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 14,
+    "brand": "HAIX",
+    "model": "Airpower XR2",
+    "sku": null,
+    "measured_sizes": [
+      11.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 32,
+    "brand": "Altra",
+    "model": "Lone Peak 9 Wide",
+    "sku": null,
+    "measured_sizes": [
+      8.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 24,
+    "brand": "Nike",
+    "model": "Vomero 18",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 37,
+    "brand": "Nike",
+    "model": "LunarGlide 8",
+    "sku": null,
+    "measured_sizes": [
+      9.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 12,
+    "brand": "Vans",
+    "model": "Pro Skate Ultracush",
+    "sku": null,
+    "measured_sizes": [
+      11.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 35,
+    "brand": "New Balance",
+    "model": "Fuel Cell Prism",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 22,
+    "brand": "Vivo Barefoot",
+    "model": "Primus Trail",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 17,
+    "brand": "Adidas",
+    "model": "Samba",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 9,
+    "brand": "Fila",
+    "model": "Women's Recollector",
+    "sku": null,
+    "measured_sizes": [
+      8.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 21,
+    "brand": "New Balance",
+    "model": "550",
+    "sku": null,
+    "measured_sizes": [
+      9.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 15,
+    "brand": "Cody James",
+    "model": "Westley",
+    "sku": null,
+    "measured_sizes": [
+      11.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 30,
+    "brand": "Hoka",
+    "model": "Kaha 2 GTX",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 29,
+    "brand": "Danner",
+    "model": "Bull Run Lux",
+    "sku": null,
+    "measured_sizes": [
+      11.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 33,
+    "brand": "New Balance",
+    "model": "FreezeLX v4",
+    "sku": null,
+    "measured_sizes": [
+      9.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 23,
+    "brand": "Salomon",
+    "model": "XUltra04W",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 8,
+    "brand": "New Balance",
+    "model": "FreezeLX v5",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 26,
+    "brand": "Oboz",
+    "model": "Sawtooth X Mid BDry",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 2,
+    "brand": "Nike",
+    "model": "Free Metcon 5",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 13,
+    "brand": "Nike",
+    "model": "Air Max 1",
+    "sku": null,
+    "measured_sizes": [
+      11.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 27,
+    "brand": "Timberland",
+    "model": "Mt. Maddsen Valley",
+    "sku": null,
+    "measured_sizes": [
+      7.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 4,
+    "brand": "New Balance",
+    "model": "FreezeLX v5",
+    "sku": null,
+    "measured_sizes": [
+      10.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 28,
+    "brand": "Olukai",
+    "model": "Moloa Slipper",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 18,
+    "brand": "Converse",
+    "model": "All Star High Top",
+    "sku": null,
+    "measured_sizes": [
+      8.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 10,
+    "brand": "Western Chief",
+    "model": "Hummingbird Clogs",
+    "sku": null,
+    "measured_sizes": [
+      8.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 36,
+    "brand": "New Balance",
+    "model": "FuelCell Propel v4",
+    "sku": null,
+    "measured_sizes": [
+      9.5
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 1,
+    "brand": "Nike",
+    "model": "Ava Rover",
+    "sku": null,
+    "measured_sizes": [
+      12.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  },
+  {
+    "shoe_id": 11,
+    "brand": "Sorel",
+    "model": "Ankeny II",
+    "sku": null,
+    "measured_sizes": [
+      11.0
+    ],
+    "is_currently_active": true,
+    "last_synced_at": null,
+    "existing_goat_url": null,
+    "existing_colorway_count": 0
+  }
+]

@@ -1,0 +1,715 @@
+[
+  {
+    "shoe_id": 19,
+    "status": "found_retailer",
+    "source": "converse.com",
+    "source_url": "https://www.converse.com/shop/wide-width-shoes",
+    "colorways": [
+      {
+        "goat_id": "converse_167493F",
+        "name": "Black",
+        "image_url": "https://www.converse.com/dw/image/v2/BCZC_PRD/on/demandware.static/-/Sites-cnv-master-catalog/default/dw4ed57203/images/a_107/M9166C_A_107X1.jpg",
+        "product_url": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-unisex-low-top-shoe/167493F.html?dwvar_167493F_color=black&dwvar_167493F_width=wide",
+        "sizes": [{ "us_size": 9.0, "price_usd": 60.00, "is_available": true }]
+      },
+      {
+        "goat_id": "converse_M9696MP",
+        "name": "Red",
+        "image_url": "https://www.converse.com/dw/image/v2/BCZC_PRD/on/demandware.static/-/Sites-cnv-master-catalog/default/dwf01f2784/images/a_107/171747C_A_107X1.jpg",
+        "product_url": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-unisex-low-top-shoe/M9696MP.html?dwvar_M9696MP_color=red&dwvar_M9696MP_width=wide",
+        "sizes": [{ "us_size": 9.0, "price_usd": 60.00, "is_available": true }]
+      },
+      {
+        "goat_id": "converse_M5039MP",
+        "name": "Black Monochrome",
+        "image_url": "https://www.converse.com/dw/image/v2/BCZC_PRD/on/demandware.static/-/Sites-cnv-master-catalog/default/dw2dd80557/images/a_107/M5039C_A_107X1.jpg",
+        "product_url": "https://www.converse.com/shop/p/chuck-taylor-all-star-canvas-unisex-low-top-shoe/M5039MP.html?dwvar_M5039MP_color=black+monochrome&dwvar_M5039MP_width=wide",
+        "sizes": [{ "us_size": 9.0, "price_usd": 60.00, "is_available": true }]
+      }
+    ],
+    "notes": "Wide-width Low Top. Optical White (167494F) and White Monochrome (1U647F) are sold out at M9/W11. Red uses shared product master M9696MP with styleNo M9696."
+  },
+  {
+    "shoe_id": 32,
+    "status": "found_retailer",
+    "source": "zappos.com",
+    "source_url": "https://www.zappos.com/p/altra-lone-peak-9-gray/product/9982965/color/8",
+    "colorways": [
+      {
+        "goat_id": "zappos_9982965_3",
+        "name": "Black",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-black/product/9982965/color/3",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9982965_23021",
+        "name": "Dark Shadow",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-dark-shadow/product/9982965/color/23021",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9982965_8",
+        "name": "Gray",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-gray/product/9982965/color/8",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9982965_396",
+        "name": "Green",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-green/product/9982965/color/396",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9982965_9",
+        "name": "Navy",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-navy/product/9982965/color/9",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9982965_20",
+        "name": "Tan",
+        "image_url": "https://m.media-amazon.com/images/I/71nWFLXWUYL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/altra-lone-peak-9-tan/product/9982965/color/20",
+        "sizes": [{ "us_size": 8.5, "price_usd": 144.95, "is_available": true }]
+      }
+    ],
+    "notes": "Altra Lone Peak 9 with E-Wide width option available on Zappos. Brown colorway (color/6) is sold out at size 8.5 E-Wide and excluded. Zappos ogImage is shared across all colorways of this product."
+  },
+  {
+    "shoe_id": 6,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "UA Charged Rogue Twist not found on underarmour.com (current lineup shows Charged Rogue 6) or zappos.com. Silhouette filter page on UA returned zero Charged Rogue Twist SKUs."
+  },
+  {
+    "shoe_id": 7,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Universe Point Base Model — brand/product is entirely unknown and not found on any reputable retailer. Not found on zappos.com."
+  },
+  {
+    "shoe_id": 5,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "puma.com redirects to us.puma.com which was inaccessible during this session. The Puma Pacer Next Apex (style 191472) was released circa 2018–2019; appears discontinued. Cannot confirm on official site."
+  },
+  {
+    "shoe_id": 25,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Hoka Torrent 4 not found on hoka.com (site returned 404 for all Torrent URLs tried) and not found on zappos.com. The Torrent line appears to have been discontinued by Hoka."
+  },
+  {
+    "shoe_id": 3,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/pegasus-premium-airscape-hq2592-002",
+    "colorways": [
+      {
+        "goat_id": "pegasus-premium-airscape-hq2592-002",
+        "name": "Airscape",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/010/005/original/HQ2592_002.png.png",
+        "product_url": "https://www.goat.com/sneakers/pegasus-premium-airscape-hq2592-002",
+        "sizes": [{ "us_size": 12.0, "price_usd": 253.00, "is_available": true }]
+      },
+      {
+        "goat_id": "pegasus-premium-washed-coral-ii6308-600",
+        "name": "Washed Coral",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/111/879/499/original/II6308_600.png.png",
+        "product_url": "https://www.goat.com/sneakers/pegasus-premium-washed-coral-ii6308-600",
+        "sizes": [{ "us_size": 12.0, "price_usd": 222.00, "is_available": true }]
+      },
+      {
+        "goat_id": "pegasus-premium-reverse-swoosh-pack-ih2288-001",
+        "name": "Run Pack",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/110/854/485/original/IH2288_001.png.png",
+        "product_url": "https://www.goat.com/sneakers/pegasus-premium-reverse-swoosh-pack-ih2288-001",
+        "sizes": [{ "us_size": 12.0, "price_usd": 212.00, "is_available": true }]
+      },
+      {
+        "goat_id": "nike-pegasus-premium-running-is-mental-iq0307-094",
+        "name": "Running is Mental",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/114/460/755/original/IQ0307_20094.png.png",
+        "product_url": "https://www.goat.com/sneakers/nike-pegasus-premium-running-is-mental-iq0307-094",
+        "sizes": [{ "us_size": 12.0, "price_usd": 179.00, "is_available": true }]
+      },
+      {
+        "goat_id": "pegasus-premium-black-metallic-silver-hq2592-005",
+        "name": "Black Metallic Silver",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/111/121/707/original/1626971_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/pegasus-premium-black-metallic-silver-hq2592-005",
+        "sizes": [{ "us_size": 12.0, "price_usd": 187.00, "is_available": true }]
+      },
+      {
+        "goat_id": "pegasus-premium-white-metallic-silver-hq2592-102",
+        "name": "White Metallic Silver",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/110/171/921/original/1561584_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/pegasus-premium-white-metallic-silver-hq2592-102",
+        "sizes": [{ "us_size": 12.0, "price_usd": 207.00, "is_available": true }]
+      }
+    ],
+    "notes": "6 of 26 colorways captured (top by lowest search price)"
+  },
+  {
+    "shoe_id": 34,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5",
+    "colorways": [
+      { "goat_id": "freezelx-v5-turf-black-white-silver-metallic-freeztb5", "name": "Turf Black White Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/119/original/FREEZTB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5", "sizes": [{ "us_size": 8.5, "price_usd": 148.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-white-black-hot-mango-freezpf5", "name": "White Black Hot Mango", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/333/159/original/FREEZPF5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-white-black-hot-mango-freezpf5", "sizes": [{ "us_size": 8.5, "price_usd": 158.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-white-black-freezbw5", "name": "Box White Black", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/613/original/FREEZBW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-white-black-freezbw5", "sizes": [{ "us_size": 8.5, "price_usd": 195.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-black-white-freezbb5", "name": "Box Black White", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/612/original/FREEZBB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-black-white-freezbb5", "sizes": [{ "us_size": 8.5, "price_usd": 223.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-turf-white-black-silver-metallic-freeztw5", "name": "Turf White Black Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/121/original/FREEZTW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-white-black-silver-metallic-freeztw5", "sizes": [{ "us_size": 8.5, "price_usd": 217.00, "is_available": true }] }
+    ],
+    "notes": "5 colorways, all available in size 8.5"
+  },
+  {
+    "shoe_id": 8,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5",
+    "colorways": [
+      { "goat_id": "freezelx-v5-turf-black-white-silver-metallic-freeztb5", "name": "Turf Black White Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/119/original/FREEZTB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5", "sizes": [{ "us_size": 10.0, "price_usd": 148.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-white-black-hot-mango-freezpf5", "name": "White Black Hot Mango", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/333/159/original/FREEZPF5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-white-black-hot-mango-freezpf5", "sizes": [{ "us_size": 10.0, "price_usd": 255.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-white-black-freezbw5", "name": "Box White Black", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/613/original/FREEZBW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-white-black-freezbw5", "sizes": [{ "us_size": 10.0, "price_usd": 195.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-black-white-freezbb5", "name": "Box Black White", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/612/original/FREEZBB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-black-white-freezbb5", "sizes": [{ "us_size": 10.0, "price_usd": 223.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-turf-white-black-silver-metallic-freeztw5", "name": "Turf White Black Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/121/original/FREEZTW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-white-black-silver-metallic-freeztw5", "sizes": [{ "us_size": 10.0, "price_usd": 227.00, "is_available": true }] }
+    ],
+    "notes": "5 colorways, all available in size 10.0"
+  },
+  {
+    "shoe_id": 4,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5",
+    "colorways": [
+      { "goat_id": "freezelx-v5-turf-black-white-silver-metallic-freeztb5", "name": "Turf Black White Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/119/original/FREEZTB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-black-white-silver-metallic-freeztb5", "sizes": [{ "us_size": 10.0, "price_usd": 148.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-white-black-hot-mango-freezpf5", "name": "White Black Hot Mango", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/333/159/original/FREEZPF5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-white-black-hot-mango-freezpf5", "sizes": [{ "us_size": 10.0, "price_usd": 255.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-white-black-freezbw5", "name": "Box White Black", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/613/original/FREEZBW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-white-black-freezbw5", "sizes": [{ "us_size": 10.0, "price_usd": 195.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-box-black-white-freezbb5", "name": "Box Black White", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/104/486/612/original/FREEZBB5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-box-black-white-freezbb5", "sizes": [{ "us_size": 10.0, "price_usd": 223.00, "is_available": true }] },
+      { "goat_id": "freezelx-v5-turf-white-black-silver-metallic-freeztw5", "name": "Turf White Black Silver Metallic", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/107/367/121/original/FREEZTW5.png.png", "product_url": "https://www.goat.com/sneakers/freezelx-v5-turf-white-black-silver-metallic-freeztw5", "sizes": [{ "us_size": 10.0, "price_usd": 227.00, "is_available": true }] }
+    ],
+    "notes": "5 colorways, all available in size 10.0 (duplicate shoe entry with id=8)"
+  },
+  {
+    "shoe_id": 31,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Not found on taylorstitch.com — searched 'ranch boot' and 'ranch', both return 'No Results'. No Ranch Boot exists in the current Taylor Stitch catalog."
+  },
+  {
+    "shoe_id": 16,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "New Balance Nitrel v4 returns a 404 on newbalance.com. Search on NB redirected to DynaSoft Nitrel v6. Not found on zappos.com either. Replaced by the DynaSoft Nitrel v6."
+  },
+  {
+    "shoe_id": 20,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-space-racer-165092c",
+    "colorways": [
+      { "goat_id": "chuck-taylor-all-star-high-space-racer-165092c", "name": "Space Racer", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/100/579/841/original/607584_00.png.png", "product_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-space-racer-165092c", "sizes": [{ "us_size": 10.0, "price_usd": 129.00, "is_available": true }] },
+      { "goat_id": "chuck-taylor-all-star-high-oversized-logo-165696c", "name": "Oversized Logo", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/041/158/669/original/165696C.png.png", "product_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-oversized-logo-165696c", "sizes": [{ "us_size": 10.0, "price_usd": 202.00, "is_available": true }] }
+    ],
+    "notes": "2 colorways with size 10.0 available"
+  },
+  {
+    "shoe_id": 38,
+    "status": "found_retailer",
+    "source": "zappos.com",
+    "source_url": "https://www.zappos.com/p/wolf-shepherd-crossover-derby-black/product/10018959/color/3",
+    "colorways": [
+      {
+        "goat_id": "zappos_10018959_3",
+        "name": "Black",
+        "image_url": "https://m.media-amazon.com/images/I/61F3wNGX3UL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/wolf-shepherd-crossover-derby-black/product/10018959/color/3",
+        "sizes": [{ "us_size": 10.0, "price_usd": 275.00, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_10018959_6",
+        "name": "Brown",
+        "image_url": "https://m.media-amazon.com/images/I/61F3wNGX3UL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/wolf-shepherd-crossover-derby-brown/product/10018959/color/6",
+        "sizes": [{ "us_size": 10.0, "price_usd": 275.00, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_10018959_2754",
+        "name": "Honey",
+        "image_url": "https://m.media-amazon.com/images/I/61F3wNGX3UL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/wolf-shepherd-crossover-derby-honey/product/10018959/color/2754",
+        "sizes": [{ "us_size": 10.0, "price_usd": 275.00, "is_available": true }]
+      }
+    ],
+    "notes": "Matched to Wolf & Shepherd Crossover Derby (product/10018959). Navy colorway (color/9) is OOS at size 10.0 and excluded. A 'Crossover Victory Trainer' also exists but is an athletic silhouette (different product)."
+  },
+  {
+    "shoe_id": 18,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-space-racer-165092c",
+    "colorways": [
+      { "goat_id": "chuck-taylor-all-star-high-space-racer-165092c", "name": "Space Racer", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/100/579/841/original/607584_00.png.png", "product_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-space-racer-165092c", "sizes": [{ "us_size": 8.0, "price_usd": 163.00, "is_available": true }] },
+      { "goat_id": "chuck-taylor-all-star-high-logo-tag-vintage-white-a06104c", "name": "Logo Tag Vintage White", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/086/718/612/original/A06104C.png.png", "product_url": "https://www.goat.com/sneakers/chuck-taylor-all-star-high-logo-tag-vintage-white-a06104c", "sizes": [{ "us_size": 8.0, "price_usd": 134.00, "is_available": true }] }
+    ],
+    "notes": "2 colorways with size 8.0 available"
+  },
+  {
+    "shoe_id": 14,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "haix.com/us has a product-launch info page for the Airpower XR2 but routes purchases through a dealer order form only (no buy-now price). All direct product URLs on haix.com/us return 404. Consumer shop is haixusa.com (separate domain, not checked). No real buy-now price available."
+  },
+  {
+    "shoe_id": 24,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/vomero-18-platinum-tint-siren-red-hm6803-001",
+    "colorways": [
+      { "goat_id": "vomero-18-platinum-tint-siren-red-hm6803-001", "name": "Platinum Tint Siren Red", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/108/484/590/original/1572469_00.png.png", "product_url": "https://www.goat.com/sneakers/vomero-18-platinum-tint-siren-red-hm6803-001", "sizes": [{ "us_size": 7.0, "price_usd": 103.00, "is_available": true }] },
+      { "goat_id": "vomero-18-black-coconut-milk-hm6803-007", "name": "Black Coconut Milk", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/110/016/609/original/HM6803_007.png.png", "product_url": "https://www.goat.com/sneakers/vomero-18-black-coconut-milk-hm6803-007", "sizes": [{ "us_size": 7.0, "price_usd": 148.00, "is_available": true }] },
+      { "goat_id": "vomero-18-triple-black-hm6803-005", "name": "Triple Black", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/109/227/996/original/1590267_00.png.png", "product_url": "https://www.goat.com/sneakers/vomero-18-triple-black-hm6803-005", "sizes": [{ "us_size": 7.0, "price_usd": 149.00, "is_available": true }] }
+    ],
+    "notes": "3 colorways with size 7.0 available"
+  },
+  {
+    "shoe_id": 37,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Nike LunarGlide 8 not found on zappos.com. The LunarGlide line was discontinued by Nike around 2018. Not available at any reputable current retailer."
+  },
+  {
+    "shoe_id": 12,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Vans Pro Skate Ultracush does not appear in Vans' current lineup on vans.com or zappos.com. The nearest current product is the Skate AVE 2.0, which is a different model."
+  },
+  {
+    "shoe_id": 35,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "New Balance FuelCell Prism not found in NB's current FuelCell collection on newbalance.com and not found on zappos.com. The FuelCell Prism appears to have been discontinued."
+  },
+  {
+    "shoe_id": 22,
+    "status": "found_retailer",
+    "source": "vivobarefoot.com",
+    "source_url": "https://www.vivobarefoot.com/us/primus-trail-iii-all-weather-fg-womens",
+    "colorways": [
+      {
+        "goat_id": "web_bcdbaba3a581b4ae",
+        "name": "Obsidian",
+        "image_url": "https://www.vivobarefoot.com/media/catalog/product/2/0/209305-01_side_02_1.jpg?quality=100&bg-color=255,255,255&fit=bounds&height=1418&width=2520",
+        "product_url": "https://www.vivobarefoot.com/us/primus-trail-iii-all-weather-fg-womens?colour=Obsidian",
+        "sizes": [{ "us_size": 7.0, "price_usd": 170.00, "is_available": true }]
+      },
+      {
+        "goat_id": "web_782218965d372c13",
+        "name": "Moss",
+        "image_url": "https://www.vivobarefoot.com/media/catalog/product/2/0/209305-11_side.jpg?quality=100&bg-color=255,255,255&fit=bounds&height=1418&width=2520",
+        "product_url": "https://www.vivobarefoot.com/us/primus-trail-iii-all-weather-fg-womens?colour=Moss",
+        "sizes": [{ "us_size": 7.0, "price_usd": 170.00, "is_available": true }]
+      }
+    ],
+    "notes": "Matched to 'Primus Trail III All Weather FG Womens' on vivobarefoot.com/us. Two colorways (Obsidian, Moss) confirmed in stock at US Women's size 7. Price $170.00."
+  },
+  {
+    "shoe_id": 17,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/samba-og-b75806",
+    "colorways": [
+      { "goat_id": "samba-og-b75806", "name": "OG White Black Gum", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/070/577/101/original/437050_00.png.png", "product_url": "https://www.goat.com/sneakers/samba-og-b75806", "sizes": [{ "us_size": 10.0, "price_usd": 76.00, "is_available": true }] },
+      { "goat_id": "samba-og-black-gum-b75807", "name": "OG Black Gum", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/063/656/887/original/478435_00.png.png", "product_url": "https://www.goat.com/sneakers/samba-og-black-gum-b75807", "sizes": [{ "us_size": 10.0, "price_usd": 93.00, "is_available": true }] },
+      { "goat_id": "samba-lt-black-white-ji3200", "name": "LT Black White", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/108/942/094/original/1534784_00.png.png", "product_url": "https://www.goat.com/sneakers/samba-lt-black-white-ji3200", "sizes": [{ "us_size": 10.0, "price_usd": 149.00, "is_available": true }] }
+    ],
+    "notes": "3 colorways with size 10.0 available"
+  },
+  {
+    "shoe_id": 9,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "fila.com US storefront is on maintenance pause as of 2026-04-24 ('the shop is on pause'). Cannot confirm presence or absence of the Recollector Women's. Marked discontinued pending site restoration."
+  },
+  {
+    "shoe_id": 21,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/550-white-grey-bb550pb1",
+    "colorways": [
+      { "goat_id": "550-white-grey-bb550pb1", "name": "White Grey", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/067/269/013/original/731742_00.png.png", "product_url": "https://www.goat.com/sneakers/550-white-grey-bb550pb1", "sizes": [{ "us_size": 9.5, "price_usd": 169.00, "is_available": true }] },
+      { "goat_id": "550-cream-black-bb550lwt", "name": "Sea Salt", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/075/689/168/original/BB550LWT.png.png", "product_url": "https://www.goat.com/sneakers/550-cream-black-bb550lwt", "sizes": [{ "us_size": 9.5, "price_usd": 183.00, "is_available": true }] },
+      { "goat_id": "550-white-timberwolf-bb550pwg", "name": "White Timberwolf", "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/093/146/401/original/1251415_00.png.png", "product_url": "https://www.goat.com/sneakers/550-white-timberwolf-bb550pwg", "sizes": [{ "us_size": 9.5, "price_usd": 264.00, "is_available": true }] }
+    ],
+    "notes": "3 colorways with size 9.5 available"
+  },
+  {
+    "shoe_id": 15,
+    "status": "found_retailer",
+    "source": "bootbarn.com",
+    "source_url": "https://www.bootbarn.com/cody-james-mens-westley-stockman-boots---broad-square-toe/0502L6.html",
+    "colorways": [
+      {
+        "goat_id": "bootbarn_0502L6",
+        "name": "Black",
+        "image_url": "https://www.bootbarn.com/dw/image/v2/BCCF_PRD/on/demandware.static/-/Sites-master-product-catalog-shp/default/dw069ccfae/images/2L6/0502L6_89_P1.JPG?sw=1500&sh=1500&sm=fit",
+        "product_url": "https://www.bootbarn.com/cody-james-mens-westley-stockman-boots---broad-square-toe/0502L6.html?dwvar_0502L6_color=7018",
+        "sizes": [{ "us_size": 11.0, "price_usd": 209.99, "is_available": true }]
+      }
+    ],
+    "notes": "Cody James is a Boot Barn exclusive brand. Item 0502L6, Black colorway only. Size 11D confirmed in stock, ships next business day. Price $209.99."
+  },
+  {
+    "shoe_id": 30,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/kaha-2-gore-tex-pale-mauve-1130529-pmpw",
+    "colorways": [
+      {
+        "goat_id": "kaha-2-gore-tex-pale-mauve-1130529-pmpw",
+        "name": "Pale Mauve",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/093/623/106/original/1130529_PMPW.png.png",
+        "product_url": "https://www.goat.com/sneakers/kaha-2-gore-tex-pale-mauve-1130529-pmpw",
+        "sizes": [{ "us_size": 12.0, "price_usd": 403.00, "is_available": true }]
+      }
+    ],
+    "notes": "1 colorway with size 12.0 available; Black and Harbor Mist OOS in size 12"
+  },
+  {
+    "shoe_id": 29,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Not found on danner.com — search returned 'There are no products matching the selection.' The Bull Run Chelsea appears on the homepage but the Lux variant is absent from the catalog entirely. Direct URL guesses all 404."
+  },
+  {
+    "shoe_id": 33,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/freezelx-v4-box-black-gum-freezbb4",
+    "colorways": [
+      {
+        "goat_id": "freezelx-v4-box-black-gum-freezbb4",
+        "name": "Box Black Gum",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/080/786/287/original/FREEZBB4.png.png",
+        "product_url": "https://www.goat.com/sneakers/freezelx-v4-box-black-gum-freezbb4",
+        "sizes": [{ "us_size": 9.0, "price_usd": 175.00, "is_available": true }]
+      },
+      {
+        "goat_id": "freezelx-v4-low-black-grey-freezlb4",
+        "name": "Low Black Grey",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/080/786/299/original/FREEZLB4.png.png",
+        "product_url": "https://www.goat.com/sneakers/freezelx-v4-low-black-grey-freezlb4",
+        "sizes": [{ "us_size": 9.0, "price_usd": 240.00, "is_available": true }]
+      }
+    ],
+    "notes": "2 colorways with size 9.0 available"
+  },
+  {
+    "shoe_id": 23,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/x-ultra-4-gore-tex-magnet-monument-l41385100",
+    "colorways": [
+      {
+        "goat_id": "x-ultra-4-gore-tex-magnet-monument-l41385100",
+        "name": "GORE-TEX Magnet Monument",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/094/759/950/original/L41385100.png.png",
+        "product_url": "https://www.goat.com/sneakers/x-ultra-4-gore-tex-magnet-monument-l41385100",
+        "sizes": [{ "us_size": 7.0, "price_usd": 355.00, "is_available": true }]
+      }
+    ],
+    "notes": "1 colorway with size 7.0 available in GTX; Vintage Khaki OOS in size 7"
+  },
+  {
+    "shoe_id": 26,
+    "status": "found_retailer",
+    "source": "zappos.com",
+    "source_url": "https://www.zappos.com/p/oboz-sawtooth-x-mid-b-dry-charcoal/product/9608262/color/275",
+    "colorways": [
+      {
+        "goat_id": "zappos_9608262_275",
+        "name": "Charcoal",
+        "image_url": "https://m.media-amazon.com/images/I/712E1YYXtZL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/oboz-sawtooth-x-mid-b-dry-charcoal/product/9608262/color/275",
+        "sizes": [{ "us_size": 7.0, "price_usd": 180.00, "is_available": true }]
+      },
+      {
+        "goat_id": "zappos_9608262_300",
+        "name": "Classic Brown",
+        "image_url": "https://m.media-amazon.com/images/I/712E1YYXtZL._SX700_.jpg",
+        "product_url": "https://www.zappos.com/p/oboz-sawtooth-x-mid-b-dry-classic-brown/product/9608262/color/300",
+        "sizes": [{ "us_size": 7.0, "price_usd": 180.00, "is_available": true }]
+      }
+    ],
+    "notes": "Oboz Sawtooth X Mid B-DRY Men's (product/9608262). Olive Branch colorway (color/84469) is Out of Stock at size 7.0 and excluded. Sale price $180 (MSRP $200). Zappos ogImage shared across colorways."
+  },
+  {
+    "shoe_id": 2,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/free-metcon-5-black-white-dv3949-001",
+    "colorways": [
+      {
+        "goat_id": "free-metcon-5-white-bright-mandarin-dv3949-101",
+        "name": "White Bright Mandarin",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/095/637/220/original/1234987_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/free-metcon-5-white-bright-mandarin-dv3949-101",
+        "sizes": [{ "us_size": 12.0, "price_usd": 119.00, "is_available": true }]
+      },
+      {
+        "goat_id": "free-metcon-5-black-white-dv3949-001",
+        "name": "Black White",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/093/007/259/original/1182134_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/free-metcon-5-black-white-dv3949-001",
+        "sizes": [{ "us_size": 12.0, "price_usd": 118.00, "is_available": true }]
+      }
+    ],
+    "notes": "2 colorways with size 12.0 available"
+  },
+  {
+    "shoe_id": 13,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/air-max-1-premium-crepe-soft-grey-fd5088-001",
+    "colorways": [
+      {
+        "goat_id": "air-max-1-premium-slate-blue-fj0698-100",
+        "name": "Premium Escape",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/088/481/383/original/1160090_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/air-max-1-premium-slate-blue-fj0698-100",
+        "sizes": [{ "us_size": 11.5, "price_usd": 321.00, "is_available": true }]
+      },
+      {
+        "goat_id": "air-max-1-black-fz0628-010",
+        "name": "Black",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/098/838/550/original/1277524_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/air-max-1-black-fz0628-010",
+        "sizes": [{ "us_size": 11.5, "price_usd": 361.00, "is_available": true }]
+      },
+      {
+        "goat_id": "air-max-1-premium-crepe-soft-grey-fd5088-001",
+        "name": "Premium Crepe Soft Grey",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/085/551/536/original/1137977_00.png.png",
+        "product_url": "https://www.goat.com/sneakers/air-max-1-premium-crepe-soft-grey-fd5088-001",
+        "sizes": [{ "us_size": 11.5, "price_usd": 393.00, "is_available": true }]
+      }
+    ],
+    "notes": "3 colorways with size 11.5 available"
+  },
+  {
+    "shoe_id": 27,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/mt-maddsen-mid-hiker-black-tb02731r-001",
+    "colorways": [
+      {
+        "goat_id": "mt-maddsen-mid-hiker-black-tb02731r-001",
+        "name": "Mid Hiker Black",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/027/182/745/original/TB02731R_001.png.png",
+        "product_url": "https://www.goat.com/sneakers/mt-maddsen-mid-hiker-black-tb02731r-001",
+        "sizes": [{ "us_size": 7.0, "price_usd": 124.00, "is_available": true }]
+      },
+      {
+        "goat_id": "mt-maddsen-mid-hiker-dark-brown-tb02730r-242",
+        "name": "Mid Hiker Dark Brown",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/027/182/744/original/TB02730R_242.png.png",
+        "product_url": "https://www.goat.com/sneakers/mt-maddsen-mid-hiker-dark-brown-tb02730r-242",
+        "sizes": [{ "us_size": 7.0, "price_usd": 134.00, "is_available": true }]
+      }
+    ],
+    "notes": "2 colorways with size 7.0 available"
+  },
+  {
+    "shoe_id": 28,
+    "status": "found_retailer",
+    "source": "olukai.com",
+    "source_url": "https://www.olukai.com/products/moloa-mens-leather-slippers-clay-dark-java",
+    "colorways": [
+      {
+        "goat_id": "web_2525d9db227a7951",
+        "name": "Clay / Dk Java",
+        "image_url": "https://cdn.shopify.com/s/files/1/0015/9229/5523/files/10252_1048_001_M_MOLOASLIPPER_ClayDkJava_5affcd27-b6d4-49eb-8a5d-fa3aa09823f3.png",
+        "product_url": "https://www.olukai.com/products/moloa-mens-leather-slippers-clay-dark-java",
+        "sizes": [{ "us_size": 12.0, "price_usd": 140.00, "is_available": true }]
+      },
+      {
+        "goat_id": "web_9aa285a0a38b6f4a",
+        "name": "Black / Dk Java",
+        "image_url": "https://olukai.com/cdn/shop/files/10252_1048_001_M_MOLOASLIPPER_ClayDkJava.png?width=750",
+        "product_url": "https://www.olukai.com/products/moloa-mens-leather-slippers-black-dark-java",
+        "sizes": [{ "us_size": 12.0, "price_usd": 140.00, "is_available": true }]
+      },
+      {
+        "goat_id": "web_25bf7e323faf7f0c",
+        "name": "Toffee / Dark Wood",
+        "image_url": "https://cdn.shopify.com/s/files/1/0015/9229/5523/products/10252_3363_001_M_MoloaSlipper_TofDkw_9b11076d-289c-4a3c-8bce-66c2deb73845.png",
+        "product_url": "https://www.olukai.com/products/moloa-mens-leather-slippers-toffee-dark-wood",
+        "sizes": [{ "us_size": 12.0, "price_usd": 140.00, "is_available": true }]
+      },
+      {
+        "goat_id": "web_a9bbb7a2f151e24b",
+        "name": "Dark Wood",
+        "image_url": "https://cdn.shopify.com/s/files/1/0015/9229/5523/files/10252_6363_001_M_MOLOA_SLIPPER_DKWDKW_5aa0f439-bcf4-426c-b9a1-ce1e4ca3b6c0.png",
+        "product_url": "https://www.olukai.com/products/moloa-mens-leather-slippers-dark-wood",
+        "sizes": [{ "us_size": 12.0, "price_usd": 140.00, "is_available": true }]
+      }
+    ],
+    "notes": "OluKai Moloa Slipper (Men's Leather) via olukai.com. 4 colorways confirmed in stock at size 12. goat_id uses web_sha256 scheme (no numeric product code in URL handles)."
+  },
+  {
+    "shoe_id": 10,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Not found on westernchief.com — searched 'hummingbird', 'hummingbird clog', all return 0 results. The Western Chief Hummingbird Clog appears to be discontinued."
+  },
+  {
+    "shoe_id": 36,
+    "status": "found_goat",
+    "source": "goat",
+    "source_url": "https://www.goat.com/sneakers/fuelcell-propel-v4-graphite-limelight-mfcprcc4",
+    "colorways": [
+      {
+        "goat_id": "fuelcell-propel-v4-graphite-limelight-mfcprcc4",
+        "name": "Graphite Limelight",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/096/962/418/original/MFCPRCC4.png.png",
+        "product_url": "https://www.goat.com/sneakers/fuelcell-propel-v4-graphite-limelight-mfcprcc4",
+        "sizes": [{ "us_size": 9.5, "price_usd": 113.00, "is_available": true }]
+      },
+      {
+        "goat_id": "fuelcell-propel-v4-graphite-copper-metallic-mfcprga4",
+        "name": "Graphite Copper Metallic",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/088/776/709/original/MFCPRGA4.png.png",
+        "product_url": "https://www.goat.com/sneakers/fuelcell-propel-v4-graphite-copper-metallic-mfcprga4",
+        "sizes": [{ "us_size": 9.5, "price_usd": 118.00, "is_available": true }]
+      },
+      {
+        "goat_id": "fuelcell-propel-v4-quartz-grey-copper-metallic-mfcprgb4",
+        "name": "Quartz Grey Copper Metallic",
+        "image_url": "https://image.goat.com/750/attachments/product_template_pictures/images/092/950/581/original/MFCPRGB4.png.png",
+        "product_url": "https://www.goat.com/sneakers/fuelcell-propel-v4-quartz-grey-copper-metallic-mfcprgb4",
+        "sizes": [{ "us_size": 9.5, "price_usd": 193.00, "is_available": true }]
+      }
+    ],
+    "notes": "3 colorways with size 9.5 available"
+  },
+  {
+    "shoe_id": 1,
+    "status": "found_retailer",
+    "source": "nike.com",
+    "source_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-102",
+    "colorways": [
+      {
+        "goat_id": "nike_DX4215-102",
+        "name": "Summit White/Coconut Milk/Safety Orange/Dark Obsidian",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/bcbcb6b3-9ed9-4879-ac5b-a481a7e69514/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-102",
+        "sizes": [{ "us_size": 12.0, "price_usd": 145.00, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-005",
+        "name": "Black/Black/Anthracite/Black",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/c891edd3-c924-432d-bcca-4b92b3278508/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-005",
+        "sizes": [{ "us_size": 12.0, "price_usd": 145.00, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-007",
+        "name": "Phantom/Phantom/Phantom/Light Bone",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/77bf3728-f41e-4f55-ae2a-ca328c2027bc/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-007",
+        "sizes": [{ "us_size": 12.0, "price_usd": 145.00, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-003",
+        "name": "Black/Muslin/Sequoia/Anthracite",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/fd47f05e-c92d-406f-9923-50c9ebfc38ce/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-003",
+        "sizes": [{ "us_size": 12.0, "price_usd": 145.00, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-100",
+        "name": "Light Orewood Brown/Washed Teal/Light Orewood Brown/Plum Eclipse",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/fd9b5a2b-25ea-4a63-b4e7-e5c38dcc4ced/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-100",
+        "sizes": [{ "us_size": 12.0, "price_usd": 108.97, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-207",
+        "name": "Moon Particle/Moon Particle/Black/Volt Ice",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/398300d5-4986-43d0-b6f8-16f133ef09b2/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-207",
+        "sizes": [{ "us_size": 12.0, "price_usd": 105.97, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_IM9327-200",
+        "name": "Earth/Black/Bright Cactus/Bright Cactus",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/3e25f81e-ddc0-4f2e-9fc4-7ba94df725f4/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/IM9327-200",
+        "sizes": [{ "us_size": 12.0, "price_usd": 105.97, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-010",
+        "name": "Pure Platinum/Pure Platinum/Black/Black",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/332cf6cf-92d1-438c-b8ac-9734879dc9df/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-010",
+        "sizes": [{ "us_size": 12.0, "price_usd": 116.97, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_DX4215-404",
+        "name": "Armory Navy/Parachute Beige/Vivid Purple/Armory Slate",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/8c6b51bc-7e1d-4490-a113-67f30325df95/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/DX4215-404",
+        "sizes": [{ "us_size": 12.0, "price_usd": 99.97, "is_available": true }]
+      },
+      {
+        "goat_id": "nike_IM9327-001",
+        "name": "College Grey/Black/Dark Smoke Grey/Black",
+        "image_url": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/50266e78-2bcf-4dfe-bce4-293a63a05dae/NIKE+AVA+ROVER.png",
+        "product_url": "https://www.nike.com/t/ava-rover-shoes-Ow09rOwc/IM9327-001",
+        "sizes": [{ "us_size": 12.0, "price_usd": 105.97, "is_available": true }]
+      }
+    ],
+    "notes": "10 colorways found on nike.com with size 12 in stock. 2 skipped (size 12 unavailable): IM9327-300 and DX4215-008."
+  },
+  {
+    "shoe_id": 11,
+    "status": "discontinued",
+    "source": null,
+    "source_url": null,
+    "colorways": [],
+    "notes": "Not found on sorel.com — searching 'ankeny' returns no matches. Direct URL /mens-ankeny-ii-hiker/2028051.html returns 404. Product has been removed from Sorel's active catalog."
+  }
+]
