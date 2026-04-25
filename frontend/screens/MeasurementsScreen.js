@@ -1,48 +1,78 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getBestSize, getSizeRange } from '../utils/shoeSize';
+
+function inToCm(inches) {
+  return (inches * 2.54).toFixed(1);
+}
+
+function formatInches(val) {
+  return `${val.toFixed(1)} in (${inToCm(val)} cm)`;
+}
 
 export default function MeasurementsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
-  const imageUri = route.params?.imageUri;
+  const measurements = route.params?.measurements ?? null;
 
-  // Placeholder "sample" measurements; when backend exists, use imageUri to fetch real data.
-  const sample = {
-    length: "25.3 cm",
-    width: "9.4 cm",
-    arch: "Neutral",
-    pressure: "Slightly higher on forefoot",
-  };
+  useEffect(() => {
+    if (!measurements) return;
+    AsyncStorage.setItem('footMeasurements', JSON.stringify({
+      length_in: measurements.length_in,
+      width_in: measurements.width_in,
+      area_sq_in: measurements.area_sq_in,
+      scannedAt: new Date().toISOString(),
+    })).catch(() => {});
+  }, [measurements]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Your measurements</Text>
       <Text style={styles.subtitle}>
-        {imageUri
-          ? "We're using your photo. Example values below until we connect to the measurement service."
-          : "These are example values so you can see how your fit report will look. We'll replace them with real measurements after your first scan."}
+        {measurements
+          ? 'Measurements computed from your scan.'
+          : 'Scan a foot to see real measurements.'}
       </Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Foot profile</Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Length</Text>
-          <Text style={styles.value}>{sample.length}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Width</Text>
-          <Text style={styles.value}>{sample.width}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Arch type</Text>
-          <Text style={styles.value}>{sample.arch}</Text>
-        </View>
-        <View style={[styles.row, styles.rowLast]}>
-          <Text style={styles.label}>Pressure areas</Text>
-          <Text style={[styles.value, styles.valueMultiline]}>
-            {sample.pressure}
+          <Text style={styles.label}>Foot length</Text>
+          <Text style={styles.value}>
+            {measurements ? formatInches(measurements.length_in) : '—'}
           </Text>
         </View>
+        <View style={[styles.row, styles.rowLast]}>
+          <Text style={styles.label}>Foot width</Text>
+          <Text style={styles.value}>
+            {measurements ? formatInches(measurements.width_in) : '—'}
+          </Text>
+        </View>
+        {measurements ? (
+          <View style={[styles.row, styles.rowLast]}>
+            <Text style={styles.label}>Foot area</Text>
+            <Text style={styles.value}>{measurements.area_sq_in.toFixed(1)} sq in</Text>
+          </View>
+        ) : null}
       </View>
+
+      {measurements?.length_in ? (() => {
+        const best = getBestSize(measurements.length_in);
+        const range = getSizeRange(measurements.length_in);
+        const rangeStr = range.length > 1
+          ? `${range[0]}–${range[range.length - 1]}`
+          : range[0] ?? best;
+        return (
+          <View style={styles.sizeCard}>
+            <Text style={styles.sizeCardLabel}>Estimated US size (men's)</Text>
+            <Text style={styles.sizeCardValue}>US {best}</Text>
+            <Text style={styles.sizeCardRange}>Plausible range: {rangeStr}</Text>
+            <Text style={styles.sizeCardNote}>
+              Sizes vary by brand — use this as a starting point, not a guarantee.
+            </Text>
+          </View>
+        );
+      })() : null}
 
       <TouchableOpacity
         style={styles.primaryButton}
@@ -109,7 +139,6 @@ const styles = StyleSheet.create({
   },
   rowLast: {
     borderBottomWidth: 0,
-    alignItems: 'flex-start',
   },
   label: {
     fontSize: 14,
@@ -120,9 +149,38 @@ const styles = StyleSheet.create({
     color: '#2F2A25',
     fontWeight: '600',
   },
-  valueMultiline: {
-    maxWidth: '60%',
-    textAlign: 'right',
+  sizeCard: {
+    marginTop: 16,
+    backgroundColor: '#FFFBF5',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#E2D4C0',
+  },
+  sizeCardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B5F52',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  sizeCardValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#2F2A25',
+    marginBottom: 2,
+  },
+  sizeCardRange: {
+    fontSize: 13,
+    color: '#4F453C',
+    marginBottom: 8,
+  },
+  sizeCardNote: {
+    fontSize: 12,
+    color: '#9B8E82',
+    lineHeight: 17,
   },
   primaryButton: {
     marginTop: 28,

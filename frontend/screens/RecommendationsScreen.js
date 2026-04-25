@@ -359,7 +359,7 @@ const ALL_SHOES = [
 export default function RecommendationsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
   const skippedScan = route.params?.skippedScan ?? false;
-  const userTypicalSize = route.params?.userTypicalSize ?? '9';
+
 
   // Applied filters (used for the list)
   const [path, setPath] = useState('function');
@@ -422,10 +422,6 @@ export default function RecommendationsScreen({ navigation, route }) {
   const filteredShoes = useMemo(() => {
     const pathTags = path === 'function' ? 'functionPath' : 'silhouettePath';
     return ALL_SHOES.filter((shoe) => {
-      if (!skippedScan && userTypicalSize) {
-        const sizes = shoe.availableSizes;
-        if (!sizes || !Array.isArray(sizes) || !sizes.includes(String(userTypicalSize))) return false;
-      }
       const tags = shoe[pathTags];
       if (!tags || !Array.isArray(tags)) return false;
       const matchCategory = !selectedCategory || tags.includes(selectedCategory);
@@ -437,7 +433,7 @@ export default function RecommendationsScreen({ navigation, route }) {
       }
       return true;
     });
-  }, [skippedScan, userTypicalSize, path, selectedCategory, selectedSubcategory, attributeFilters]);
+  }, [skippedScan, path, selectedCategory, selectedSubcategory, attributeFilters]);
 
   const applyFilters = () => {
     setPath(pathDraft);

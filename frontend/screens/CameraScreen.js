@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Accelerometer, LightSensor } from 'expo-sensors';
+import { API_BASE_URL } from '../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
@@ -33,6 +34,8 @@ export default function CameraScreen({ navigation, route }) {
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
   const [capturedUri, setCapturedUri] = useState(null);
   const [error, setError] = useState(null);
+
+  const [paperSize, setPaperSize] = useState('auto'); // 'auto' | 'letter' | 'a4'
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
@@ -104,14 +107,35 @@ export default function CameraScreen({ navigation, route }) {
     }
   };
 
-  const handleUsePhoto = () => {
+  const handleUsePhoto = async () => {
     setPhase('processing');
-    setTimeout(() => {
-      navigation.navigate('Measurements', {
-        fromOnboarding,
-        imageUri: capturedUri,
+    setError(null);
+    try {
+      const formData = new FormData();
+      const filename = capturedUri.split('/').pop();
+      const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      formData.append('image', { uri: capturedUri, name: filename, type: mimeType });
+      if (paperSize !== 'auto') {
+        formData.append('paper_size', paperSize);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
+        method: 'POST',
+        body: formData,
       });
-    }, 1500);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Measurement failed');
+      }
+
+      navigation.navigate('Measurements', { fromOnboarding, measurements: data });
+    } catch (e) {
+      setError(e.message || 'Could not process photo. Please try again.');
+      setPhase('preview');
+    }
   };
 
   const handleRetake = () => {
@@ -186,6 +210,7 @@ export default function CameraScreen({ navigation, route }) {
         <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
           <Text style={styles.secondaryButtonText}>Retake</Text>
         </TouchableOpacity>
+        {error ? <Text style={styles.previewErrorText}>{error}</Text> : null}
       </View>
     );
   }
@@ -217,6 +242,21 @@ export default function CameraScreen({ navigation, route }) {
         <View style={styles.tiltCard}>
           <Text style={styles.tiltLabel}>{tiltLabel}</Text>
           <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>{tiltStatus}</Text>
+        </View>
+
+        <View style={styles.paperToggleRow}>
+          <Text style={styles.paperToggleLabel}>Paper</Text>
+          {[['auto', 'Auto'], ['letter', 'Letter'], ['a4', 'A4']].map(([val, label]) => (
+            <TouchableOpacity
+              key={val}
+              style={[styles.paperToggleOption, paperSize === val && styles.paperToggleActive]}
+              onPress={() => setPaperSize(val)}
+            >
+              <Text style={[styles.paperToggleText, paperSize === val && styles.paperToggleTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -298,6 +338,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  paperToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  paperToggleLabel: {
+    fontSize: 12,
+    color: '#FFE0B2',
+    fontWeight: '600',
+    paddingHorizontal: 10,
+  },
+  paperToggleOption: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  paperToggleActive: {
+    backgroundColor: '#C28A5B',
+  },
+  paperToggleText: {
+    fontSize: 12,
+    color: '#F5EFE6',
+    fontWeight: '500',
+  },
+  paperToggleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   errorText: {
     fontSize: 13,
     color: '#FFCDD2',
@@ -377,6 +448,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  previewErrorText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#B33',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   permissionTitle: {
     fontSize: 20,
