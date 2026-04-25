@@ -209,10 +209,13 @@ export default function ARCameraScreen({ navigation, route }) {
     } catch (e) {
       setUploadError(e.message || 'Could not process photo. Please try again.');
       setPhase('preview');
+    } finally {
+      if (capturedUri) ARCoreModule?.cleanupCaptureFile?.(capturedUri);
     }
   };
 
   const handleRetake = () => {
+    if (capturedUri) ARCoreModule?.cleanupCaptureFile?.(capturedUri);
     setCapturedUri(null);
     setArSnapshot(null);
     setCaptureError(null);
