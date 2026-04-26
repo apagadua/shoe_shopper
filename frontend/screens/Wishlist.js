@@ -30,6 +30,16 @@ function formatUsd(price) {
   return `$${n.toFixed(2)}`;
 }
 
+function tagsForItem(item) {
+  const a = item.function_tags || [];
+  const b = item.style_tags || [];
+  const out = [];
+  for (const t of [...a, ...b]) {
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
 export default function Wishlist() {
   const { savedMap, toggleSaved, isSaved } = useSavedShoes();
   const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
@@ -57,6 +67,7 @@ export default function Wishlist() {
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
           const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
+          const cardTags = tagsForItem(item);
           return (
             <View key={String(item.id)} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -76,8 +87,8 @@ export default function Wishlist() {
                   <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => {
-                      const owned = isOwned(item.id);
-                      if (owned) {
+                      const ownedNow = isOwned(item.id);
+                      if (ownedNow) {
                         toggleOwned(item);
                         return;
                       }
@@ -98,12 +109,9 @@ export default function Wishlist() {
                 </View>
               </View>
               <Text style={styles.name}>{item.model}</Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.metaText}>
-                  Size: {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
-                </Text>
-                <Text style={styles.metaText}>Price: {formatUsd(item.price_usd)}</Text>
-              </View>
+              {item.colorway ? (
+                <Text style={styles.colorway}>{item.colorway}</Text>
+              ) : null}
 
               {item.fit_status && item.fit_status !== 'UNSCORED' && (
                 <View style={styles.fitRow}>
@@ -111,9 +119,7 @@ export default function Wishlist() {
                     <Text style={[styles.fitScore, { color: statusColor }]}>{item.fit_score}</Text>
                     <Text style={[styles.fitLabel, { color: statusColor }]}>{item.fit_status_label}</Text>
                   </View>
-                  {item.fit_profile ? (
-                    <Text style={styles.fitProfile}>{item.fit_profile.replace(/_/g, ' ')}</Text>
-                  ) : null}
+                  <Text style={styles.fitProfile}>{item.fit_profile?.replace(/_/g, ' ')}</Text>
                 </View>
               )}
 
@@ -123,6 +129,38 @@ export default function Wishlist() {
                 <View style={styles.shoePhotoPlaceholder}>
                   <Ionicons name="image-outline" size={32} color="#B0A499" />
                   <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
+                </View>
+              )}
+
+              <View style={styles.keyFacts}>
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="footsteps" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Size</Text>
+                  </View>
+                  <Text style={styles.keyFactValue} numberOfLines={1}>
+                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.keyFactDivider} />
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="pricetag" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Price</Text>
+                  </View>
+                  <Text style={styles.keyFactValuePrice} numberOfLines={1}>
+                    {formatUsd(item.price_usd)}
+                  </Text>
+                </View>
+              </View>
+
+              {cardTags.length > 0 && (
+                <View style={styles.attrTags}>
+                  {cardTags.map((t) => (
+                    <View key={t} style={styles.attrTag}>
+                      <Text style={styles.attrTagText}>{t}</Text>
+                    </View>
+                  ))}
                 </View>
               )}
 
@@ -189,14 +227,57 @@ const styles = StyleSheet.create({
   },
   iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 4 },
-  metaRow: {
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
+  colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
+  keyFacts: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    backgroundColor: 'rgba(194, 138, 91, 0.12)',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 138, 91, 0.45)',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     marginBottom: 10,
   },
-  metaText: { fontSize: 14, color: '#6B5F52', fontWeight: '500' },
+  keyFactCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyFactLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 3,
+  },
+  keyFactLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#7A6A5C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  keyFactValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2F2A25',
+    letterSpacing: -0.25,
+  },
+  keyFactValuePrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#B86A3C',
+    letterSpacing: -0.35,
+  },
+  keyFactDivider: {
+    width: 1,
+    backgroundColor: 'rgba(194, 138, 91, 0.35)',
+    marginVertical: 0,
+  },
+  attrTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  attrTag: { backgroundColor: '#F0E2D0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  attrTagText: { fontSize: 11, color: '#6B5F52' },
   fitRow: {
     flexDirection: 'row',
     alignItems: 'center',

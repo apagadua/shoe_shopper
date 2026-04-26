@@ -140,7 +140,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen
         name="ProfileHome"
         component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        options={{ title: 'Profile', contentStyle: { backgroundColor: '#F5EFE6' } }}
       />
     </ProfileStack.Navigator>
   );

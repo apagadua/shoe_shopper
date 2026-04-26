@@ -334,12 +334,6 @@ export default function RecommendationsScreen({ navigation, route }) {
               {item.colorway ? (
                 <Text style={styles.colorway}>{item.colorway}</Text>
               ) : null}
-              <View style={styles.metaRow}>
-                <Text style={styles.metaText}>
-                  Size: {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
-                </Text>
-                <Text style={styles.metaText}>Price: {formatUsd(item.price_usd)}</Text>
-              </View>
 
               {/* Fit score badge — hidden when no insole data to score against */}
               {item.fit_status !== 'UNSCORED' && (
@@ -360,6 +354,28 @@ export default function RecommendationsScreen({ navigation, route }) {
                   <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
                 </View>
               )}
+
+              <View style={styles.keyFacts}>
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="footsteps" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Size</Text>
+                  </View>
+                  <Text style={styles.keyFactValue} numberOfLines={1}>
+                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.keyFactDivider} />
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="pricetag" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Price</Text>
+                  </View>
+                  <Text style={styles.keyFactValuePrice} numberOfLines={1}>
+                    {formatUsd(item.price_usd)}
+                  </Text>
+                </View>
+              </View>
 
               {cardTags.length > 0 && (
                 <View style={styles.attrTags}>
@@ -576,13 +592,52 @@ const styles = StyleSheet.create({
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
   colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
-  metaRow: {
+  keyFacts: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    backgroundColor: 'rgba(194, 138, 91, 0.12)',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 138, 91, 0.45)',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     marginBottom: 10,
   },
-  metaText: { fontSize: 14, color: '#6B5F52', fontWeight: '500' },
+  keyFactCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyFactLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 3,
+  },
+  keyFactLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#7A6A5C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  keyFactValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2F2A25',
+    letterSpacing: -0.25,
+  },
+  keyFactValuePrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#B86A3C',
+    letterSpacing: -0.35,
+  },
+  keyFactDivider: {
+    width: 1,
+    backgroundColor: 'rgba(194, 138, 91, 0.35)',
+    marginVertical: 0,
+  },
   fitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },

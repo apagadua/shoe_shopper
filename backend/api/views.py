@@ -436,6 +436,49 @@ class DeleteAccountView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ProfileView(APIView):
+    """Read and update the authenticated user's profile (display name, etc.)."""
+
+    permission_classes = [IsAuthenticated]
+
+    MAX_DISPLAY_NAME_LEN = 200
+
+    def get(self, request):
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={"display_name": None, "avatar_url": None},
+        )
+        return Response(
+            {
+                "display_name": (profile.display_name or "").strip(),
+            }
+        )
+
+    def patch(self, request):
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={"display_name": None, "avatar_url": None},
+        )
+        name = request.data.get("display_name")
+        if name is None:
+            return Response(
+                {"detail": "display_name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not isinstance(name, str):
+            return Response(
+                {"detail": "display_name must be a string"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        profile.display_name = name.strip()[: self.MAX_DISPLAY_NAME_LEN] or None
+        profile.save()
+        return Response(
+            {
+                "display_name": (profile.display_name or "").strip(),
+            }
+        )
+
+
 class HealthView(APIView):
     permission_classes = [AllowAny]
 

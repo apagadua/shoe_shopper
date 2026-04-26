@@ -65,12 +65,20 @@ function SectionHeader({ title, onViewAll }) {
   );
 }
 
+function firstNameFromDisplayName(displayName) {
+  const t = (displayName || '').trim();
+  if (!t) return '';
+  return t.split(/\s+/)[0];
+}
+
 export default function Dashboard({ navigation }) {
   const [measurements, setMeasurements] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [recResults, setRecResults] = useState([]);
   const [recLoading, setRecLoading] = useState(true);
   const [recFetchError, setRecFetchError] = useState(false);
+  /** null = not loaded yet; string (maybe empty) = first name for greeting */
+  const [greetingFirstName, setGreetingFirstName] = useState(null);
 
   const { savedMap } = useSavedShoes();
   const { ownedMap } = useOwnedShoes();
@@ -98,8 +106,24 @@ export default function Dashboard({ navigation }) {
           const token = await SecureStore.getItemAsync('authToken');
           if (!token || cancelled) {
             setRecLoading(false);
+            setGreetingFirstName(null);
             return;
           }
+
+          let firstNameForGreeting = '';
+          try {
+            const pRes = await fetch(`${API_BASE_URL}/api/profile/`, {
+              headers: { Authorization: `Token ${token}` },
+            });
+            if (pRes.ok) {
+              const pData = await pRes.json();
+              const raw = typeof pData.display_name === 'string' ? pData.display_name : '';
+              firstNameForGreeting = firstNameFromDisplayName(raw);
+            }
+          } catch {
+            // ignore; greeting falls back to generic
+          }
+          if (!cancelled) setGreetingFirstName(firstNameForGreeting);
 
           const mRes = await fetch(`${API_BASE_URL}/api/measurements/latest/`, {
             headers: { Authorization: `Token ${token}` },
@@ -126,6 +150,7 @@ export default function Dashboard({ navigation }) {
           if (!cancelled) {
             setLoadError(true);
             setRecFetchError(true);
+            setGreetingFirstName((prev) => (prev === null ? '' : prev));
           }
         } finally {
           if (!cancelled) setRecLoading(false);
@@ -149,6 +174,14 @@ export default function Dashboard({ navigation }) {
       showsVerticalScrollIndicator={false}
       nestedScrollEnabled
     >
+      {greetingFirstName !== null ? (
+        <View style={styles.greetingBlock}>
+          <Text style={styles.greetingText}>
+            {greetingFirstName ? `Hi, ${greetingFirstName}!` : 'Hi there'}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Foot profile */}
       <View style={styles.profileCard}>
         <View style={styles.profileHeader}>
@@ -328,6 +361,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: H_PAD,
     paddingTop: 20,
     paddingBottom: 40,
+  },
+  greetingBlock: {
+    marginBottom: 20,
+  },
+  greetingText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 24,
+    color: '#2F2A25',
+    letterSpacing: -0.3,
   },
   profileCard: {
     backgroundColor: '#FFFBF5',
