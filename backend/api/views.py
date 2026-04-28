@@ -1,7 +1,11 @@
 import base64
+import copy
+import io
 import json
 import logging
 import math
+
+from PIL import Image
 
 import requests as http_requests
 from django.conf import settings
@@ -38,6 +42,31 @@ PAPER_LABELS = {
 def _pts(pred):
     """Extract (x, y) tuples from a Roboflow prediction's polygon points."""
     return [(pt.get("x", 0), pt.get("y", 0)) for pt in pred.get("points", [])]
+
+
+def _counter_rotate_preds(all_preds, H_sensor):
+    """
+    Counter-rotate Roboflow polygon points from 90°-CW-rotated image space
+    back to sensor (landscape) space.
+
+    When we send a 90° CW-rotated image to Roboflow:
+        rotated image size: W_rot = H_sensor, H_rot = W_sensor
+    Roboflow returns (x_rf, y_rf) in that rotated space.
+
+    Inverse of 90° CW rotation:
+        x_sensor = y_rf
+        y_sensor = H_sensor - 1 - x_rf
+
+    Returns a deep copy of all_preds with point coords replaced.
+    """
+    preds = copy.deepcopy(all_preds)
+    for pred in preds:
+        for pt in pred.get("points", []):
+            x_rf = pt["x"]
+            y_rf = pt["y"]
+            pt["x"] = y_rf
+            pt["y"] = H_sensor - 1 - x_rf
+    return preds
 
 
 def _ppi_from_paper_bbox(paper, short_in, long_in):
@@ -286,12 +315,25 @@ class FootMeasureView(APIView):
 
     def _measure_with_ar(self, request, image_file, ar_snapshot):
         image_bytes = image_file.read()
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+        # Rotate 90° CW before Roboflow so the foot appears portrait-upright.
+        # acquireCameraImage() gives sensor-orientation bytes (landscape when the
+        # phone is held portrait). Roboflow expects portrait orientation.
+        img = Image.open(io.BytesIO(image_bytes))
+        img_rotated = img.transpose(Image.Transpose.ROTATE_270)  # 270° CCW = 90° CW
+        buf = io.BytesIO()
+        img_rotated.save(buf, format="JPEG", quality=90)
+        b64_image = base64.b64encode(buf.getvalue()).decode("utf-8")
 
         try:
             all_preds = self._run_roboflow(request, b64_image)
         except _RoboflowError as e:
             return Response({"detail": e.detail}, status=e.http_status)
+
+        # Counter-rotate all polygon points back to sensor space so the
+        # camera-intrinsics-based ray casting uses consistent coordinates.
+        H_sensor = ar_snapshot.get("image_dimensions", [640, 480])[1]
+        all_preds = _counter_rotate_preds(all_preds, H_sensor)
 
         foot = None
         for cls in ("foot", "insole"):

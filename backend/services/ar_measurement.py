@@ -18,7 +18,6 @@ world coordinates are then used to compute length, width, and area.
 
 import numpy as np
 
-
 METERS_TO_INCHES = 39.3701
 
 
