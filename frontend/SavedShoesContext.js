@@ -1,40 +1,49 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SavedShoesContext = createContext({
-  savedShoes: [],
-  toggleSaved: (_shoe) => {},
-  isSaved: (_id) => false,
-});
+const STORAGE_KEY = 'savedShoes';
+
+const SavedShoesContext = createContext(null);
 
 export function SavedShoesProvider({ children }) {
-  const [savedShoes, setSavedShoes] = useState([]);
+  const [savedMap, setSavedMap] = useState({});
 
-  const toggleSaved = (shoe) => {
-    if (!shoe || !shoe.id) return;
-    setSavedShoes((prev) => {
-      const exists = prev.some((s) => s.id === shoe.id);
-      if (exists) {
-        return prev.filter((s) => s.id !== shoe.id);
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then(raw => { if (raw) setSavedMap(JSON.parse(raw)); })
+      .catch(err => {
+        console.error('Failed to load saved shoes:', err);
+        setSavedMap({});
+      });
+  }, []);
+
+  function toggleSaved(shoe) {
+    if (!shoe?.id) return;
+    setSavedMap(prev => {
+      const next = { ...prev };
+      if (next[shoe.id]) {
+        delete next[shoe.id];
+      } else {
+        next[shoe.id] = shoe;
       }
-      return [...prev, shoe];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
     });
-  };
+  }
 
-  const isSaved = (id) => savedShoes.some((s) => s.id === id);
+  function isSaved(id) {
+    return Boolean(savedMap[id]);
+  }
 
-  const value = useMemo(
-    () => ({
-      savedShoes,
-      toggleSaved,
-      isSaved,
-    }),
-    [savedShoes],
+  const savedShoes = Object.values(savedMap);
+
+  return (
+    <SavedShoesContext.Provider value={{ savedMap, savedShoes, toggleSaved, isSaved }}>
+      {children}
+    </SavedShoesContext.Provider>
   );
-
-  return <SavedShoesContext.Provider value={value}>{children}</SavedShoesContext.Provider>;
 }
 
 export function useSavedShoes() {
   return useContext(SavedShoesContext);
 }
-

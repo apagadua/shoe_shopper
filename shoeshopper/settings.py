@@ -6,8 +6,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+# Allow POST /api/dev/mock-measurement/ when DEBUG is False (e.g. staging) — use sparingly.
+ENABLE_DEV_MOCK_MEASUREMENT = os.getenv("ENABLE_DEV_MOCK_MEASUREMENT", "").lower() in ("1", "true", "yes")
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host]
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_ANDROID_CLIENT_ID = os.getenv("GOOGLE_ANDROID_CLIENT_ID", "").strip()
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
+ROBOFLOW_WORKSPACE = os.getenv("ROBOFLOW_WORKSPACE", "")
+ROBOFLOW_PROJECT = os.getenv("ROBOFLOW_PROJECT", "")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

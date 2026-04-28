@@ -10,7 +10,10 @@ import {
   Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { Accelerometer, LightSensor } from 'expo-sensors';
+import { API_BASE_URL } from '../config/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FRAME_PADDING = 32;
@@ -33,6 +36,8 @@ export default function CameraScreen({ navigation, route }) {
   const [phase, setPhase] = useState('camera'); // 'camera' | 'preview' | 'processing'
   const [capturedUri, setCapturedUri] = useState(null);
   const [error, setError] = useState(null);
+
+  const [paperSize, setPaperSize] = useState('letter'); // 'letter' | 'a4'
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
@@ -71,7 +76,8 @@ export default function CameraScreen({ navigation, route }) {
       (async () => {
         try {
           const available = await LightSensor.isAvailableAsync();
-          if (!mounted || !available) {
+          if (!mounted) return;
+          if (!available) {
             setLightAvailable(false);
             return;
           }
@@ -104,19 +110,52 @@ export default function CameraScreen({ navigation, route }) {
     }
   };
 
-  const handleUsePhoto = () => {
+  const handleUsePhoto = async () => {
     setPhase('processing');
-    setTimeout(() => {
-      navigation.navigate('Measurements', {
-        fromOnboarding,
-        imageUri: capturedUri,
+    setError(null);
+    try {
+      const formData = new FormData();
+      const filename = capturedUri.split('/').pop();
+      const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      formData.append('image', { uri: capturedUri, name: filename, type: mimeType });
+      formData.append('paper_size', paperSize);
+
+      const token = await SecureStore.getItemAsync('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
+        method: 'POST',
+        headers: { Authorization: `Token ${token}` },
+        body: formData,
       });
-    }, 1500);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Measurement failed');
+      }
+
+      navigation.navigate('Measurements', { fromOnboarding, measurements: data });
+    } catch (e) {
+      setError(e.message || 'Could not process photo. Please try again.');
+      setPhase('preview');
+    }
   };
 
   const handleRetake = () => {
     setCapturedUri(null);
+    setError(null);
     setPhase('camera');
+  };
+
+  const handlePickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      setCapturedUri(result.assets[0].uri);
+      setPhase('preview');
+    }
   };
 
   if (!permission) {
@@ -186,6 +225,7 @@ export default function CameraScreen({ navigation, route }) {
         <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
           <Text style={styles.secondaryButtonText}>Retake</Text>
         </TouchableOpacity>
+        {error ? <Text style={styles.previewErrorText}>{error}</Text> : null}
       </View>
     );
   }
@@ -226,20 +266,40 @@ export default function CameraScreen({ navigation, route }) {
                 {tiltLabel} · {tiltStatus}
               </Text>
             </View>
+            <View style={styles.whiteHeaderDivider} />
+            <View style={styles.whiteHeaderPaperRow}>
+              <Text style={styles.whiteHeaderLabel}>Paper</Text>
+              {[['letter', 'Letter'], ['a4', 'A4']].map(([val, label]) => (
+                <TouchableOpacity
+                  key={val}
+                  style={[styles.paperHeaderOption, paperSize === val && styles.paperHeaderOptionActive]}
+                  onPress={() => setPaperSize(val)}
+                >
+                  <Text style={[styles.paperHeaderOptionText, paperSize === val && styles.paperHeaderOptionTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
-          onPress={handleTakePhoto}
-          disabled={!canCapture}
-        >
-          <Text style={styles.captureButtonText}>
-            {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={[styles.captureButton, !canCapture && styles.captureButtonDisabled]}
+            onPress={handleTakePhoto}
+            disabled={!canCapture}
+          >
+            <Text style={styles.captureButtonText}>
+              {canCapture ? 'Capture photo' : 'Align phone and lighting to capture'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryButton} onPress={handlePickFromGallery}>
+            <Text style={styles.galleryButtonText}>Pick from gallery</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -259,6 +319,10 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 112,
     justifyContent: 'space-between',
+  },
+  bottomActions: {
+    width: '100%',
+    alignItems: 'center',
   },
   topGuidance: {
     width: '100%',
@@ -319,6 +383,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  whiteHeaderPaperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  paperHeaderOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#C28A5B',
+  },
+  paperHeaderOptionActive: {
+    backgroundColor: '#C28A5B',
+  },
+  paperHeaderOptionText: {
+    fontSize: 12,
+    color: '#C28A5B',
+    fontWeight: '600',
+  },
+  paperHeaderOptionTextActive: {
+    color: '#FFFFFF',
+  },
   centerContainer: {
     flex: 1,
     backgroundColor: '#F5EFE6',
@@ -334,6 +422,7 @@ const styles = StyleSheet.create({
   },
   captureButton: {
     marginTop: 4,
+    width: '90%',
     backgroundColor: '#C28A5B',
     paddingVertical: 14,
     borderRadius: 999,
@@ -341,6 +430,17 @@ const styles = StyleSheet.create({
   },
   captureButtonDisabled: {
     opacity: 0.5,
+  },
+  galleryButton: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  galleryButtonText: {
+    color: '#FFFBF5',
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   captureButtonText: {
     color: '#FFFFFF',
@@ -405,6 +505,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
+  },
+  previewErrorText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#B33',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   permissionTitle: {
     fontSize: 20,

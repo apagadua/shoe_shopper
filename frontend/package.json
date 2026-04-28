@@ -5,7 +5,7 @@
   "scripts": {
     "start": "npx expo start --tunnel",
     "start:tunnel": "npx expo start --tunnel",
-    "android": "npx expo start --android",
+    "android": "npx expo start --lan",
     "ios": "npx expo start --ios",
     "web": "npx expo start --web"
   },
