@@ -154,7 +154,7 @@ export default function CameraScreen({ navigation, route }) {
       quality: 0.9,
     });
     if (!result.canceled && result.assets?.length > 0) {
-      setCapturedUri(result.assets[0].uri);
+      setCapturedPhoto({ uri: result.assets[0].uri });
       setPhase('preview');
     }
   };

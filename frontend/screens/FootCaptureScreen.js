@@ -6,11 +6,26 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+
 export default function FootCaptureScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
 
   const handleCapture = () => {
     navigation.navigate('Camera', { fromOnboarding });
+  };
+
+  const handlePickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      navigation.navigate('Camera', {
+        fromOnboarding,
+        galleryUri: result.assets[0].uri,
+      });
+    }
   };
 
   return (
@@ -40,6 +55,10 @@ export default function FootCaptureScreen({ navigation, route }) {
 
       <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
         <Text style={styles.captureButtonText}>Open camera</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.galleryAction} onPress={handlePickFromGallery}>
+        <Text style={styles.galleryText}>Pick from gallery</Text>
       </TouchableOpacity>
 
       {fromOnboarding && (
@@ -120,6 +139,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  galleryAction: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  galleryText: {
+    fontSize: 15,
+    color: '#6B5F52',
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   secondaryAction: {
     marginTop: 16,

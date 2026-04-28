@@ -19,6 +19,8 @@ class ShoeSerializer(serializers.ModelSerializer):
             "id",
             "brand",
             "model",
+            "colorway",
+            "sku",
             "gender",
             "price_usd",
             "shoe_image_url",
@@ -33,6 +35,8 @@ class RecommendationSerializer(serializers.Serializer):
     id               = serializers.SerializerMethodField()
     brand            = serializers.SerializerMethodField()
     model            = serializers.SerializerMethodField()
+    colorway         = serializers.SerializerMethodField()
+    sku              = serializers.SerializerMethodField()
     gender           = serializers.SerializerMethodField()
     price_usd        = serializers.SerializerMethodField()
     shoe_image_url   = serializers.SerializerMethodField()
@@ -48,12 +52,15 @@ class RecommendationSerializer(serializers.Serializer):
     fit_flags        = serializers.SerializerMethodField()
     fit_dimensions   = serializers.SerializerMethodField()
     reject_reason    = serializers.SerializerMethodField()
-    recommended_size = serializers.SerializerMethodField()
+    recommended_size  = serializers.SerializerMethodField()
     estimated_us_size = serializers.SerializerMethodField()
+    colorway_options  = serializers.SerializerMethodField()
 
     def get_id(self, obj):             return obj["shoe"].id
     def get_brand(self, obj):          return obj["shoe"].brand
     def get_model(self, obj):          return obj["shoe"].model
+    def get_colorway(self, obj):       return obj["shoe"].colorway
+    def get_sku(self, obj):            return obj["shoe"].sku
     def get_gender(self, obj):         return obj["shoe"].gender
     def get_price_usd(self, obj):      return str(obj["shoe"].price_usd) if obj["shoe"].price_usd else None
     def get_shoe_image_url(self, obj): return obj["shoe"].shoe_image_url
@@ -64,17 +71,18 @@ class RecommendationSerializer(serializers.Serializer):
     def get_sizes(self, obj):
         return ShoeSizeSerializer(obj["shoe"].sizes.all(), many=True).data
 
-    def get_attributes_json(self, obj): return obj.get("attributes", {})
+    def get_attributes_json(self, obj):   return obj.get("attributes", {})
 
-    def get_fit_score(self, obj):        return obj["fit"]["total_score"]
-    def get_fit_status(self, obj):       return obj["fit"]["status"]
-    def get_fit_status_label(self, obj): return status_label(obj["fit"]["status"])
-    def get_fit_profile(self, obj):      return obj["fit"]["profile_used"]
-    def get_fit_flags(self, obj):        return obj["fit"]["flags"]
-    def get_fit_dimensions(self, obj):   return obj["fit"]["dimensions"]
-    def get_reject_reason(self, obj):      return obj["fit"]["reject_reason"]
+    def get_fit_score(self, obj):         return obj["fit"]["total_score"]
+    def get_fit_status(self, obj):        return obj["fit"]["status"]
+    def get_fit_status_label(self, obj):  return status_label(obj["fit"]["status"])
+    def get_fit_profile(self, obj):       return obj["fit"]["profile_used"]
+    def get_fit_flags(self, obj):         return obj["fit"]["flags"]
+    def get_fit_dimensions(self, obj):    return obj["fit"]["dimensions"]
+    def get_reject_reason(self, obj):     return obj["fit"]["reject_reason"]
     def get_recommended_size(self, obj):  return obj.get("recommended_size")
     def get_estimated_us_size(self, obj): return obj["fit"].get("estimated_us_size")
+    def get_colorway_options(self, obj):  return obj.get("colorway_options", [])
 
 
 class MeasurementUploadSerializer(serializers.Serializer):

@@ -29,6 +29,7 @@
     },
     "scheme": "shoeshopper",
     "plugins": [
+      "./plugins/withARCore",
       "expo-font",
       "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",

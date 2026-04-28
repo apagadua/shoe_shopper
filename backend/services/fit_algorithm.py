@@ -54,104 +54,116 @@ SHOE_WIDTH_LO  = 0.92   # max total width clearance = 2 × 0.46"/side (ROAD/TRAI
 SHOE_WIDTH_HI  = 1.25   # shoe construction flex: upper can accommodate foot up to 1.25" wider than insole template
 
 # ---------------------------------------------------------------------------
-# Tolerance profiles
-# Each profile: length, width, tb_len (toebox length), tb_width (toebox width)
+# Tolerance profiles — base + deltas
+# Each dimension: length, width, tb_len (toebox length), tb_width (toebox width)
 # Width values are per-side (half of total clearance).
+#
+# _BASE_PROFILE defines the default optimal clearances (inches).
+# _DELTAS overrides only the values that differ for each shoe type.
+# Negative width min values allow partial credit when the foot is slightly
+# wider than the insole (shoe upper flex). Work profiles use -0.12 since
+# sustained wear demands more reliable width fit.
 # ---------------------------------------------------------------------------
 
-_PROFILES = {
-    # width/tb_width min values are negative to allow partial credit when the foot
-    # is slightly wider than the insole. These represent real shoe construction
-    # flex — the upper can stretch to accommodate modest overhang.
-    # -0.25/side = 0.50" total overhang limit for ball area (most profiles).
-    # -0.16/side = 0.32" total for toebox (less flex than the ball area).
-    # Work profiles use -0.12 since sustained wear demands more reliable width fit.
-    # CV bias correction is applied upstream, so clearances here reflect true dimensions.
+_BASE_PROFILE = {
+    "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+    "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
+    "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+    "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+}
+
+_DELTAS = {
     "ROAD_RUNNING": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
+        "length":   {"opt_high": +0.04, "max": +0.12},
+        "width":    {"max": +0.07},
+        "tb_len":   {"opt_high": +0.04, "max": +0.12},
+        "tb_width": {"opt_low": +0.04, "opt_high": +0.08, "max": +0.07},
     },
     "TRAIL_RUNNING": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.79},
-        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
+        "length":   {"opt_high": +0.04, "max": +0.12},
+        "width":    {"max": +0.07},
+        "tb_len":   {"opt_high": +0.04, "max": +0.12},
+        "tb_width": {"opt_low": +0.04, "opt_high": +0.08, "max": +0.07},
     },
     "INDOOR_TRACK": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.63},
-        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.46},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.63},
-        "tb_width": {"min": -0.16, "opt_low": 0.16, "opt_high": 0.24, "max": 0.43},
+        "length":   {"opt_high": -0.04, "max": -0.04},
+        "width":    {"max": +0.07},
+        "tb_len":   {"opt_high": -0.04, "max": -0.04},
+        "tb_width": {"opt_high": +0.08, "max": +0.04},
     },
     "TRAINING": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.59},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.51, "max": 0.59},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+        "length":   {"opt_high": -0.04, "max": -0.08},
+        "width":    {"opt_low": -0.04, "opt_high": -0.04},
+        "tb_len":   {"opt_high": -0.04, "max": -0.08},
     },
     "BASKETBALL": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.20, "max": 0.43},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.59, "max": 0.67},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.20, "max": 0.43},
+        "length":   {"opt_high": +0.04},
+        "width":    {"opt_low": -0.04, "max": +0.04},
+        "tb_len":   {"opt_high": +0.04},
+        "tb_width": {"opt_high": +0.04, "max": +0.04},
     },
     "CLEATED_SPORT": {
-        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.47, "max": 0.55},
-        "width":    {"min": -0.25, "opt_low": 0.04, "opt_high": 0.12, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.47, "max": 0.55},
-        "tb_width": {"min": -0.16, "opt_low": 0.04, "opt_high": 0.08, "max": 0.31},
+        "length":   {"opt_low": -0.08, "opt_high": -0.08, "max": -0.12},
+        "width":    {"opt_low": -0.08, "opt_high": -0.08, "max": -0.04},
+        "tb_len":   {"opt_low": -0.08, "opt_high": -0.08, "max": -0.12},
+        "tb_width": {"opt_low": -0.08, "opt_high": -0.08, "max": -0.08},
     },
     "TENNIS": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.16, "max": 0.39},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+        "width":    {"opt_low": -0.04, "opt_high": -0.04},
     },
     "SKATE": {
-        "length":   {"min": 0.20, "opt_low": 0.31, "opt_high": 0.43, "max": 0.55},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
-        "tb_len":   {"min": 0.20, "opt_low": 0.31, "opt_high": 0.43, "max": 0.55},
-        "tb_width": {"min": -0.16, "opt_low": 0.08, "opt_high": 0.12, "max": 0.31},
+        "length":   {"opt_low": -0.16, "opt_high": -0.12, "max": -0.12},
+        "width":    {"opt_low": -0.04, "opt_high": -0.08, "max": -0.08},
+        "tb_len":   {"opt_low": -0.16, "opt_high": -0.12, "max": -0.12},
+        "tb_width": {"opt_low": -0.04, "opt_high": -0.04, "max": -0.08},
     },
     "HIKING": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.67, "max": 0.79},
-        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.67, "max": 0.79},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39},
+        "length":   {"opt_high": +0.12, "max": +0.12},
+        "tb_len":   {"opt_high": +0.12, "max": +0.12},
     },
     "CASUAL": {
-        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
-        "tb_width": {"min": -0.16, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
+        "length":   {"opt_low": -0.08, "opt_high": -0.04, "max": -0.08},
+        "width":    {"opt_low": -0.04, "opt_high": -0.08, "max": -0.04},
+        "tb_len":   {"opt_low": -0.08, "opt_high": -0.04, "max": -0.08},
+        "tb_width": {"opt_low": -0.04, "opt_high": -0.04, "max": -0.04},
     },
     "CASUAL_SLIPON": {
-        "length":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
-        "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.39, "opt_high": 0.51, "max": 0.59},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
+        "length":   {"opt_low": -0.08, "opt_high": -0.04, "max": -0.08},
+        "width":    {"opt_high": -0.04, "max": -0.04},
+        "tb_len":   {"opt_low": -0.08, "opt_high": -0.04, "max": -0.08},
+        "tb_width": {"max": -0.04},
     },
     "WORK_INDOOR": {
-        "length":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "width":    {"min": -0.12, "opt_low": 0.16, "opt_high": 0.20, "max": 0.43},
-        "tb_len":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "tb_width": {"min": -0.12, "opt_low": 0.16, "opt_high": 0.20, "max": 0.39},
+        "length":   {"min": +0.04, "opt_low": -0.08, "opt_high": -0.06, "max": -0.08},
+        "width":    {"min": +0.13, "opt_low": +0.04, "max": +0.04},
+        "tb_len":   {"min": +0.04, "opt_low": -0.08, "opt_high": -0.06, "max": -0.08},
+        "tb_width": {"min": +0.04, "opt_low": +0.04, "opt_high": +0.04},
     },
     "WORK_OUTDOOR": {
-        "length":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "width":    {"min": -0.12, "opt_low": 0.16, "opt_high": 0.24, "max": 0.46},
-        "tb_len":   {"min": 0.24, "opt_low": 0.39, "opt_high": 0.49, "max": 0.59},
-        "tb_width": {"min": -0.12, "opt_low": 0.16, "opt_high": 0.24, "max": 0.43},
+        "length":   {"min": +0.04, "opt_low": -0.08, "opt_high": -0.06, "max": -0.08},
+        "width":    {"min": +0.13, "opt_low": +0.04, "opt_high": +0.04, "max": +0.07},
+        "tb_len":   {"min": +0.04, "opt_low": -0.08, "opt_high": -0.06, "max": -0.08},
+        "tb_width": {"min": +0.04, "opt_low": +0.04, "opt_high": +0.08, "max": +0.04},
     },
     "DRESS": {
-        "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "width":    {"min": -0.25, "opt_low": 0.08, "opt_high": 0.12, "max": 0.35},
-        "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
-        "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.35},
+        "width":    {"opt_low": -0.04, "opt_high": -0.08, "max": -0.04},
+        "tb_width": {"max": -0.04},
     },
 }
+
+
+def _build_profiles():
+    profiles = {}
+    for name, deltas in _DELTAS.items():
+        profile = copy.deepcopy(_BASE_PROFILE)
+        for dim, offsets in deltas.items():
+            for key, offset in offsets.items():
+                profile[dim][key] += offset
+        profiles[name] = profile
+    return profiles
+
+
+_PROFILES = _build_profiles()
 
 # ---------------------------------------------------------------------------
 # Point budgets
