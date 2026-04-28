@@ -252,6 +252,75 @@ class TrainingImage(models.Model):
             models.Index(fields=["user", "-created_at"], name="idx_training_user_created"),
         ]
 
+class UserFeedback(models.Model):
+    class FeedbackType(models.TextChoices):
+        TOO_NARROW = "too_narrow", "Too Narrow"
+        TOO_WIDE = "too_wide", "Too Wide"
+        TOO_SHORT = "too_short", "Too Short"
+        TOO_LONG = "too_long", "Too Long"
+        PERFECT = "perfect", "Perfect"
+
+    class ShoeProfile(models.TextChoices):
+        ROAD_RUNNING = "road_running", "Road Running"
+        TRAIL_RUNNING = "trail_running", "Trail Running"
+        INDOOR_TRACK = "indoor_track", "Indoor Track"
+        TRAINING = "training", "Training"
+        BASKETBALL = "basketball", "Basketball"
+        CLEATED_SPORT = "cleated_sport", "Cleated Sport"
+        TENNIS = "tennis", "Tennis"
+        SKATE = "skate", "Skate"
+        HIKING = "hiking", "Hiking"
+        CASUAL = "casual", "Casual"
+        CASUAL_SLIPON = "casual_slipon", "Casual Slip-On"
+        WORK_INDOOR = "work_indoor", "Work Indoor"
+        WORK_OUTDOOR = "work_outdoor", "Work Outdoor"
+        DRESS = "dress", "Dress"
+
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    feedback_type = models.CharField(
+        max_length=20,
+        choices=FeedbackType.choices
+    )
+
+    shoe_profile = models.CharField(
+        max_length=255,
+        choices=ShoeProfile.choices
+    )
+
+    current_tolerances = models.JSONField()
+
+    fit_score = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    measurements = models.JSONField(
+        null=True,
+        blank=True
+    )
+
+    severity_rating = models.IntegerField(
+        null=True,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "user_feedback"
+        indexes = [
+            models.Index(fields=["shoe_profile"], name="idx_feedback_shoe_profile"),
+            models.Index(fields=["created_at"], name="idx_feedback_created_at"),
+            models.Index(fields=["feedback_type"], name="idx_feedback_type")
+        ]
 
 __all__ = [
     "Profile",
@@ -262,4 +331,5 @@ __all__ = [
     "UserCollection",
     "Recommendation",
     "TrainingImage",
+    "UserFeedback"
 ]

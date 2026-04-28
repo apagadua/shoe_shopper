@@ -1,0 +1,7 @@
+{
+  "meta": {"total_feedback_count": 0},
+  "length":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+  "width":    {"min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
+  "tb_len":   {"min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
+  "tb_width": {"min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
+}
