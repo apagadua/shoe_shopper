@@ -22,6 +22,45 @@ const FIT_STATUS_COLOR = {
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
 
+const COLOR_SWATCH_MAP = {
+  black: '#212121',
+  white: '#F4F4F4',
+  red: '#D94A4A',
+  blue: '#4E7EDB',
+  navy: '#213A73',
+  green: '#4D8A4E',
+  yellow: '#F1C40F',
+  orange: '#E67E22',
+  pink: '#D673B3',
+  purple: '#8E5BBF',
+  brown: '#7A5A42',
+  tan: '#B78B5A',
+  gray: '#9AA1AA',
+  grey: '#9AA1AA',
+  silver: '#BFC6CF',
+  gold: '#C8A74E',
+  beige: '#D6C3A1',
+  cream: '#E8DEC5',
+  khaki: '#B9AA79',
+  olive: '#7A8450',
+  moss: '#6A7B4E',
+  charcoal: '#4A4A4A',
+  teal: '#3D8E8B',
+};
+
+function getColorSwatch(colorName = '') {
+  const normalized = colorName.toLowerCase();
+  const match = Object.keys(COLOR_SWATCH_MAP).find((key) => normalized.includes(key));
+  return match ? COLOR_SWATCH_MAP[match] : '#C9B8A7';
+}
+
+function formatUsd(price) {
+  if (price == null || price === '') return '—';
+  const n = typeof price === 'string' ? parseFloat(price) : Number(price);
+  if (Number.isNaN(n)) return '—';
+  return `$${n.toFixed(2)}`;
+}
+
 export default function Closet({ navigation }) {
   const { toggleSaved, isSaved } = useSavedShoes();
   const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
@@ -48,6 +87,7 @@ export default function Closet({ navigation }) {
           const saved = isSaved(item.id);
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
+          const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
           return (
             <View key={String(item.id)} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -89,6 +129,12 @@ export default function Closet({ navigation }) {
                 </View>
               </View>
               <Text style={styles.name}>{item.model}</Text>
+              {item.colorway ? (
+                <View style={styles.colorRow}>
+                  <Text style={styles.colorLabel}>Color</Text>
+                  <View style={[styles.colorSwatch, { backgroundColor: getColorSwatch(item.colorway) }]} />
+                </View>
+              ) : null}
 
               {item.fit_status && item.fit_status !== 'UNSCORED' && (
                 <View style={styles.fitRow}>
@@ -110,6 +156,28 @@ export default function Closet({ navigation }) {
                   <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
                 </View>
               )}
+
+              <View style={styles.keyFacts}>
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="pricetag" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Price</Text>
+                  </View>
+                  <Text style={styles.keyFactValuePrice} numberOfLines={1}>
+                    {formatUsd(item.price_usd)}
+                  </Text>
+                </View>
+                <View style={styles.keyFactDivider} />
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="footsteps" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Size</Text>
+                  </View>
+                  <Text style={styles.keyFactValue} numberOfLines={1}>
+                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
+                  </Text>
+                </View>
+              </View>
 
               <TouchableOpacity
                 style={styles.primaryButton}
@@ -175,7 +243,16 @@ const styles = StyleSheet.create({
   },
   iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  colorLabel: { fontSize: 12, color: '#8C7B6E' },
+  colorSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D8C9B8',
+  },
   fitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,6 +271,52 @@ const styles = StyleSheet.create({
   fitScore: { fontSize: 16, fontWeight: '700' },
   fitLabel: { fontSize: 12, fontWeight: '600' },
   fitProfile: { fontSize: 11, color: '#9B8E82', textTransform: 'uppercase', letterSpacing: 0.4 },
+  keyFacts: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: 'rgba(194, 138, 91, 0.12)',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(194, 138, 91, 0.45)',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    marginBottom: 10,
+  },
+  keyFactCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyFactLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 3,
+  },
+  keyFactLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#7A6A5C',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  keyFactValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2F2A25',
+    letterSpacing: -0.25,
+  },
+  keyFactValuePrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#2F2A25',
+    letterSpacing: -0.35,
+  },
+  keyFactDivider: {
+    width: 1,
+    backgroundColor: 'rgba(194, 138, 91, 0.35)',
+    marginVertical: 0,
+  },
   shoeImage: {
     width: '100%',
     height: 160,

@@ -23,6 +23,38 @@ const FIT_STATUS_COLOR = {
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
 
+const COLOR_SWATCH_MAP = {
+  black: '#212121',
+  white: '#F4F4F4',
+  red: '#D94A4A',
+  blue: '#4E7EDB',
+  navy: '#213A73',
+  green: '#4D8A4E',
+  yellow: '#F1C40F',
+  orange: '#E67E22',
+  pink: '#D673B3',
+  purple: '#8E5BBF',
+  brown: '#7A5A42',
+  tan: '#B78B5A',
+  gray: '#9AA1AA',
+  grey: '#9AA1AA',
+  silver: '#BFC6CF',
+  gold: '#C8A74E',
+  beige: '#D6C3A1',
+  cream: '#E8DEC5',
+  khaki: '#B9AA79',
+  olive: '#7A8450',
+  moss: '#6A7B4E',
+  charcoal: '#4A4A4A',
+  teal: '#3D8E8B',
+};
+
+function getColorSwatch(colorName = '') {
+  const normalized = colorName.toLowerCase();
+  const match = Object.keys(COLOR_SWATCH_MAP).find((key) => normalized.includes(key));
+  return match ? COLOR_SWATCH_MAP[match] : '#C9B8A7';
+}
+
 function formatUsd(price) {
   if (price == null || price === '') return '—';
   const n = typeof price === 'string' ? parseFloat(price) : Number(price);
@@ -110,7 +142,10 @@ export default function Wishlist() {
               </View>
               <Text style={styles.name}>{item.model}</Text>
               {item.colorway ? (
-                <Text style={styles.colorway}>{item.colorway}</Text>
+                <View style={styles.colorRow}>
+                  <Text style={styles.colorLabel}>Color</Text>
+                  <View style={[styles.colorSwatch, { backgroundColor: getColorSwatch(item.colorway) }]} />
+                </View>
               ) : null}
 
               {item.fit_status && item.fit_status !== 'UNSCORED' && (
@@ -135,21 +170,21 @@ export default function Wishlist() {
               <View style={styles.keyFacts}>
                 <View style={styles.keyFactCol}>
                   <View style={styles.keyFactLabelRow}>
-                    <Ionicons name="footsteps" size={11} color="#9A6645" />
-                    <Text style={styles.keyFactLabel}>Size</Text>
-                  </View>
-                  <Text style={styles.keyFactValue} numberOfLines={1}>
-                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
-                  </Text>
-                </View>
-                <View style={styles.keyFactDivider} />
-                <View style={styles.keyFactCol}>
-                  <View style={styles.keyFactLabelRow}>
                     <Ionicons name="pricetag" size={11} color="#9A6645" />
                     <Text style={styles.keyFactLabel}>Price</Text>
                   </View>
                   <Text style={styles.keyFactValuePrice} numberOfLines={1}>
                     {formatUsd(item.price_usd)}
+                  </Text>
+                </View>
+                <View style={styles.keyFactDivider} />
+                <View style={styles.keyFactCol}>
+                  <View style={styles.keyFactLabelRow}>
+                    <Ionicons name="footsteps" size={11} color="#9A6645" />
+                    <Text style={styles.keyFactLabel}>Size</Text>
+                  </View>
+                  <Text style={styles.keyFactValue} numberOfLines={1}>
+                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
                   </Text>
                 </View>
               </View>
@@ -228,7 +263,15 @@ const styles = StyleSheet.create({
   iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
-  colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  colorLabel: { fontSize: 12, color: '#8C7B6E' },
+  colorSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D8C9B8',
+  },
   keyFacts: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -267,7 +310,7 @@ const styles = StyleSheet.create({
   keyFactValuePrice: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#B86A3C',
+    color: '#2F2A25',
     letterSpacing: -0.35,
   },
   keyFactDivider: {
