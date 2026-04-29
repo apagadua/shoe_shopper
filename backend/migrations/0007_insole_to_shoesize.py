@@ -76,11 +76,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                # Fix the column name typo in shoe_size (missing 's' in 'insole')
-                migrations.RunSQL(
-                    sql="ALTER TABLE shoe_size RENAME COLUMN inole_toebox_width_in TO insole_toebox_width_in",
-                    reverse_sql="ALTER TABLE shoe_size RENAME COLUMN insole_toebox_width_in TO inole_toebox_width_in",
-                ),
+                # Column rename was already applied directly in Supabase — skip DDL.
             ],
         ),
     ]

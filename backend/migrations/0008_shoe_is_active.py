@@ -4,9 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     """
     Add is_active flag to Shoe.
-
-    Existing shoes default to True (active) until the next seed_kicks run
-    evaluates their GOAT availability.
+    Wrapped in SeparateDatabaseAndState — column already exists in Supabase.
     """
 
     dependencies = [
@@ -14,9 +12,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="shoe",
-            name="is_active",
-            field=models.BooleanField(default=True),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],  # column already exists in Supabase
+            state_operations=[
+                migrations.AddField(
+                    model_name="shoe",
+                    name="is_active",
+                    field=models.BooleanField(default=True),
+                ),
+            ],
         ),
     ]
