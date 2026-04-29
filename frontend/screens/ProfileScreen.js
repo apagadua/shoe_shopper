@@ -1,19 +1,108 @@
 import * as SecureStore from 'expo-secure-store';
-import React, { useState } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
-import { CommonActions } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { CommonActions, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_BASE_URL } from '../config/api';
 
-export default function ProfileScreen({ navigation }) {
-  // Placeholder: no profile image yet; will wire to auth/picker later
-  const profileImageUri = null;
-  const [apiStatus, setApiStatus] = useState('Not tested yet');
-  const [shoePreview, setShoePreview] = useState([]);
+const ACCENT = '#C28A5B';
+const ACCENT_DEEP = '#9A6645';
+const MUTED = '#6B5F52';
+const FG = '#2F2A25';
+const CREAM = '#F5EFE6';
+const CARD = '#FFFBF5';
 
-  const handleChangePhoto = () => {
-    // TODO: open image picker / camera for profile photo
+function firstNameOrThere(displayName) {
+  const t = (displayName || '').trim();
+  if (!t) return { greeting: 'Welcome', useThere: true };
+  const first = t.split(/\s+/)[0];
+  return { greeting: first, useThere: false };
+}
+
+export default function ProfileScreen({ navigation }) {
+  const profileImageUri = null;
+
+  const [savedName, setSavedName] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [loadState, setLoadState] = useState('loading');
+  const [saving, setSaving] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    setLoadState('loading');
+    try {
+      const token = await SecureStore.getItemAsync('authToken');
+      if (!token) {
+        setLoadState('error');
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/profile/`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!res.ok) {
+        setLoadState('error');
+        return;
+      }
+      const data = await res.json();
+      const n = typeof data.display_name === 'string' ? data.display_name : '';
+      setSavedName(n);
+      setNameInput(n);
+      setLoadState('ok');
+    } catch {
+      setLoadState('error');
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
+
+  const dirty = (nameInput || '').trim() !== (savedName || '').trim();
+  const canSave = dirty && !saving && loadState === 'ok';
+
+  const saveName = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const token = await SecureStore.getItemAsync('authToken');
+      if (!token) throw new Error('Session expired. Please sign in again.');
+      const res = await fetch(`${API_BASE_URL}/api/profile/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ display_name: nameInput }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const detail = errBody.detail || 'Could not save your name';
+        throw new Error(typeof detail === 'string' ? detail : 'Could not save your name');
+      }
+      const data = await res.json();
+      const n = typeof data.display_name === 'string' ? data.display_name : '';
+      setSavedName(n);
+      setNameInput(n);
+    } catch (e) {
+      Alert.alert('Could not save', e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const signOutAndReset = async () => {
@@ -21,6 +110,10 @@ export default function ProfileScreen({ navigation }) {
     await GoogleSignin.signOut();
     const root = navigation.getParent()?.getParent();
     root?.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
+  };
+
+  const handleChangePhoto = () => {
+    // TODO: open image picker / camera for profile photo
   };
 
   const handleDeleteAccount = () => {
@@ -59,190 +152,292 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleTestBackend = async () => {
-    setApiStatus('Checking backend...');
-    try {
-      const [healthRes, shoesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/health/`),
-        fetch(`${API_BASE_URL}/api/shoes/`),
-      ]);
-
-      if (!healthRes.ok || !shoesRes.ok) {
-        setApiStatus(`API error: health ${healthRes.status}, shoes ${shoesRes.status}`);
-        return;
-      }
-
-      const healthJson = await healthRes.json();
-      const shoesJson = await shoesRes.json();
-      const preview = shoesJson.slice(0, 3).map((shoe) => `${shoe.brand} ${shoe.model}`);
-      setShoePreview(preview);
-      setApiStatus(`Connected: ${healthJson.shoe_count} shoes in DB`);
-    } catch (error) {
-      setApiStatus(`Connection failed: ${error.message}`);
-      setShoePreview([]);
-    }
-  };
+  const { greeting, useThere } = firstNameOrThere(savedName);
+  const heroSubtitleText =
+    loadState === 'error'
+      ? 'Could not load profile.'
+      : loadState === 'ok' && useThere
+        ? 'Add your name for a more personal experience.'
+        : null;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.subtitle}>
-        Your account and preferences.
-      </Text>
-
-      {/* Profile picture + change option */}
-      <View style={styles.photoSection}>
-        <TouchableOpacity
-          style={styles.avatarWrapper}
-          onPress={handleChangePhoto}
-          activeOpacity={0.85}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <LinearGradient
+          colors={[ACCENT, ACCENT_DEEP]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
         >
-          {profileImageUri ? (
-            <Image source={{ uri: profileImageUri }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={48} color="#A39380" />
+          {loadState === 'loading' ? (
+            <View style={styles.heroLoading}>
+              <ActivityIndicator color="#FFFFFF" />
             </View>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.avatarOuter}
+                onPress={handleChangePhoto}
+                activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile photo"
+              >
+                {profileImageUri ? (
+                  <Image source={{ uri: profileImageUri }} style={styles.avatarImg} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person" size={40} color="#6B5F52" />
+                  </View>
+                )}
+                <View style={styles.cameraBadge}>
+                  <Ionicons name="camera" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.heroGreeting} numberOfLines={1}>
+                {useThere ? 'Your profile' : greeting}
+              </Text>
+              {heroSubtitleText != null ? (
+                <Text style={styles.heroSub}>{heroSubtitleText}</Text>
+              ) : null}
+            </>
           )}
-          <View style={styles.changePhotoBadge}>
-            <Ionicons name="camera" size={16} color="#FFFFFF" />
-            <Text style={styles.changePhotoText}>Change photo</Text>
+        </LinearGradient>
+
+        <View style={styles.sheet}>
+          {loadState === 'error' ? (
+            <TouchableOpacity style={styles.retryBanner} onPress={loadProfile} activeOpacity={0.85}>
+              <Ionicons name="refresh" size={20} color={ACCENT} />
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <Ionicons name="person-circle-outline" size={22} color={ACCENT} />
+              <Text style={styles.cardTitle}>Your name</Text>
+            </View>
+            <Text style={styles.fieldHint}>How you’d like to be addressed in the app.</Text>
+            <TextInput
+              style={styles.input}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="e.g. Alex Morgan"
+              placeholderTextColor="#A39380"
+              autoCapitalize="words"
+              autoCorrect
+              returnKeyType="done"
+              editable={loadState === 'ok' && !saving}
+              onSubmitEditing={saveName}
+            />
+            <TouchableOpacity
+              style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
+              onPress={saveName}
+              disabled={!canSave}
+              activeOpacity={0.9}
+            >
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </View>
 
-      {/* Account */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Account</Text>
-        <TouchableOpacity style={styles.rowButton} onPress={handleDeleteAccount}>
-          <Text style={styles.rowButtonTextDanger}>Delete account</Text>
-          <Ionicons name="chevron-forward" size={20} color="#A39380" />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.rowButton, styles.rowButtonLast]} onPress={handleSignOut}>
-          <Text style={styles.rowButtonTextDanger}>Sign out</Text>
-          <Ionicons name="log-out-outline" size={20} color="#B3513D" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Backend Smoke Test</Text>
-        <Text style={styles.helpText}>Base URL: {API_BASE_URL}</Text>
-        <Text style={styles.helpText}>{apiStatus}</Text>
-        {shoePreview.map((line) => (
-          <Text key={line} style={styles.helpText}>- {line}</Text>
-        ))}
-        <TouchableOpacity style={[styles.rowButton, styles.rowButtonLast]} onPress={handleTestBackend}>
-          <Text style={styles.rowButtonText}>Test /api/health and /api/shoes</Text>
-          <Ionicons name="cloud-done-outline" size={20} color="#A39380" />
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <Ionicons name="settings-outline" size={22} color={MUTED} />
+              <Text style={styles.cardTitle}>Account</Text>
+            </View>
+            <TouchableOpacity style={styles.row} onPress={handleDeleteAccount} activeOpacity={0.7}>
+              <Text style={styles.rowDanger}>Delete account</Text>
+              <Ionicons name="chevron-forward" size={20} color="#A39380" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rowDanger}>Sign out</Text>
+              <Ionicons name="log-out-outline" size={20} color="#B3513D" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F5EFE6',
+    backgroundColor: CREAM,
   },
-  content: {
-    paddingTop: 24,
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  hero: {
+    paddingTop: 8,
+    paddingBottom: 28,
     paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#2F2A25',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B5F52',
-    marginBottom: 28,
-    lineHeight: 21,
-  },
-  photoSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  avatarWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroLoading: {
+    paddingVertical: 48,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  avatarOuter: {
+    marginBottom: 16,
+  },
+  avatarImg: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.85)',
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F0E2D0',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.85)',
   },
-  changePhotoBadge: {
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: ACCENT_DEEP,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  heroGreeting: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 24,
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  heroSub: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 300,
+  },
+  sheet: {
+    marginTop: -12,
+    paddingHorizontal: 20,
+  },
+  retryBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: '#C28A5B',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FCEEE8',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8C4B8',
   },
-  changePhotoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  retryText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 15,
+    color: ACCENT_DEEP,
   },
   card: {
-    backgroundColor: '#FFFBF5',
+    backgroundColor: CARD,
     borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2D4C0',
+    shadowColor: '#2F2A25',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2F2A25',
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingTop: 4,
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 17,
+    color: FG,
   },
-  rowButton: {
+  fieldHint: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: MUTED,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  input: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 16,
+    color: FG,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2D4C0',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  saveBtn: {
+    backgroundColor: ACCENT,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.45,
+  },
+  saveBtnText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0E2D0',
   },
-  rowButtonLast: {
+  rowLast: {
     borderBottomWidth: 0,
   },
-  rowButtonText: {
-    fontSize: 15,
-    color: '#2F2A25',
-  },
-  rowButtonTextDanger: {
+  rowDanger: {
+    fontFamily: 'Outfit_400Regular',
     fontSize: 15,
     color: '#B3513D',
-    fontWeight: '500',
-  },
-  helpText: {
-    fontSize: 14,
-    color: '#6B5F52',
-    paddingHorizontal: 14,
-    paddingBottom: 8,
   },
 });

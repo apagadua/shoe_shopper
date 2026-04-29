@@ -10,15 +10,19 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LoginScreen from './screens/LoginScreen';
-import ClosetScreen from './screens/ClosetScreen';
-import SavedShoesScreen from './screens/SavedShoesScreen';
-import OwnedShoesScreen from './screens/OwnedShoesScreen';
+import Dashboard from './screens/Dashboard';
+import Wishlist from './screens/Wishlist';
+import Closet from './screens/Closet';
 import FootCaptureScreen from './screens/FootCaptureScreen';
 import CameraScreen from './screens/CameraScreen';
+import ARFootCaptureScreen from './screens/ARFootCaptureScreen';
+import ARCameraScreen from './screens/ARCameraScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import FeedbackScreen from './screens/feedback';
 import { SavedShoesProvider } from './SavedShoesContext';
+import { OwnedShoesProvider } from './OwnedShoesContext';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -29,9 +33,10 @@ const ProfileStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const sharedHeaderOptions = {
-  headerStyle: { backgroundColor: '#FFF8F0' },
+  headerStyle: { backgroundColor: '#F5EFE6' },
   headerShadowVisible: false,
   headerTitleStyle: { fontFamily: 'Outfit_600SemiBold' },
+  contentStyle: { backgroundColor: '#FCFAF7' },
 };
 
 const headerLeftBack = (navigation) => (
@@ -59,22 +64,34 @@ function ClosetStackNavigator() {
     <ClosetStack.Navigator screenOptions={sharedHeaderOptions}>
       <ClosetStack.Screen
         name="ClosetHome"
-        component={ClosetScreen}
-        options={{ title: 'My Closet', headerBackVisible: false }}
+        component={Dashboard}
+        options={{
+          title: 'Dashboard',
+          headerBackVisible: false,
+          headerTitleStyle: { fontFamily: 'Outfit_600SemiBold', fontSize: 24 },
+        }}
       />
       <ClosetStack.Screen
         name="SavedShoes"
-        component={SavedShoesScreen}
+        component={Wishlist}
         options={({ navigation }) => ({
-          title: 'Saved Shoes',
+          title: 'Wishlist',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
       <ClosetStack.Screen
         name="OwnedShoes"
-        component={OwnedShoesScreen}
+        component={Closet}
         options={({ navigation }) => ({
-          title: 'Owned Shoes',
+          title: 'My Closet',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="Feedback"
+        component={FeedbackScreen}
+        options={({ navigation }) => ({
+          title: 'Fit Feedback',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
@@ -91,6 +108,22 @@ function ClosetStackNavigator() {
         component={CameraScreen}
         options={({ navigation }) => ({
           title: 'Camera',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="ARFootCapture"
+        component={ARFootCaptureScreen}
+        options={({ navigation }) => ({
+          title: 'Measure with AR',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="ARCamera"
+        component={ARCameraScreen}
+        options={({ navigation }) => ({
+          title: 'AR Camera',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
@@ -125,14 +158,14 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen
         name="ProfileHome"
         component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        options={{ title: 'Profile', contentStyle: { backgroundColor: '#F5EFE6' } }}
       />
     </ProfileStack.Navigator>
   );
 }
 
 const TAB_BAR_STYLE_VISIBLE = { backgroundColor: '#FFFBF5', borderTopColor: '#E2D4C0' };
-const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'Measurements'];
+const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'Measurements'];
 
 function MainTabs() {
   return (
@@ -144,6 +177,7 @@ function MainTabs() {
         const hideTabBar = stackRoute && HIDE_TAB_BAR_SCREENS.includes(stackRoute.name);
         return {
           headerShown: false,
+          sceneStyle: { backgroundColor: '#FCFAF7' },
           tabBarStyle: hideTabBar ? { display: 'none' } : TAB_BAR_STYLE_VISIBLE,
           tabBarActiveTintColor: '#C28A5B',
           tabBarInactiveTintColor: '#6B5F52',
@@ -155,6 +189,7 @@ function MainTabs() {
         name="Closet"
         component={ClosetStackNavigator}
         options={{
+          tabBarLabel: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="file-tray-full" size={size} color={color} />
           ),
@@ -206,8 +241,9 @@ export default function App() {
   SplashScreen.hideAsync();
 
   return (
-    <SavedShoesProvider>
-      <NavigationContainer>
+    <OwnedShoesProvider>
+      <SavedShoesProvider>
+        <NavigationContainer>
         <StatusBar style="dark" />
         <RootStack.Navigator
           initialRouteName={initialRoute}
@@ -249,6 +285,22 @@ export default function App() {
           })}
         />
         <RootStack.Screen
+          name="ARFootCapture"
+          component={ARFootCaptureScreen}
+          options={({ navigation }) => ({
+            title: 'Measure with AR',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
+          name="ARCamera"
+          component={ARCameraScreen}
+          options={({ navigation }) => ({
+            title: 'AR Camera',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
           name="Measurements"
           component={MeasurementsScreen}
           options={{
@@ -266,8 +318,9 @@ export default function App() {
           })}
         />
         </RootStack.Navigator>
-      </NavigationContainer>
-    </SavedShoesProvider>
+        </NavigationContainer>
+      </SavedShoesProvider>
+    </OwnedShoesProvider>
   );
 }
 

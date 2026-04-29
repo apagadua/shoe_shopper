@@ -5,12 +5,13 @@
   "scripts": {
     "start": "npx expo start --tunnel",
     "start:tunnel": "npx expo start --tunnel",
-    "android": "npx expo start --android",
+    "android": "npx expo start --lan",
     "ios": "npx expo start --ios",
     "web": "npx expo start --web"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.3.0",
+    "@expo/ngrok": "^4.1.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
