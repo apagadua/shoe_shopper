@@ -7,10 +7,13 @@ A mobile app that uses computer vision to measure your foot from a photo and rec
 ## How It Works
 
 1. Sign in with Google
-2. Go to **Closet → Capture Foot Photo**
-3. Place your foot on an A4 or Letter sheet of paper and take a photo
-4. The app measures your foot (length, width, area) in inches
+2. Go to **Closet → Measure your foot**
+3. Choose a measurement method:
+   - **AR (recommended)** — point your phone at the floor; no paper needed
+   - **Paper** — place your foot on an A4 or Letter sheet of paper and take a photo from above
+4. The app extracts your foot dimensions (length, width, area) in inches
 5. Go to **Recommendations** to see shoes scored and ranked for your foot shape
+6. After wearing a pair, submit fit feedback to improve future recommendations
 
 ---
 
@@ -201,9 +204,11 @@ Open the app from the Expo dev client on your device or emulator.
 | GET | `/api/shoes/` | None | List all shoes |
 | POST | `/api/auth/google/` | None | Exchange Google ID token → auth token |
 | DELETE | `/api/auth/delete/` | Token | Delete authenticated user account |
-| POST | `/api/foot/measure/` | Optional | Upload foot photo → measurements in inches |
+| GET/PATCH | `/api/profile/` | Token | Get or update display name / avatar |
+| POST | `/api/foot/measure/` | Optional | Upload foot photo → measurements in inches (paper method) |
 | GET | `/api/measurements/latest/` | Token | Get user's most recent measurement |
 | GET | `/api/recommendations/` | Token | Score all shoes against latest measurement |
+| POST | `/api/dev/mock-measurement/` | None | Inject a fake measurement (dev only — requires `DEBUG` or `ENABLE_DEV_MOCK_MEASUREMENT=1`) |
 
 All authenticated requests require the header:
 ```
@@ -227,6 +232,7 @@ Authorization: Token <your-token>
 | `ROBOFLOW_PROJECT` | Yes | Roboflow project slug |
 | `DATABASE_URL` | No | Full PostgreSQL URL — omit to use SQLite |
 | `DB_SSLMODE` | No | SSL mode for PostgreSQL, default `require` |
+| `ENABLE_DEV_MOCK_MEASUREMENT` | No | Set to `1` to allow the `/api/dev/mock-measurement/` route in non-debug mode |
 
 ### Frontend (`frontend/.env`)
 
@@ -234,6 +240,7 @@ Authorization: Token <your-token>
 |---|---|---|
 | `EXPO_PUBLIC_API_URL` | No | Backend URL override — needed for physical devices |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Yes | Google OAuth client ID for the mobile sign-in flow |
+| `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT` | No | Set to `1` to skip the camera and inject a mock measurement (emulator dev workflow) |
 
 ---
 
