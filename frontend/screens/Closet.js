@@ -22,6 +22,9 @@ const FIT_STATUS_COLOR = {
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
 
+/** Matches Recommendations — readable emerald on warm panels, distinct from PERFECT fit green. */
+const PRICE_DISPLAY_COLOR = '#047857';
+
 const COLOR_SWATCH_MAP = {
   black: '#212121',
   white: '#F4F4F4',
@@ -88,6 +91,7 @@ export default function Closet({ navigation }) {
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
           const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
+          const priceText = formatUsd(item.price_usd);
           return (
             <View key={String(item.id)} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -160,11 +164,14 @@ export default function Closet({ navigation }) {
               <View style={styles.keyFacts}>
                 <View style={styles.keyFactCol}>
                   <View style={styles.keyFactLabelRow}>
-                    <Ionicons name="pricetag" size={11} color="#9A6645" />
-                    <Text style={styles.keyFactLabel}>Price</Text>
+                    <Ionicons name="pricetag" size={11} color={PRICE_DISPLAY_COLOR} />
+                    <Text style={[styles.keyFactLabel, styles.keyFactLabelPrice]}>Price</Text>
                   </View>
-                  <Text style={styles.keyFactValuePrice} numberOfLines={1}>
-                    {formatUsd(item.price_usd)}
+                  <Text
+                    style={[styles.keyFactValuePrice, priceText === '—' && styles.keyFactValuePriceUnavailable]}
+                    numberOfLines={1}
+                  >
+                    {priceText}
                   </Text>
                 </View>
                 <View style={styles.keyFactDivider} />
@@ -300,6 +307,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
+  keyFactLabelPrice: {
+    color: PRICE_DISPLAY_COLOR,
+  },
   keyFactValue: {
     fontSize: 17,
     fontWeight: '800',
@@ -309,8 +319,12 @@ const styles = StyleSheet.create({
   keyFactValuePrice: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#2F2A25',
+    color: PRICE_DISPLAY_COLOR,
     letterSpacing: -0.35,
+  },
+  keyFactValuePriceUnavailable: {
+    color: '#8C7B6E',
+    fontWeight: '700',
   },
   keyFactDivider: {
     width: 1,

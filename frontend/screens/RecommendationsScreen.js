@@ -48,6 +48,9 @@ const FIT_STATUS_COLOR = {
   REJECTED:   '#9E9E9E',
 };
 
+/** Attention-grabbing but readable on warm cream/peach panels (distinct from PERFECT fit green). */
+const PRICE_DISPLAY_COLOR = '#047857';
+
 function formatUsd(price) {
   if (price == null || price === '') return '—';
   const n = typeof price === 'string' ? parseFloat(price) : Number(price);
@@ -463,10 +466,16 @@ export default function RecommendationsScreen({ navigation, route }) {
                     <View style={styles.keyFacts}>
                       <View style={styles.keyFactCol}>
                         <View style={styles.keyFactLabelRow}>
-                          <Ionicons name="pricetag" size={11} color="#9A6645" />
-                          <Text style={styles.keyFactLabel}>Price</Text>
+                          <Ionicons name="pricetag" size={11} color={PRICE_DISPLAY_COLOR} />
+                          <Text style={[styles.keyFactLabel, styles.keyFactLabelPrice]}>Price</Text>
                         </View>
-                        <Text style={styles.keyFactValuePrice} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.keyFactValuePrice,
+                            formatUsd(priceValue) === '—' && styles.keyFactValuePriceUnavailable,
+                          ]}
+                          numberOfLines={1}
+                        >
                           {formatUsd(priceValue)}
                         </Text>
                       </View>
@@ -741,6 +750,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
+  keyFactLabelPrice: {
+    color: PRICE_DISPLAY_COLOR,
+  },
   keyFactValue: {
     fontSize: 17,
     fontWeight: '800',
@@ -750,8 +762,12 @@ const styles = StyleSheet.create({
   keyFactValuePrice: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#2F2A25',
+    color: PRICE_DISPLAY_COLOR,
     letterSpacing: -0.35,
+  },
+  keyFactValuePriceUnavailable: {
+    color: '#8C7B6E',
+    fontWeight: '700',
   },
   keyFactDivider: {
     width: 1,
