@@ -2,6 +2,8 @@ MAX_SHOE_SCORE = 100  # max shoe fit score
 EPSILON = 1e-6  # prevents div by 0
 K = 0.05  # helps keeps scale of tolerance shift reasonable
 
+MAX_SEVERITY = 5
+
 # sample feedback row format
 '''feedback_rows = [
     {
@@ -13,55 +15,65 @@ K = 0.05  # helps keeps scale of tolerance shift reasonable
 
 def compute_dimension_vals(feedback_rows):
     # feedback type: (total fit score, severity, count)
+
+    # Weigh fit score by severity rating for non-perfect feedback, and use max severity for perfect feedback to give it more weight    
     stats = {
-        "perfect": {"score": 0, "severity": 0, "count": 0},
-        "too wide": {"score": 0, "severity": 0, "count": 0},
-        "too narrow": {"score": 0, "severity": 0, "count": 0},
-        "too long": {"score": 0, "severity": 0, "count": 0},
-        "too short": {"score": 0, "severity": 0, "count": 0}
+        "perfect": {"adjusted_score": 0, "count": 0},
+        "too wide": {"adjusted_score": 0, "count": 0},
+        "too narrow": {"adjusted_score": 0, "count": 0},
+        "too long": {"adjusted_score": 0, "count": 0},
+        "too short": {"adjusted_score": 0, "count": 0}
         }
     
-    # gather feedback
+    # iterate through feedback rows and aggregate stats
     for feedback in feedback_rows:
-        if feedback["fit_score"] is None or feedback["severity"] is None:
+        # gather feedback stats
+        if feedback["fit_score"] is None:
             continue
-        stats[feedback["feedback_type"]]["score"] += feedback["fit_score"]
-        stats[feedback["feedback_type"]]["count"] += 1
-        if feedback["feedback_type"] != "perfect":
-            stats[feedback["feedback_type"]]["severity"] += feedback["severity"]
-    
-    # average values
-    for s in stats:
-        if stats[s]["count"] > 0:
-            stats[s]["score"] /= stats[s]["count"]
-            if s != "perfect":
-                stats[s]["severity"] /= stats[s]["count"]
+        if feedback["feedback_type"] != "perfect" and feedback["severity_rating"] is None:
+            continue
 
-    # value = count * average severity * (average shoe score / max shoe score)
+        if feedback["feedback_type"] != "perfect":
+            stats[feedback["feedback_type"]]["adjusted_score"] += feedback["fit_score"] * feedback["severity_rating"]
+            stats[feedback["feedback_type"]]["count"] += 1
+        else:
+            stats[feedback["feedback_type"]]["adjusted_score"] += feedback["fit_score"] * MAX_SEVERITY
+            stats[feedback["feedback_type"]]["count"] += 1
+
+    # average values
+    for stat in stats:
+        if stats[stat]["count"] > 0:
+            stats[stat]["adjusted_score"] /= stats[stat]["count"]
+
+    # compute dimension values for signal calculation
     values = {}
-    values["perfect"] = (stats["perfect"]["count"] *
-                         stats["perfect"]["score"] / MAX_SHOE_SCORE)
-    for s in stats:
-        if s != "perfect":
-            values[s] = stats[s]["count"] * stats[s]["severity"] * (stats[s]["score"] /
-                                                                    MAX_SHOE_SCORE)
-    return values
+    for stat in stats:
+        values[stat] = stats[stat]["count"] * (stats[stat]["adjusted_score"] / MAX_SHOE_SCORE)
+
+    # get last feedback timestamp for future training runs
+    last_feedback_timestamp = max([feedback["created_at"] 
+                                   for feedback in feedback_rows if feedback["created_at"] is not None], default=None)
+    return values, last_feedback_timestamp
+
 
 def compute_signals(values):
+    # width signal is positive if shoe is too wide, negative if shoe is too narrow
     width_signal = ((values["too narrow"] - values["too wide"]) /
                     (values["perfect"] + values["too narrow"] + values["too wide"]
                      + EPSILON))
+    
+    # length signal is positive if shoe is too short, negative if shoe is too long
     length_signal = ((values["too short"] - values["too long"]) /
                     (values["perfect"] + values["too short"] + values["too long"]
                      + EPSILON))
     return width_signal, length_signal
 
-def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
+def compute_tolerances(width_signal, length_signal, tolerances, alpha, count): 
     # currently considers all past feedback
     new_tolerances = {"meta": {"total_feedback_count": 
                                tolerances["meta"]["total_feedback_count"] + count}}
     
-    type = ""
+    dimension_type = ""
     
     for name, tol in tolerances.items():
         if name == "meta":
@@ -72,10 +84,10 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
 
         if tol["type"] == "width":
             signal = width_signal
-            type = "width"
+            dimension_type = "width"
         else:
             signal = length_signal
-            type = "length"
+            dimension_type = "length"
 
         opt_low = tol["opt_low"]
         opt_high = tol["opt_high"]
@@ -94,7 +106,7 @@ def compute_tolerances(width_signal, length_signal, tolerances, alpha, count):
         new_min = new_opt_low - delta_low
         new_max = new_opt_high + delta_high
         new_tolerances[name] = {
-            "type": type,
+            "type": dimension_type,
             "min": new_min,
             "opt_low": new_opt_low,
             "opt_high": new_opt_high,
