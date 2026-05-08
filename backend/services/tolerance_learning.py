@@ -3,19 +3,18 @@ EPSILON = 1e-6  # prevents div by 0
 K = 0.05  # helps keeps scale of tolerance shift reasonable
 
 MAX_SEVERITY = 5
+META = ["total_feedback_count"]
 
 # sample feedback row format
 '''feedback_rows = [
     {
      "feedback_type": "too wide",
      "fit_score": 72,
-     "severity": 3,
+     "severity_rating": 3,
     }, etc....
 ]'''
 
 def compute_dimension_vals(feedback_rows):
-    # feedback type: (total fit score, severity, count)
-
     # Weigh fit score by severity rating for non-perfect feedback, and use max severity for perfect feedback to give it more weight    
     stats = {
         "perfect": {"adjusted_score": 0, "count": 0},
@@ -41,7 +40,7 @@ def compute_dimension_vals(feedback_rows):
             stats[feedback["feedback_type"]]["count"] += 1
 
     # average values
-    for stat in stats:
+    for stat in stats.keys():
         if stats[stat]["count"] > 0:
             stats[stat]["adjusted_score"] /= stats[stat]["count"]
 
@@ -49,11 +48,7 @@ def compute_dimension_vals(feedback_rows):
     values = {}
     for stat in stats:
         values[stat] = stats[stat]["count"] * (stats[stat]["adjusted_score"] / MAX_SHOE_SCORE)
-
-    # get last feedback timestamp for future training runs
-    last_feedback_timestamp = max([feedback["created_at"] 
-                                   for feedback in feedback_rows if feedback["created_at"] is not None], default=None)
-    return values, last_feedback_timestamp
+    return values
 
 
 def compute_signals(values):
@@ -68,33 +63,33 @@ def compute_signals(values):
                      + EPSILON))
     return width_signal, length_signal
 
-def compute_tolerances(width_signal, length_signal, tolerances, alpha, count): 
-    # currently considers all past feedback
-    new_tolerances = {"meta": {"total_feedback_count": 
-                               tolerances["meta"]["total_feedback_count"] + count}}
-    
+def compute_tolerances(width_signal, length_signal, tolerances, alpha, old_feedback_count, new_feedback_count):
+    new_tolerances = {}
+    new_tolerances["total_feedback_count"] = old_feedback_count + new_feedback_count
+
     dimension_type = ""
-    
-    for name, tol in tolerances.items():
-        if name == "meta":
+    for name in tolerances.keys():
+        if name in META:
             continue
+        # Keep same delta between optimal and min/max
+        delta_low = tolerances[name]["opt_low"] - tolerances[name]["min"]
+        delta_high = tolerances[name]["max"] - tolerances[name]["opt_high"]
 
-        delta_low = tol["opt_low"] - tol["min"]
-        delta_high = tol["max"] - tol["opt_high"]
-
-        if tol["type"] == "width":
+        # Determine which signal to use based on tolerance type
+        if tolerances[name]["type"] == "width":
             signal = width_signal
             dimension_type = "width"
-        else:
+        elif tolerances[name]["type"] == "length":
             signal = length_signal
             dimension_type = "length"
+        else:
+            # if no tol type, error
+            raise ValueError(f"Invalid tolerance type for {name}: {tolerances[name]['type']}")
 
-        opt_low = tol["opt_low"]
-        opt_high = tol["opt_high"]
+        opt_low = tolerances[name]["opt_low"]
+        opt_high = tolerances[name]["opt_high"]
 
-        # print(f"Updating {name}: signal={signal:.4f}, alpha={alpha:.4f}, "
-        #         f"old_opt_low={opt_low:.4f}, old_opt_high={opt_high:.4f}, shift={alpha * K * signal:.4f}")
-        # Assumes opt_low, shouldn't be the case
+        # Shift optimal range
         shift = alpha * K * signal
         new_opt_low = opt_low + shift
         new_opt_high = opt_high + shift

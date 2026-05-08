@@ -10,11 +10,13 @@ from backend.services.tolerance_storage import load_tolerances, save_tolerances
 
 def retrain():
     # load current tolerances and last feedback timestamp
-    tolerances = load_tolerances()
-    if not tolerances:
+    tolerances_full = load_tolerances()
+    if not tolerances_full:
         print("No active tolerances found.")
         return
-    last_feedback_timestamp = tolerances["last_feedback_timestamp"]
+    last_feedback_timestamp = tolerances_full["last_feedback_timestamp"]
+
+    tolerances = tolerances_full["tolerances"]
 
     # fetch new feedback rows since last feedback timestamp
     feedback_rows, new_feedback_timestamp = get_feedback_rows(last_feedback_timestamp)
@@ -30,7 +32,7 @@ def retrain():
     width_signal, length_signal = compute_signals(values)
 
     # calculate learning rate alpha based on new feedback count and total feedback count
-    old_count = tolerances["total_feedback_count"]
+    old_count = tolerances_full["total_feedback_count"]
     new_count = len(feedback_rows)
     if old_count == 0:
         alpha = 0.05
@@ -43,6 +45,7 @@ def retrain():
         length_signal,
         tolerances,
         alpha,
+        old_count,
         new_count
     )
 
