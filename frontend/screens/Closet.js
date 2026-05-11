@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
+import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
 
 const FIT_STATUS_COLOR = {
   PERFECT: '#2E7D32',
@@ -48,6 +49,7 @@ export default function Closet({ navigation }) {
           const saved = isSaved(item.id);
           const owned = isOwned(item.id);
           const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
+          const sizeValue = item.recommended_size ?? item.us_size ?? item.size;
           return (
             <View key={String(item.id)} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -89,6 +91,9 @@ export default function Closet({ navigation }) {
                 </View>
               </View>
               <Text style={styles.name}>{item.model}</Text>
+              {item.colorway ? (
+                <Text style={styles.colorway}>{item.colorway}</Text>
+              ) : null}
 
               {item.fit_status && item.fit_status !== 'UNSCORED' && (
                 <View style={styles.fitRow}>
@@ -110,6 +115,8 @@ export default function Closet({ navigation }) {
                   <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
                 </View>
               )}
+
+              <ShoeCardKeyFacts priceUsd={item.price_usd} sizeValue={sizeValue} />
 
               <TouchableOpacity
                 style={styles.primaryButton}
@@ -175,7 +182,8 @@ const styles = StyleSheet.create({
   },
   iconButton: { paddingHorizontal: 4, paddingVertical: 2 },
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
-  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
+  colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
   fitRow: {
     flexDirection: 'row',
     alignItems: 'center',

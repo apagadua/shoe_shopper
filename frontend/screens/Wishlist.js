@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
+import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
 
 const FIT_STATUS_COLOR = {
   PERFECT: '#2E7D32',
@@ -22,13 +23,6 @@ const FIT_STATUS_COLOR = {
 };
 
 const OWNED_ICON_ACTIVE = '#5D8A7E';
-
-function formatUsd(price) {
-  if (price == null || price === '') return '—';
-  const n = typeof price === 'string' ? parseFloat(price) : Number(price);
-  if (Number.isNaN(n)) return '—';
-  return `$${n.toFixed(2)}`;
-}
 
 function tagsForItem(item) {
   const a = item.function_tags || [];
@@ -132,27 +126,7 @@ export default function Wishlist() {
                 </View>
               )}
 
-              <View style={styles.keyFacts}>
-                <View style={styles.keyFactCol}>
-                  <View style={styles.keyFactLabelRow}>
-                    <Ionicons name="footsteps" size={11} color="#9A6645" />
-                    <Text style={styles.keyFactLabel}>Size</Text>
-                  </View>
-                  <Text style={styles.keyFactValue} numberOfLines={1}>
-                    {sizeValue != null && sizeValue !== '' ? `US ${sizeValue}` : '—'}
-                  </Text>
-                </View>
-                <View style={styles.keyFactDivider} />
-                <View style={styles.keyFactCol}>
-                  <View style={styles.keyFactLabelRow}>
-                    <Ionicons name="pricetag" size={11} color="#9A6645" />
-                    <Text style={styles.keyFactLabel}>Price</Text>
-                  </View>
-                  <Text style={styles.keyFactValuePrice} numberOfLines={1}>
-                    {formatUsd(item.price_usd)}
-                  </Text>
-                </View>
-              </View>
+              <ShoeCardKeyFacts priceUsd={item.price_usd} sizeValue={sizeValue} />
 
               {cardTags.length > 0 && (
                 <View style={styles.attrTags}>
@@ -229,52 +203,6 @@ const styles = StyleSheet.create({
   brand: { fontSize: 13, color: '#4F453C', fontWeight: '600' },
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
   colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
-  keyFacts: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: 'rgba(194, 138, 91, 0.12)',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(194, 138, 91, 0.45)',
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-    marginBottom: 10,
-  },
-  keyFactCol: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keyFactLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginBottom: 3,
-  },
-  keyFactLabel: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: '#7A6A5C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  keyFactValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#2F2A25',
-    letterSpacing: -0.25,
-  },
-  keyFactValuePrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#B86A3C',
-    letterSpacing: -0.35,
-  },
-  keyFactDivider: {
-    width: 1,
-    backgroundColor: 'rgba(194, 138, 91, 0.35)',
-    marginVertical: 0,
-  },
   attrTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   attrTag: { backgroundColor: '#F0E2D0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   attrTagText: { fontSize: 11, color: '#6B5F52' },
