@@ -371,6 +371,20 @@ class UserFeedback(models.Model):
             models.Index(fields=["feedback_type"], name="idx_feedback_type")
         ]
 
+class ToleranceHistory(models.Model):
+      tolerances = models.JSONField()
+      total_feedback_count = models.IntegerField(default=0)
+      active = models.BooleanField(default=False)
+      created_at = models.DateTimeField(auto_now_add=True)
+      last_feedback_timestamp = models.DateTimeField(null=True, blank=True)
+
+      class Meta:
+            db_table = "tolerances"
+            indexes = [
+                models.Index(fields=["active", "-created_at"], name="idx_tolerance_active_created"),
+                models.Index(fields=["last_feedback_timestamp"], name="idx_tolerance_last_feedback"),
+            ]
+
 __all__ = [
     "Profile",
     "GuestSession",
@@ -382,5 +396,6 @@ __all__ = [
     "UserCollection",
     "Recommendation",
     "TrainingImage",
-    "UserFeedback"
+    "UserFeedback",
+    "ToleranceHistory"
 ]
