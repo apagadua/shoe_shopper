@@ -123,7 +123,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 keyboardType="numeric"
                 value={toeboxWidth}
                 onChangeText={(v) => setToeboxWidth(cleanText(v))}
-                placeholder="e.g. 3.5"
+                placeholder="e.g. 4.0"
                 placeholderTextColor="#A89880"
             />
 
