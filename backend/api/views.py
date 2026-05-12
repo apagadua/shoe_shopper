@@ -370,8 +370,13 @@ class FootMeasureView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        wall_base = next(
+            (p for p in all_preds if p.get("class", "").lower() == "wall base"),
+            None,
+        )
+
         try:
-            dims = ar_compute_dimensions(foot_pts, ar_snapshot)
+            dims = ar_compute_dimensions(foot_pts, ar_snapshot, wall_base=wall_base)
         except ValueError as exc:
             logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc)
             return Response(
@@ -448,14 +453,14 @@ class FootMeasureView(APIView):
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        rf_url = f"https://detect.roboflow.com/{workspace}/workflows/{project}"
+        model_id = settings.ROBOFLOW_MODEL_ID
+        rf_url = f"https://serverless.roboflow.com/{model_id}"
+        logger.info("Roboflow request URL: %s", rf_url)
         try:
             rf_resp = http_requests.post(
                 rf_url,
-                json={
-                    "api_key": api_key,
-                    "inputs": {"image": {"type": "base64", "value": b64_image}},
-                },
+                params={"api_key": api_key},
+                json={"image": b64_image},
                 timeout=30,
             )
             rf_resp.raise_for_status()
@@ -467,17 +472,7 @@ class FootMeasureView(APIView):
             ) from exc
 
         response_json = rf_resp.json()
-        all_preds = []
-        for output in response_json.get("outputs", []):
-            for val in output.values():
-                if not isinstance(val, dict):
-                    continue
-                preds = val.get("predictions", [])
-                if isinstance(preds, dict):
-                    preds = preds.get("predictions", [])
-                if isinstance(preds, list):
-                    all_preds.extend(preds)
-        return all_preds
+        return response_json.get("predictions", [])
 
     def _extract_toebox(self, all_preds, ppi=None, ar_snapshot=None):
         """
