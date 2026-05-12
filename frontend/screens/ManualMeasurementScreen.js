@@ -16,15 +16,39 @@ export default function ManualMeasurementScreen({ navigation, route }) {
     const [toeboxLength, setToeboxLength] = useState('');
     const [toeboxWidth, setToeboxWidth] = useState('');
 
+    const [errors, setErrors] = useState({
+        length: false,
+        width: false,
+        toeboxLength: false,
+        toeboxWidth: false,
+    });
+    const [errorMessage, setErrorMessage] = useState('');
+
     const handleSubmit = () => {
+        const newErrors = {
+            length: !length,
+            width: !width,
+            toeboxLength: !toeboxLength,
+            toeboxWidth: !toeboxWidth,
+        };
+        setErrors(newErrors);
+
+        if (Object.values(newErrors).some((e) => e)) {
+            setErrorMessage("Please fill in all fields before submitting.");
+            return;
+        }
+
+        const area = Number(length) * Number(width) * 0.70;
+
         const measurements = {
             length_in: Number(length),
             width_in: Number(width),
             toebox_length_in: Number(toeboxLength),
             toebox_width_in: Number(toeboxWidth),
-            area_sq_in: Number(length) * Number(width) * 0.70,
+            area_sq_in: area,
             measurement_method: 'manual',
         };
+
         navigation.navigate('Measurements', { fromOnboarding, measurements: measurements });
     };
 
@@ -42,7 +66,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 </View>
             </View>
             <TextInput
-                style={styles.input}
+                style={[styles.input, errors.length && styles.inputError]}
                 keyboardType="numeric"
                 value={length}
                 onChangeText={setLength}
@@ -57,7 +81,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 </View>
             </View>
             <TextInput
-                style={styles.input}
+                style={[styles.input, errors.width && styles.inputError]}
                 keyboardType="numeric"
                 value={width}
                 onChangeText={setWidth}
@@ -72,7 +96,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 </View>
             </View>
             <TextInput
-                style={styles.input}
+                style={[styles.input, errors.toeboxLength && styles.inputError]}
                 keyboardType="numeric"
                 value={toeboxLength}
                 onChangeText={setToeboxLength}
@@ -87,13 +111,17 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 </View>
             </View>
             <TextInput
-                style={styles.input}
+                style={[styles.input, errors.toeboxWidth && styles.inputError]}
                 keyboardType="numeric"
                 value={toeboxWidth}
                 onChangeText={setToeboxWidth}
                 placeholder="e.g. 3.5"
                 placeholderTextColor="#A89880"
             />
+
+            {errorMessage ? (
+                <Text style={styles.errorMessage}>{errorMessage}</Text>
+            ) : null}
 
             <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit}>
                 <Text style={styles.primaryButtonText}>Save Measurements</Text>
@@ -143,7 +171,7 @@ const styles = StyleSheet.create({
     },
     input: {
         backgroundColor: '#FFF',
-        boderWidth: 1,
+        borderWidth: 1,
         borderColor: '#E2D4C0',
         borderRadius: 12,
         paddingHorizontal: 14,
@@ -151,6 +179,15 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#2F2A25',
         marginBottom: 16,
+    },
+    inputError: {
+        borderColor: "#D9534F",
+    },
+    errorMessage: {
+        color: '#D9534F',
+        fontSize: 15,
+        marginBottom: 12,
+        textAlign: 'center',
     },
     primaryButton: {
         backgroundColor: '#C28A5B',
