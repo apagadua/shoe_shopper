@@ -14,6 +14,13 @@ GOOGLE_ANDROID_CLIENT_ID = os.getenv("GOOGLE_ANDROID_CLIENT_ID", "").strip()
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
 ROBOFLOW_WORKSPACE = os.getenv("ROBOFLOW_WORKSPACE", "")
 ROBOFLOW_PROJECT = os.getenv("ROBOFLOW_PROJECT", "")
+# Direct model ID — bypasses the foot-measuring workflow (which filters out Wall Base).
+# Must be set to "shoe-shopper/23" (the underlying segmentation model) in .env.
+# The fallback constructs workspace/project which points at the workflow — don't rely on it.
+ROBOFLOW_MODEL_ID = os.getenv(
+    "ROBOFLOW_MODEL_ID",
+    f"{os.getenv('ROBOFLOW_WORKSPACE', '')}/{os.getenv('ROBOFLOW_PROJECT', '')}",
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",

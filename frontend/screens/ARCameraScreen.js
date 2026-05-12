@@ -8,9 +8,12 @@ import {
   ActivityIndicator,
   NativeModules,
   requireNativeComponent,
+  Linking,
+  AppState,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Accelerometer } from 'expo-sensors';
+import { useCameraPermissions } from 'expo-camera';
 import { API_BASE_URL } from '../config/api';
 
 const { ARCoreModule } = NativeModules;
@@ -22,9 +25,11 @@ const MIN_PLANE_EXTENT = 0.3; // metres — minimum floor extent to feel confide
 export default function ARCameraScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding ?? false;
 
-  // Phases: 'initializing' → 'scanning' → 'preview' → 'processing' | 'unavailable' | 'error'
+  // Phases: 'initializing' → 'scanning' → 'preview' → 'processing' | 'unavailable' | 'permission_denied' | 'error'
   const [phase, setPhase] = useState('initializing');
   const [initError, setInitError] = useState(null);
+  // When permission was denied with "Don't ask again", the only path forward is settings.
+  const [permissionBlocked, setPermissionBlocked] = useState(false);
 
   const [capturedUri, setCapturedUri] = useState(null);
   const [arSnapshot, setArSnapshot] = useState(null);
@@ -35,70 +40,122 @@ export default function ARCameraScreen({ navigation, route }) {
   const [isAligned, setIsAligned] = useState(false);
   const [floorDetected, setFloorDetected] = useState(false);
 
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+
   // Track whether session is running so cleanup is safe
   const sessionActive = useRef(false);
 
   // -------------------------------------------------------------------------
   // Initialization: check ARCore availability, then start session
   // -------------------------------------------------------------------------
-  useEffect(() => {
-    let cancelled = false;
+  const cancelledRef = useRef(false);
 
-    const init = async () => {
+  const init = async () => {
+    if (cancelledRef.current) return;
+    setPhase('initializing');
+    setInitError(null);
+
+    if (!ARCoreModule) {
+      setInitError('ARCore is not available on this device or platform.');
+      setPhase('unavailable');
+      return;
+    }
+
+    // Request camera permission first. expo-camera handles Android/iOS differences.
+    let camPerm = cameraPermission;
+    if (!camPerm?.granted) {
       try {
-        if (!ARCoreModule) {
-          setInitError('ARCore is not available on this device or platform.');
-          setPhase('unavailable');
-          return;
-        }
-
-        const availability = await ARCoreModule.checkAvailability();
-
-        if (cancelled) return;
-
-        if (availability === 'unsupported') {
-          setInitError('ARCore is not supported on this device.');
-          setPhase('unavailable');
-          return;
-        }
-
-        if (availability === 'supported_not_installed') {
-          try {
-            await ARCoreModule.requestInstall();
-          } catch {
-            if (!cancelled) {
-              setInitError('ARCore (Google Play Services for AR) is required. Please install it from the Play Store.');
-              setPhase('unavailable');
-            }
-            return;
-          }
-        }
-
-        // Start the AR session
-        await ARCoreModule.startSession();
-
-        if (!cancelled) {
-          sessionActive.current = true;
-          setPhase('scanning');
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setInitError(e.message || 'Failed to start AR session.');
-          setPhase('error');
-        }
+        camPerm = await requestCameraPermission();
+      } catch {
+        camPerm = null;
       }
-    };
+    }
+    if (cancelledRef.current) return;
+    if (!camPerm?.granted) {
+      setPermissionBlocked(camPerm?.canAskAgain === false);
+      setInitError(
+        camPerm?.canAskAgain === false
+          ? 'Camera access is blocked. Open settings to enable it.'
+          : 'Camera permission is required to use AR measurement.',
+      );
+      setPhase('permission_denied');
+      return;
+    }
 
+    // Check ARCore availability.
+    let availability;
+    try {
+      availability = await ARCoreModule.checkAvailability();
+    } catch {
+      setInitError('Could not check ARCore availability.');
+      setPhase('error');
+      return;
+    }
+    if (cancelledRef.current) return;
+
+    if (availability === 'unsupported') {
+      setInitError('ARCore is not supported on this device.');
+      setPhase('unavailable');
+      return;
+    }
+
+    if (availability === 'supported_not_installed') {
+      try {
+        await ARCoreModule.requestInstall();
+      } catch {
+        if (!cancelledRef.current) {
+          setInitError('ARCore (Google Play Services for AR) is required. Please install it from the Play Store.');
+          setPhase('unavailable');
+        }
+        return;
+      }
+    }
+
+    // Start the AR session — if this throws it's almost always the permission
+    // not being fully applied yet, so route to the permission screen.
+    try {
+      await ARCoreModule.startSession();
+    } catch (e) {
+      if (!cancelledRef.current) {
+        setPermissionBlocked(true);
+        setInitError('Camera permission is required. Open settings to enable it, then come back.');
+        setPhase('permission_denied');
+      }
+      return;
+    }
+
+    if (!cancelledRef.current) {
+      sessionActive.current = true;
+      setPhase('scanning');
+    }
+  };
+
+  useEffect(() => {
+    cancelledRef.current = false;
     init();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       if (sessionActive.current) {
         ARCoreModule?.stopSession?.();
         sessionActive.current = false;
       }
     };
   }, []);
+
+  // Re-check permission when the user returns from system settings.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      if (phase !== 'permission_denied') return;
+      if (cameraPermission?.granted) init();
+    });
+    return () => sub.remove();
+  }, [phase, cameraPermission?.granted]);
+
+  const openAppSettings = () => {
+    Linking.openSettings().catch(() => {});
+  };
 
   // -------------------------------------------------------------------------
   // Accelerometer tilt detection while scanning
@@ -226,20 +283,36 @@ export default function ARCameraScreen({ navigation, route }) {
   // -------------------------------------------------------------------------
   // Render: unavailable
   // -------------------------------------------------------------------------
-  if (phase === 'unavailable' || phase === 'error') {
+  if (phase === 'unavailable' || phase === 'error' || phase === 'permission_denied') {
+    const isPermission = phase === 'permission_denied';
+    const title = isPermission
+      ? 'Camera permission needed'
+      : phase === 'unavailable'
+      ? 'AR Not Available'
+      : 'Something went wrong';
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.unavailableTitle}>
-          {phase === 'unavailable' ? 'AR Not Available' : 'Something went wrong'}
-        </Text>
+        <Text style={styles.unavailableTitle}>{title}</Text>
         <Text style={styles.unavailableText}>
           {initError || 'ARCore could not start.'}
         </Text>
+        {isPermission ? (
+          <TouchableOpacity style={styles.primaryButton} onPress={openAppSettings}>
+            <Text style={styles.primaryButtonText}>Open settings</Text>
+          </TouchableOpacity>
+        ) : null}
+        {isPermission && !permissionBlocked ? (
+          <TouchableOpacity style={styles.secondaryButton} onPress={init}>
+            <Text style={styles.secondaryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={isPermission ? styles.secondaryButton : styles.primaryButton}
           onPress={() => navigation.navigate('FootCapture')}
         >
-          <Text style={styles.primaryButtonText}>Use paper method instead</Text>
+          <Text style={isPermission ? styles.secondaryButtonText : styles.primaryButtonText}>
+            Use paper method instead
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.secondaryButtonText}>Go back</Text>
