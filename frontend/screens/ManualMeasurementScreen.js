@@ -24,6 +24,14 @@ export default function ManualMeasurementScreen({ navigation, route }) {
     });
     const [errorMessage, setErrorMessage] = useState('');
 
+    const cleanText = (text) => {
+            let cleaned = text.replace(/[^0-9.]/g, "");
+            if (cleaned.split('.').length > 2) {
+                cleaned = cleaned.slice(0, -1);
+            }
+            return cleaned;
+        }
+
     const handleSubmit = () => {
         const newErrors = {
             length: !length,
@@ -69,7 +77,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 style={[styles.input, errors.length && styles.inputError]}
                 keyboardType="numeric"
                 value={length}
-                onChangeText={setLength}
+                onChangeText={(v) => setLength(cleanText(v))}
                 placeholder="e.g. 10.5"
                 placeholderTextColor="#A89880"
             />
@@ -84,7 +92,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 style={[styles.input, errors.width && styles.inputError]}
                 keyboardType="numeric"
                 value={width}
-                onChangeText={setWidth}
+                onChangeText={(v) => setWidth(cleanText(v))}
                 placeholder="e.g. 4.0"
                 placeholderTextColor="#A89880"
             />
@@ -99,7 +107,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 style={[styles.input, errors.toeboxLength && styles.inputError]}
                 keyboardType="numeric"
                 value={toeboxLength}
-                onChangeText={setToeboxLength}
+                onChangeText={(v) => setToeboxLength(cleanText(v))}
                 placeholder="e.g. 3.5"
                 placeholderTextColor="#A89880"
             />
@@ -114,7 +122,7 @@ export default function ManualMeasurementScreen({ navigation, route }) {
                 style={[styles.input, errors.toeboxWidth && styles.inputError]}
                 keyboardType="numeric"
                 value={toeboxWidth}
-                onChangeText={setToeboxWidth}
+                onChangeText={(v) => setToeboxWidth(cleanText(v))}
                 placeholder="e.g. 3.5"
                 placeholderTextColor="#A89880"
             />
