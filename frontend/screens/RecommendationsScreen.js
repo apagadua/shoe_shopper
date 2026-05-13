@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
   Dimensions, Animated, Pressable, ActivityIndicator,
   Image, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Circle } from 'react-native-svg';
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSavedShoes } from '../SavedShoesContext';
@@ -12,11 +13,29 @@ import { useOwnedShoes } from '../OwnedShoesContext';
 import { ATTRIBUTE_FILTERS } from '../constants/attributes';
 import { API_BASE_URL } from '../config/api';
 import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
-import { fetchShoeCardPayloadsByIds } from '../services/shoeCardPayloads';
+import {
+  readRecommendationsCache,
+  writeRecommendationsCache,
+  isCacheStale,
+} from '../services/recommendationsCache';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(172, SCREEN_WIDTH * 0.5);
 const CAROUSEL_WIDTH = SCREEN_WIDTH - 48;
+
+/**
+ * Route Converse / Demandware CDN URLs through the backend proxy so the
+ * server can attach the required Referer header. React Native's Image
+ * component (Fresco on Android) does not reliably forward custom headers
+ * set on the source prop.
+ */
+function resolveImageUrl(uri) {
+  if (!uri) return null;
+  if (uri.includes('converse.com') || uri.includes('demandware.static')) {
+    return `${API_BASE_URL}/api/proxy-image/?url=${encodeURIComponent(uri)}`;
+  }
+  return uri;
+}
 
 const FUNCTION_CATEGORIES = {
   Athletic: ['Running', 'Training', 'Basketball', 'Soccer', 'Tennis', 'Skate', 'Hiking'],
@@ -81,6 +100,112 @@ function getColorSwatch(colorName = '') {
   return match ? COLOR_SWATCH_MAP[match] : '#C9B8A7';
 }
 
+function getColorwaySwatch(cw = {}) {
+  return cw.dominant_color_hex || getColorSwatch(cw.name) || '#C9B8A7';
+}
+
+/**
+ * Return a palette array for a colorway object.
+ * Falls back to a single-element array so callers always get at least one color.
+ */
+function getColorwayPalette(cw = {}) {
+  if (Array.isArray(cw.color_palette_hex) && cw.color_palette_hex.length > 0) {
+    return cw.color_palette_hex.slice(0, 3);
+  }
+  const single = cw.dominant_color_hex || getColorSwatch(cw.name) || '#C9B8A7';
+  return [single];
+}
+
+// SVG viewBox is "0 0 18 18" with center (9, 9).
+// Radius 9 fills the full circle; leave 0.5px margin so the outer
+// stroke on the View border isn't overlapped.
+const SWATCH_R = 8.5;
+const SWATCH_C = 9;
+
+function swatchPointOnCircle(angleDegrees) {
+  const rad = (angleDegrees * Math.PI) / 180;
+  return {
+    x: SWATCH_C + SWATCH_R * Math.cos(rad),
+    y: SWATCH_C + SWATCH_R * Math.sin(rad),
+  };
+}
+
+function describeSwatchSlice(index, count) {
+  const startAngle = -90 + (index * 360) / count;
+  const endAngle   = -90 + ((index + 1) * 360) / count;
+  const start = swatchPointOnCircle(startAngle);
+  const end   = swatchPointOnCircle(endAngle);
+  // Large-arc flag: 1 when the slice spans more than 180° (only possible
+  // with a single 2-color swatch where each half is exactly 180°).
+  const largeArc = (360 / count) > 180 ? 1 : 0;
+
+  return [
+    `M ${SWATCH_C} ${SWATCH_C}`,
+    `L ${start.x.toFixed(4)} ${start.y.toFixed(4)}`,
+    `A ${SWATCH_R} ${SWATCH_R} 0 ${largeArc} 1 ${end.x.toFixed(4)} ${end.y.toFixed(4)}`,
+    'Z',
+  ].join(' ');
+}
+
+/**
+ * Renders a small circular swatch showing 1, 2, or 3 color segments.
+ *
+ * Single color: plain View with backgroundColor + View border (no SVG overhead).
+ * Multi-color:  borderless View so the SVG starts at (0,0) with no offset,
+ *               then the SVG draws the pie slices and its own border Circle.
+ *               This avoids the 1px shift caused by positioning an absolute SVG
+ *               inside a View that has borderWidth.
+ */
+function ColorwaySwatch({ colors, active }) {
+  const palette = Array.isArray(colors) && colors.length > 0
+    ? colors.slice(0, 3)
+    : ['#C9B8A7'];
+
+  if (palette.length === 1) {
+    return (
+      <View
+        style={[
+          styles.swatchCircle,
+          active && styles.swatchCircleActive,
+          { backgroundColor: palette[0] },
+        ]}
+      />
+    );
+  }
+
+  // Border drawn by SVG so no View borderWidth offset shifts the SVG.
+  const borderColor = active ? '#9A6645' : '#D9CCBD';
+  const borderWidth = active ? 2 : 1;
+
+  return (
+    <View
+      style={[
+        styles.swatchPieContainer,
+        active && { transform: [{ scale: 1.1 }] },
+      ]}
+    >
+      <Svg width={18} height={18} viewBox="0 0 18 18">
+        {palette.map((color, index) => (
+          <Path
+            key={`${color}-${index}`}
+            d={describeSwatchSlice(index, palette.length)}
+            fill={color}
+          />
+        ))}
+        {/* Border circle drawn on top so it frames the slices cleanly */}
+        <Circle
+          cx={SWATCH_C}
+          cy={SWATCH_C}
+          r={SWATCH_R}
+          fill="none"
+          stroke={borderColor}
+          strokeWidth={borderWidth}
+        />
+      </Svg>
+    </View>
+  );
+}
+
 export default function RecommendationsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
 
@@ -114,55 +239,106 @@ export default function RecommendationsScreen({ navigation, route }) {
   const [failedImageByColorway, setFailedImageByColorway] = useState({});
   const [catalogByShoeId, setCatalogByShoeId] = useState(() => new Map());
 
-  const showToast = (message) => {
+  const showToast = useCallback((message) => {
     setToastMessage(message);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 1800);
-  };
+  }, []);
 
-  // Fetch recommendations from backend
+  // Fetch recommendations — show cache immediately, then revalidate in background.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       setFetchError(null);
       setNoMeasurement(false);
-      setLoading(true);
 
-      SecureStore.getItemAsync('authToken').then(token => {
+      (async () => {
+        // 1. Show cached data instantly.
+        const cache = await readRecommendationsCache();
         if (cancelled) return;
-        if (!token) { setLoading(false); return; }
-        return fetch(`${API_BASE_URL}/api/recommendations/`, {
-          headers: { Authorization: `Token ${token}` },
-        });
-      }).then(res => {
-        if (!res || cancelled) return;
-        if (res.status === 404) { setNoMeasurement(true); setLoading(false); return; }
-        if (!res.ok) throw new Error('fetch failed');
-        return res.json();
-      }).then(data => {
-        if (!data || cancelled) return;
-        setAllResults(data.results || []);
-        setHasToebox(data.has_toebox_data || false);
-        setLoading(false);
-      }).catch(() => {
-        if (!cancelled) { setFetchError(true); setLoading(false); }
-      });
+        if (cache?.results?.length) {
+          setAllResults(cache.results);
+          setHasToebox(cache.has_toebox_data ?? false);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
+
+        const token = await SecureStore.getItemAsync('authToken');
+        if (!token || cancelled) { setLoading(false); return; }
+
+        // 2. Fetch health (shoe count) in parallel with recommendations check.
+        let currentShoeCount = null;
+        try {
+          const hRes = await fetch(`${API_BASE_URL}/api/health/`);
+          if (hRes.ok) {
+            const hData = await hRes.json();
+            currentShoeCount = hData.shoe_count ?? null;
+          }
+        } catch {}
+        if (cancelled) return;
+
+        // 3. Skip the full recs fetch if cache is still valid.
+        //    measurement_id check is deferred to the recs response (we don't
+        //    fetch /measurements/latest/ here — let the recs API return fresh data).
+        const shoeCountChanged = currentShoeCount != null && cache?.shoe_count !== currentShoeCount;
+        if (!shoeCountChanged && cache?.results?.length) {
+          // Cache is still good for shoe count; results already shown above.
+          return;
+        }
+
+        // 4. Fetch fresh recommendations.
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/recommendations/`, {
+            headers: { Authorization: `Token ${token}` },
+          });
+          if (cancelled) return;
+          if (res.status === 404) {
+            setNoMeasurement(true);
+            setLoading(false);
+            return;
+          }
+          if (!res.ok) throw new Error('fetch failed');
+          const data = await res.json();
+          if (cancelled) return;
+
+          setAllResults(data.results || []);
+          setHasToebox(data.has_toebox_data ?? false);
+
+          // Persist so Dashboard and next visit are instant.
+          await writeRecommendationsCache({
+            results:           data.results || [],
+            measurement_id:    data.measurement_id ?? null,
+            shoe_count:        currentShoeCount,
+            has_toebox_data:   data.has_toebox_data ?? false,
+            algorithm_version: data.algorithm_version ?? null,
+          });
+        } catch {
+          if (!cancelled && !cache?.results?.length) setFetchError(true);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
 
       return () => { cancelled = true; };
     }, [])
   );
 
+  // Build the catalog map directly from API results — no Supabase needed.
+  // colorway_options from /api/recommendations/ already includes goat_id, sku,
+  // image_url, product_url, and sizes for the recommended size.
   useEffect(() => {
-    let cancelled = false;
-    const ids = [...new Set(allResults.map((r) => r.id).filter((id) => id != null))];
-    if (!ids.length) {
-      setCatalogByShoeId(new Map());
-      return () => { cancelled = true; };
+    const map = new Map();
+    for (const item of allResults) {
+      if (item.id == null) continue;
+      map.set(item.id, {
+        shoe_id:                  item.id,
+        catalog_shoe_image_url:   item.shoe_image_url ?? null,
+        catalog_shoe_product_url: item.product_url ?? null,
+        colorways:                item.colorway_options ?? [],
+      });
     }
-    fetchShoeCardPayloadsByIds(ids).then((map) => {
-      if (!cancelled) setCatalogByShoeId(map);
-    });
-    return () => { cancelled = true; };
+    setCatalogByShoeId(map);
   }, [allResults]);
 
   const { subcategories: subcategoriesDraft } =
@@ -248,6 +424,258 @@ export default function RecommendationsScreen({ navigation, route }) {
   const drawerTranslateX = drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [DRAWER_WIDTH, 0] });
   const overlayOpacity   = drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] });
 
+  // Memoised so it doesn't recompute on unrelated re-renders (e.g. toast state change).
+  const displayedResults = useMemo(() => {
+    if (hasActiveFilters) return filteredResults;
+    return allResults.filter(
+      (r) => r.fit_status !== 'REJECTED' && !isSaved(r.id) && !isOwned(r.id)
+    );
+  }, [hasActiveFilters, filteredResults, allResults, isSaved, isOwned]);
+
+  // FlatList render helpers ────────────────────────────────────────────────────
+
+  const renderItem = useCallback(({ item }) => {
+    const saved = isSaved(item.id);
+    const owned = isOwned(item.id);
+    const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
+    const tags = (path === 'function' ? item.function_tags : item.style_tags) || [];
+    const baseSize = item.recommended_size ?? item.us_size ?? item.size;
+    const catalog = catalogByShoeId.get(item.id);
+    const colorways = catalog?.colorways ?? [];
+    const hasColorways = colorways.length > 0;
+    const cardVariants = hasColorways ? colorways : [null];
+    const activeIndex = activeColorwayByShoe[item.id] ?? 0;
+
+    const cardTags = [];
+    if (selectedCategory && tags.includes(selectedCategory)) cardTags.push(selectedCategory);
+    if (selectedSubcategory && tags.includes(selectedSubcategory) && !cardTags.includes(selectedSubcategory)) {
+      cardTags.push(selectedSubcategory);
+    }
+    ATTRIBUTE_FILTERS.forEach(({ key, label }) => {
+      const attrs = item.attributes_json || {};
+      if (attrs[key] && !cardTags.includes(label)) cardTags.push(label);
+    });
+    tags.forEach(t => { if (!cardTags.includes(t)) cardTags.push(t); });
+
+    return (
+      <ScrollView
+        horizontal
+        pagingEnabled
+        nestedScrollEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.colorwayCarousel}
+        decelerationRate="fast"
+        snapToInterval={CAROUSEL_WIDTH}
+        snapToAlignment="start"
+        onMomentumScrollEnd={(event) => {
+          const nextIndex = Math.round(event.nativeEvent.contentOffset.x / CAROUSEL_WIDTH);
+          setActiveColorwayByShoe((prev) => ({ ...prev, [item.id]: nextIndex }));
+        }}
+      >
+        {cardVariants.map((variant, variantIndex) => {
+          const variantKey = `${item.id}-${variant?.goat_id ?? 'base'}`;
+          const variantImageOk = variant?.image_url && !failedImageByColorway[variantKey];
+          const catalogImg = catalog?.catalog_shoe_image_url ?? null;
+          const apiImg = item.shoe_image_url && String(item.shoe_image_url).trim()
+            ? String(item.shoe_image_url).trim()
+            : null;
+          const imageUrl = variantImageOk ? variant.image_url : (catalogImg || apiImg || null);
+          const priceUsd = hasColorways
+            ? (variant?.sizes?.[0]?.price_usd ?? item.price_usd)
+            : item.price_usd;
+          const sizeForFacts = hasColorways
+            ? (variant?.sizes?.[0]?.us_size ?? baseSize)
+            : baseSize;
+          const detailsUrl = hasColorways
+            ? (variant?.product_url ?? catalog?.catalog_shoe_product_url ?? item.product_url)
+            : item.product_url;
+          const colorwayLabel = hasColorways ? (variant?.name ?? null) : item.colorway;
+          const selectedCardItem = {
+            ...item,
+            colorway: colorwayLabel ?? null,
+            product_url: detailsUrl || item.product_url,
+            shoe_image_url: imageUrl || item.shoe_image_url,
+            price_usd: priceUsd ?? item.price_usd,
+            recommended_size: sizeForFacts ?? item.recommended_size,
+          };
+
+          return (
+            <View key={`${variantKey}-${variantIndex}`} style={[styles.card, styles.colorwaySlide]}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.brand}>{item.brand}</Text>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={styles.heartButton}
+                    onPress={() => {
+                      const wasSaved = isSaved(item.id);
+                      toggleSaved(selectedCardItem);
+                      showToast(wasSaved ? 'Removed from Wishlist' : 'Added to Wishlist');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={saved ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={saved ? '#C28A5B' : '#B0A499'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.heartButton}
+                    onPress={() => {
+                      const wasOwned = isOwned(item.id);
+                      if (!wasOwned && isSaved(item.id)) {
+                        toggleSaved(selectedCardItem);
+                      }
+                      toggleOwned({ ...selectedCardItem, returnToWishlistOnRemove: false });
+                      showToast(wasOwned ? 'Removed from Closet' : 'Added to Closet');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={owned ? 'bag-handle' : 'bag-handle-outline'}
+                      size={20}
+                      color={owned ? '#C28A5B' : '#B0A499'}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <Text style={styles.name}>{item.model}</Text>
+              {(variant?.name || (!hasColorways && item.colorway)) ? (
+                <Text style={styles.colorway}>{variant?.name || item.colorway}</Text>
+              ) : null}
+
+              {hasColorways && (
+                <View style={styles.colorwayPills}>
+                  {colorways.map((cw, index) => (
+                    <ColorwaySwatch
+                      key={`${item.id}-${cw.goat_id ?? ''}-${cw.sku ?? index}`}
+                      colors={getColorwayPalette(cw)}
+                      active={index === activeIndex}
+                    />
+                  ))}
+                </View>
+              )}
+
+              {item.fit_status !== 'UNSCORED' && (
+                <View style={styles.fitRow}>
+                  <View style={[styles.fitBadge, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
+                    <Text style={[styles.fitScore, { color: statusColor }]}>{item.fit_score}</Text>
+                    <Text style={[styles.fitLabel, { color: statusColor }]}>{item.fit_status_label}</Text>
+                  </View>
+                  <Text style={styles.fitProfile}>{item.fit_profile?.replace(/_/g, ' ')}</Text>
+                </View>
+              )}
+
+              {imageUrl ? (
+                <Image
+                  key={`${variantKey}|${imageUrl}`}
+                  source={{ uri: resolveImageUrl(imageUrl) }}
+                  style={styles.shoeImage}
+                  resizeMode="contain"
+                  onError={() => {
+                    if (variant?.image_url && !failedImageByColorway[variantKey]) {
+                      setFailedImageByColorway((prev) => ({ ...prev, [variantKey]: true }));
+                    }
+                  }}
+                />
+              ) : (
+                <View style={styles.shoePhotoPlaceholder}>
+                  <Ionicons name="image-outline" size={32} color="#B0A499" />
+                  <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
+                </View>
+              )}
+
+              <ShoeCardKeyFacts priceUsd={priceUsd} sizeValue={sizeForFacts} />
+
+              {cardTags.length > 0 && (
+                <View style={styles.attrTags}>
+                  {cardTags.map(t => (
+                    <View key={t} style={styles.attrTag}>
+                      <Text style={styles.attrTagText}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {detailsUrl ? (
+                <TouchableOpacity style={styles.primaryButton} onPress={() => Linking.openURL(detailsUrl)}>
+                  <Text style={styles.primaryButtonText}>View details</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        })}
+      </ScrollView>
+    );
+  }, [
+    isSaved, isOwned, catalogByShoeId, activeColorwayByShoe, failedImageByColorway,
+    path, selectedCategory, selectedSubcategory, toggleSaved, toggleOwned, showToast,
+    setActiveColorwayByShoe, setFailedImageByColorway,
+  ]);
+
+  const listHeader = useMemo(() => (
+    <>
+      {!hasToebox && allResults.length > 0 && (
+        <View style={styles.noToebox}>
+          <Ionicons name="information-circle-outline" size={16} color="#6B5F52" />
+          <Text style={styles.noToeboxText}>
+            Toebox not detected — scored on overall length and width only. Rescan for more precise results.
+          </Text>
+        </View>
+      )}
+      {hasActiveFilters && (
+        <View style={styles.resultsHeader}>
+          <Text style={styles.resultsTitle}>
+            {displayedResults.length} {displayedResults.length === 1 ? 'shoe' : 'shoes'}
+          </Text>
+        </View>
+      )}
+    </>
+  ), [hasToebox, allResults.length, hasActiveFilters, displayedResults.length]);
+
+  const renderEmpty = useCallback(() => (
+    <View style={styles.emptyState}>
+      {allResults.length === 0 ? (
+        <>
+          <Ionicons name="archive-outline" size={40} color="#B0A499" />
+          <Text style={styles.emptyText}>No shoes in our catalog yet.</Text>
+          <Text style={styles.emptySubText}>Check back soon as we add inventory.</Text>
+        </>
+      ) : (
+        <>
+          <Ionicons name="search-outline" size={40} color="#B0A499" />
+          <Text style={styles.emptyText}>No shoes match your filters.</Text>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => { setSelectedCategory(null); setSelectedSubcategory(null); setAttributeFilters({}); }}
+          >
+            <Text style={styles.clearButtonText}>Clear filters</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  ), [allResults.length, setSelectedCategory, setSelectedSubcategory, setAttributeFilters]);
+
+  const renderFooter = useCallback(() => fromOnboarding ? (
+    <View style={styles.doneSection}>
+      <View style={styles.doneCard}>
+        <Ionicons name="checkmark-circle" size={32} color="#C28A5B" style={styles.doneIcon} />
+        <Text style={styles.doneTitle}>You're all set</Text>
+        <Text style={styles.doneSubtitle}>Head to your closet to see your foot profile and saved shoes.</Text>
+        <TouchableOpacity
+          style={styles.doneButton}
+          onPress={() => navigation.replace('MainTabs')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.doneButtonText}>Go to My Closet</Text>
+          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  ) : null, [fromOnboarding, navigation]);
+
   // --- Render states ---
   if (loading) {
     return (
@@ -286,257 +714,22 @@ export default function RecommendationsScreen({ navigation, route }) {
     );
   }
 
-  const displayedResults = hasActiveFilters
-    ? filteredResults
-    : allResults.filter(
-      (r) => r.fit_status !== 'REJECTED' && !isSaved(r.id) && !isOwned(r.id)
-    );
-
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList
+        data={displayedResults}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        {!hasToebox && allResults.length > 0 && (
-          <View style={styles.noToebox}>
-            <Ionicons name="information-circle-outline" size={16} color="#6B5F52" />
-            <Text style={styles.noToeboxText}>
-              Toebox not detected — scored on overall length and width only. Rescan for more precise results.
-            </Text>
-          </View>
-        )}
-
-        {hasActiveFilters && (
-          <View style={styles.resultsHeader}>
-            <Text style={styles.resultsTitle}>
-              {displayedResults.length} {displayedResults.length === 1 ? 'shoe' : 'shoes'}
-            </Text>
-          </View>
-        )}
-
-        {displayedResults.map(item => {
-          const saved = isSaved(item.id);
-          const owned = isOwned(item.id);
-          const statusColor = FIT_STATUS_COLOR[item.fit_status] || '#6B5F52';
-          const tags = (path === 'function' ? item.function_tags : item.style_tags) || [];
-          const baseSize = item.recommended_size ?? item.us_size ?? item.size;
-          const catalog = catalogByShoeId.get(item.id);
-          const colorways = catalog?.colorways ?? [];
-          const hasColorways = colorways.length > 0;
-          const cardVariants = hasColorways ? colorways : [null];
-          const activeIndex = activeColorwayByShoe[item.id] ?? 0;
-
-          const cardTags = [];
-          if (selectedCategory && tags.includes(selectedCategory)) cardTags.push(selectedCategory);
-          if (selectedSubcategory && tags.includes(selectedSubcategory) && !cardTags.includes(selectedSubcategory)) {
-            cardTags.push(selectedSubcategory);
-          }
-          ATTRIBUTE_FILTERS.forEach(({ key, label }) => {
-            const attrs = item.attributes_json || {};
-            if (attrs[key] && !cardTags.includes(label)) cardTags.push(label);
-          });
-          tags.forEach(t => { if (!cardTags.includes(t)) cardTags.push(t); });
-
-          return (
-            <ScrollView
-              key={item.id}
-              horizontal
-              pagingEnabled
-              nestedScrollEnabled
-              directionalLockEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.colorwayCarousel}
-              decelerationRate="fast"
-              snapToInterval={CAROUSEL_WIDTH}
-              snapToAlignment="start"
-              onMomentumScrollEnd={(event) => {
-                const nextIndex = Math.round(event.nativeEvent.contentOffset.x / CAROUSEL_WIDTH);
-                setActiveColorwayByShoe((prev) => ({ ...prev, [item.id]: nextIndex }));
-              }}
-            >
-              {cardVariants.map((variant, variantIndex) => {
-                const variantKey = `${item.id}-${variant?.goat_id ?? 'base'}`;
-                const variantImageOk = variant?.image_url && !failedImageByColorway[variantKey];
-                const catalogImg = catalog?.catalog_shoe_image_url ?? null;
-                const apiImg = item.shoe_image_url && String(item.shoe_image_url).trim()
-                  ? String(item.shoe_image_url).trim()
-                  : null;
-                const imageUrl = variantImageOk ? variant.image_url : (catalogImg || apiImg || null);
-                const priceUsd = hasColorways
-                  ? (variant?.sizes?.[0]?.price_usd ?? item.price_usd)
-                  : item.price_usd;
-                const sizeForFacts = hasColorways
-                  ? (variant?.sizes?.[0]?.us_size ?? baseSize)
-                  : baseSize;
-                const detailsUrl = hasColorways
-                  ? (variant?.product_url ?? catalog?.catalog_shoe_product_url ?? item.product_url)
-                  : item.product_url;
-                const colorwayLabel = hasColorways ? (variant?.name ?? null) : item.colorway;
-                const selectedCardItem = {
-                  ...item,
-                  colorway: colorwayLabel ?? null,
-                  product_url: detailsUrl || item.product_url,
-                  shoe_image_url: imageUrl || item.shoe_image_url,
-                  price_usd: priceUsd ?? item.price_usd,
-                  recommended_size: sizeForFacts ?? item.recommended_size,
-                };
-
-                return (
-                  <View key={`${variantKey}-${variantIndex}`} style={[styles.card, styles.colorwaySlide]}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.brand}>{item.brand}</Text>
-                      <View style={styles.cardActions}>
-                        <TouchableOpacity
-                          style={styles.heartButton}
-                          onPress={() => {
-                            const wasSaved = isSaved(item.id);
-                            toggleSaved(selectedCardItem);
-                            showToast(wasSaved ? 'Removed from Wishlist' : 'Added to Wishlist');
-                          }}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                          <Ionicons
-                            name={saved ? 'heart' : 'heart-outline'}
-                            size={20}
-                            color={saved ? '#C28A5B' : '#B0A499'}
-                          />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.heartButton}
-                          onPress={() => {
-                            const wasOwned = isOwned(item.id);
-                            if (!wasOwned && isSaved(item.id)) {
-                              toggleSaved(selectedCardItem);
-                            }
-                            toggleOwned({ ...selectedCardItem, returnToWishlistOnRemove: false });
-                            showToast(wasOwned ? 'Removed from Closet' : 'Added to Closet');
-                          }}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                          <Ionicons
-                            name={owned ? 'bag-handle' : 'bag-handle-outline'}
-                            size={20}
-                            color={owned ? '#C28A5B' : '#B0A499'}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <Text style={styles.name}>{item.model}</Text>
-                    {(variant?.name || (!hasColorways && item.colorway)) ? (
-                      <Text style={styles.colorway}>{variant?.name || item.colorway}</Text>
-                    ) : null}
-
-                    {hasColorways && (
-                      <View style={styles.colorwayPills}>
-                        {colorways.map((cw, index) => (
-                          <View
-                            key={`${item.id}-${cw.goat_id}-${cw.sku ?? index}`}
-                            style={[
-                              styles.colorwaySwatch,
-                              { backgroundColor: getColorSwatch(cw.name) },
-                              index === activeIndex && styles.colorwaySwatchActive,
-                            ]}
-                          />
-                        ))}
-                      </View>
-                    )}
-
-                    {item.fit_status !== 'UNSCORED' && (
-                      <View style={styles.fitRow}>
-                        <View style={[styles.fitBadge, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
-                          <Text style={[styles.fitScore, { color: statusColor }]}>{item.fit_score}</Text>
-                          <Text style={[styles.fitLabel, { color: statusColor }]}>{item.fit_status_label}</Text>
-                        </View>
-                        <Text style={styles.fitProfile}>{item.fit_profile?.replace(/_/g, ' ')}</Text>
-                      </View>
-                    )}
-
-                    {imageUrl ? (
-                      <Image
-                        key={`${variantKey}|${imageUrl}`}
-                        source={{ uri: imageUrl }}
-                        style={styles.shoeImage}
-                        resizeMode="contain"
-                        onError={() => {
-                          if (variant?.image_url && !failedImageByColorway[variantKey]) {
-                            setFailedImageByColorway((prev) => ({ ...prev, [variantKey]: true }));
-                          }
-                        }}
-                      />
-                    ) : (
-                      <View style={styles.shoePhotoPlaceholder}>
-                        <Ionicons name="image-outline" size={32} color="#B0A499" />
-                        <Text style={styles.shoePhotoPlaceholderText}>Shoe photo</Text>
-                      </View>
-                    )}
-
-                    <ShoeCardKeyFacts priceUsd={priceUsd} sizeValue={sizeForFacts} />
-
-                    {cardTags.length > 0 && (
-                      <View style={styles.attrTags}>
-                        {cardTags.map(t => (
-                          <View key={t} style={styles.attrTag}>
-                            <Text style={styles.attrTagText}>{t}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    {detailsUrl ? (
-                      <TouchableOpacity style={styles.primaryButton} onPress={() => Linking.openURL(detailsUrl)}>
-                        <Text style={styles.primaryButtonText}>View details</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </ScrollView>
-          );
-        })}
-
-        {displayedResults.length === 0 && (
-          <View style={styles.emptyState}>
-            {allResults.length === 0 ? (
-              <>
-                <Ionicons name="archive-outline" size={40} color="#B0A499" />
-                <Text style={styles.emptyText}>No shoes in our catalog yet.</Text>
-                <Text style={styles.emptySubText}>Check back soon as we add inventory.</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="search-outline" size={40} color="#B0A499" />
-                <Text style={styles.emptyText}>No shoes match your filters.</Text>
-                <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={() => { setSelectedCategory(null); setSelectedSubcategory(null); setAttributeFilters({}); }}
-                >
-                  <Text style={styles.clearButtonText}>Clear filters</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        )}
-
-        {fromOnboarding && (
-          <View style={styles.doneSection}>
-            <View style={styles.doneCard}>
-              <Ionicons name="checkmark-circle" size={32} color="#C28A5B" style={styles.doneIcon} />
-              <Text style={styles.doneTitle}>You're all set</Text>
-              <Text style={styles.doneSubtitle}>Head to your closet to see your foot profile and saved shoes.</Text>
-              <TouchableOpacity
-                style={styles.doneButton}
-                onPress={() => navigation.replace('MainTabs')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.doneButtonText}>Go to My Closet</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      </ScrollView>
+        removeClippedSubviews
+        maxToRenderPerBatch={3}
+        initialNumToRender={4}
+        windowSize={5}
+      />
 
       {toastMessage && (
         <View style={styles.toastContainer}>
@@ -695,14 +888,27 @@ const styles = StyleSheet.create({
   colorwayCarousel: { marginBottom: 12 },
   colorwaySlide: { width: CAROUSEL_WIDTH, justifyContent: 'center' },
   colorwayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  colorwaySwatch: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
+  swatchCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1,
     borderColor: '#D9CCBD',
+    overflow: 'hidden',
   },
-  colorwaySwatchActive: { borderWidth: 2, borderColor: '#9A6645', transform: [{ scale: 1.1 }] },
+  swatchCircleActive: {
+    borderWidth: 2,
+    borderColor: '#9A6645',
+    transform: [{ scale: 1.1 }],
+  },
+  // Multi-color pie: no borderWidth so the SVG fills from (0,0) with no offset.
+  // The SVG draws its own border Circle on top of the slices.
+  swatchPieContainer: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    overflow: 'hidden',
+  },
   fitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },

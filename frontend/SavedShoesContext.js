@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'savedShoes';
@@ -17,7 +17,7 @@ export function SavedShoesProvider({ children }) {
       });
   }, []);
 
-  function toggleSaved(shoe) {
+  const toggleSaved = useCallback((shoe) => {
     if (!shoe?.id) return;
     setSavedMap(prev => {
       const next = { ...prev };
@@ -29,16 +29,19 @@ export function SavedShoesProvider({ children }) {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-  }
+  }, []);
 
-  function isSaved(id) {
-    return Boolean(savedMap[id]);
-  }
+  const isSaved = useCallback((id) => Boolean(savedMap[id]), [savedMap]);
 
-  const savedShoes = Object.values(savedMap);
+  const savedShoes = useMemo(() => Object.values(savedMap), [savedMap]);
+
+  const contextValue = useMemo(
+    () => ({ savedMap, savedShoes, toggleSaved, isSaved }),
+    [savedMap, savedShoes, toggleSaved, isSaved]
+  );
 
   return (
-    <SavedShoesContext.Provider value={{ savedMap, savedShoes, toggleSaved, isSaved }}>
+    <SavedShoesContext.Provider value={contextValue}>
       {children}
     </SavedShoesContext.Provider>
   );

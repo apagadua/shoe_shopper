@@ -1,37 +1,37 @@
 """
-Management command: sync GOAT colorway and per-size pricing data into the DB.
+Management command: refresh GOAT colorway data using the goat_id slug
+stored on each ShoeColorway row — no search step.
 
-Typical workflow:
-    # 1. Dry run — preview and save results to a file
-    python manage.py seed_kicks --dry-run --output dry_run.json
+Only processes ShoeColorway rows whose product_url starts with goat.com.
+The goat_id for GOAT-sourced colorways is the product slug
+(e.g. "samba-og-b75806"), which maps directly to the detail endpoint.
 
-    # 2. Review dry_run.json, then populate the DB from the file (no API calls)
-    python manage.py seed_kicks --from-file dry_run.json
+Per colorway: refreshes name, sku, image_url, product_url, and
+per-size price_usd / is_available.
 
-    # Or do a live sync directly (uses API):
+Per shoe (after all colorways): rolls up shoe_image_url, product_url,
+and price_usd from the cheapest available GOAT colorway size.
+
+Typical usage:
     python manage.py seed_kicks
+    python manage.py seed_kicks --shoe-id 17          # one specific shoe
+    python manage.py seed_kicks --dry-run             # preview without writing
+    python manage.py seed_kicks --force               # skip the 6-day freshness check
 
-For every Shoe that has at least one insole-measured ShoeSize:
-  1. Search GOAT once per measured size ("{brand} {model}" + size=X) so the
-     result set is pre-filtered to colorways the API reports available in that
-     size. Colorways with no inventory in any of our measured sizes never appear
-     and never receive a detail fetch.
-  2. Dedup colorways by goat_id across the per-size searches.
-  3. Skip detail fetches for goat_ids already synced within RESYNC_DAYS, but
-     touch last_synced_at so the stale-marking step does not clear their sizes.
-  4. Fetch product detail to get per-size variants with price + availability.
-     Only variants whose us_size is in the shoe's measured-size set are kept;
-     any colorway with zero available variants in those sizes is dropped entirely.
-  5. Upsert ShoeColorway (on goat_id) and ShoeColorwaySize (on colorway + us_size).
-     Measured sizes absent from the GOAT response are written as is_available=False.
-  6. Mark stale sizes unavailable: any ShoeColorwaySize whose colorway was not
-     touched (last_synced_at < run_started) is flipped to is_available=False.
-  7. Set Shoe.is_active based on whether any colorway was upserted this run.
+    # Fetch from API once, save raw responses — no DB writes:
+    python manage.py seed_kicks --save-to goat_snapshot.json
+
+    # Dry-run from a saved snapshot — zero API calls:
+    python manage.py seed_kicks --load-from goat_snapshot.json --dry-run
+
+    # Apply a saved snapshot to the DB:
+    python manage.py seed_kicks --load-from goat_snapshot.json
 """
 
 import json
 import os
 import time
+from pathlib import Path
 
 import requests
 from django.core.management.base import BaseCommand, CommandError
@@ -40,11 +40,10 @@ from django.utils import timezone
 
 from backend.models import Shoe, ShoeColorway, ShoeColorwaySize
 
-KICKS_API_BASE = "https://api.kicks.dev/v3"
-MAX_PAGES = 3        # absolute ceiling — rarely reached with early-stop logic
-PAGE_LIMIT = 100     # GOAT API max per page
-SLEEP_BETWEEN = 0.1  # seconds between requests
-RESYNC_DAYS = 6      # skip detail fetch for colorways synced this recently
+KICKS_API_BASE  = "https://api.kicks.dev/v3"
+GOAT_URL_PREFIX = "https://www.goat.com/"
+SLEEP_BETWEEN   = 0.1   # seconds between API calls
+RESYNC_DAYS     = 6     # skip detail fetch for colorways synced this recently
 
 
 def _auth_header(api_key):
@@ -52,7 +51,6 @@ def _auth_header(api_key):
 
 
 def _colorway_name(product):
-    """Prefer short marketing name, fall back to colorway string, then full name."""
     return (
         product.get("nickname")
         or product.get("colorway")
@@ -61,12 +59,16 @@ def _colorway_name(product):
     )
 
 
-
-
 class Command(BaseCommand):
-    help = "Sync GOAT colorway and per-size pricing data for all shoes with insole measurements."
+    help = "Refresh GOAT colorway data (images, links, prices, availability) using stored goat_id slugs."
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--shoe-id",
+            type=int,
+            metavar="ID",
+            help="Only sync colorways for this specific shoe DB pk.",
+        )
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -74,415 +76,423 @@ class Command(BaseCommand):
             help="Preview what would happen without writing to the database.",
         )
         parser.add_argument(
-            "--output",
-            metavar="FILE",
-            help="Save dry-run results to a JSON file (use with --dry-run).",
+            "--force",
+            action="store_true",
+            default=False,
+            help=f"Ignore the {RESYNC_DAYS}-day freshness check and re-fetch all colorways.",
         )
         parser.add_argument(
-            "--from-file",
+            "--save-to",
             metavar="FILE",
-            help="Populate the DB from a previously saved dry-run JSON file. No API calls made.",
+            help=(
+                "Fetch fresh data from the kicks.dev API and save raw responses to "
+                "a JSON file. No database writes. Use --load-from later to apply."
+            ),
         )
-
-    def handle(self, *args, **options):
-        from_file = options.get("from_file")
-        output_file = options.get("output")
-        dry_run = options["dry_run"]
-
-        if from_file:
-            self._populate_from_file(from_file)
-            return
-
-        # Live or dry-run mode — needs API key
-        api_key = os.environ.get("KICKS_API_KEY")
-        if not api_key:
-            raise CommandError("KICKS_API_KEY is not set. Add it to your .env file.")
-
-        auth = _auth_header(api_key)
-
-        if dry_run:
-            self.stdout.write(self.style.WARNING("DRY RUN — no database writes.\n"))
-
-        run_started = timezone.now()
-        resync_cutoff = run_started - timezone.timedelta(days=RESYNC_DAYS)
-
-        shoes = list(
-            Shoe.objects.prefetch_related("sizes")
-            .filter(sizes__insole_length_in__isnull=False)
-            .distinct()
+        parser.add_argument(
+            "--load-from",
+            metavar="FILE",
+            help=(
+                "Read colorway data from a previously saved JSON snapshot instead of "
+                "calling the API. Combine with --dry-run to preview, or run without "
+                "it to apply to the DB."
+            ),
         )
-
-        if not shoes:
-            self.stdout.write("No shoes with insole measurements found. Nothing to sync.")
-            return
-
-        self.stdout.write(f"Syncing {len(shoes)} shoes from GOAT...\n")
-
-        total_colorways = 0
-        total_sizes = 0
-        skipped = 0
-        all_results = []  # collected for --output
-
-        for shoe in shoes:
-            insole_sizes = set(
-                float(s.us_size)
-                for s in shoe.sizes.all()
-                if s.insole_length_in is not None
-            )
-
-            result = self._sync_shoe(shoe, insole_sizes, auth, dry_run, run_started, resync_cutoff)
-            if result is None:
-                skipped += 1
-                if output_file:
-                    all_results.append({
-                        "shoe_id": shoe.pk,
-                        "brand": shoe.brand,
-                        "model": shoe.model,
-                        "insole_sizes": sorted(insole_sizes),
-                        "colorways": [],
-                        "no_match": True,
-                    })
-            else:
-                c, s, shoe_data = result
-                total_colorways += c
-                total_sizes += s
-                if output_file:
-                    all_results.append(shoe_data)
-
-            time.sleep(SLEEP_BETWEEN)
-
-        self.stdout.write(self.style.SUCCESS(
-            f"\nDone. Colorways: {total_colorways}  "
-            f"Available sizes: {total_sizes}  "
-            f"Shoes with no match: {skipped}"
-            + (" (dry run)" if dry_run else "")
-        ))
-
-        if output_file:
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(all_results, f, indent=2)
-            self.stdout.write(self.style.SUCCESS(f"Results saved to {output_file}"))
 
     # ------------------------------------------------------------------
-    # Live / dry-run sync (hits the API)
+    # Internal helpers
     # ------------------------------------------------------------------
 
-    def _sync_shoe(self, shoe, insole_sizes, auth, dry_run, run_started, resync_cutoff):
+    def _fetch_from_api(self, goat_colorways, auth):
         """
-        Sync one shoe via the API.
-        Returns (colorways_upserted, sizes_upserted, shoe_data_dict) or None on skip.
-        shoe_data_dict is always populated even in dry-run mode (for --output).
+        Hit the kicks.dev API for each colorway slug.
+        Returns a dict: {str(cw.pk): {"goat_id": slug, "raw": <API response>}}
+        Colorways that error are stored with raw=None.
         """
-        query = f"{shoe.brand} {shoe.model}"
-        self.stdout.write(f"  {shoe.brand} {shoe.model}...")
-
-        # --- Step 1: Search once per measured size ---
-        # Passing size=X to the GOAT search returns only colorways available in
-        # that size, so we never waste a detail fetch on irrelevant inventory.
-        # Results are deduped by goat_id across the per-size searches.
-        search_results_map = {}  # goat_id -> product
-
-        try:
-            for size in sorted(insole_sizes):
-                for page in range(1, MAX_PAGES + 1):
-                    resp = requests.get(
-                        f"{KICKS_API_BASE}/goat/products",
-                        params={"query": query, "limit": PAGE_LIMIT, "page": page, "size": size},
-                        headers={"Authorization": auth},
-                        timeout=30,
-                    )
-                    resp.raise_for_status()
-                    body = resp.json()
-                    data = body.get("data") or []
-                    meta = body.get("meta") or {}
-
-                    new_on_page = 0
-                    for product in data:
-                        api_brand = (product.get("brand") or "").lower()
-                        if not (shoe.brand.lower() in api_brand or api_brand in shoe.brand.lower()):
-                            continue
-                        goat_id = str(product.get("id") or "")
-                        if not goat_id or goat_id in search_results_map:
-                            continue
-                        search_results_map[goat_id] = product
-                        new_on_page += 1
-
-                    if new_on_page == 0:
-                        break  # no new colorways — stop paginating this size
-
-                    current_page = meta.get("current_page", page)
-                    per_page = meta.get("per_page", PAGE_LIMIT)
-                    total = meta.get("total", 0)
-                    if current_page * per_page >= total:
-                        break
-
-                    time.sleep(SLEEP_BETWEEN)
-
-        except requests.RequestException as exc:
-            self.stderr.write(self.style.ERROR(
-                f"    [SEARCH ERROR] {shoe.brand} {shoe.model}: {exc} — skipping, is_active unchanged"
-            ))
-            return None
-
-        search_results = list(search_results_map.values())
-
-        if not search_results:
-            self.stdout.write(self.style.WARNING(f"    No GOAT results for our sizes — marking inactive"))
-            if not dry_run:
-                Shoe.objects.filter(pk=shoe.pk).update(is_active=False, last_synced_at=timezone.now())
-            return None
-
-        # Pre-load recently-synced goat_ids to skip their detail fetches
-        fresh_goat_ids = set(
-            ShoeColorway.objects.filter(
-                shoe=shoe,
-                goat_id__in=[str(p.get("id") or "") for p in search_results],
-                last_synced_at__gte=resync_cutoff,
-            ).values_list("goat_id", flat=True)
-        )
-        if fresh_goat_ids:
-            self.stdout.write(f"    {len(fresh_goat_ids)} colorway(s) already fresh — skipping detail fetch")
-
-        # --- Step 2: Detail fetch ---
-        colorways_upserted = 0
-        sizes_upserted = 0
-        shoe_data = {
-            "shoe_id": shoe.pk,
-            "brand": shoe.brand,
-            "model": shoe.model,
-            "insole_sizes": sorted(insole_sizes),
-            "colorways": [],
-        }
-
-        for product in search_results:
-            slug = product.get("slug")
-            if not slug:
-                continue
-
-            goat_id_from_search = str(product.get("id") or "")
-
-            if goat_id_from_search in fresh_goat_ids:
-                # Touch last_synced_at so the stale-marking query
-                # (colorway__last_synced_at__lt=run_started) doesn't zero out
-                # this colorway's sizes even though we skipped the detail fetch.
-                if not dry_run:
-                    ShoeColorway.objects.filter(
-                        shoe=shoe, goat_id=goat_id_from_search
-                    ).update(last_synced_at=timezone.now())
-                colorways_upserted += 1
-                continue
-
+        snapshot = {}
+        total = len(goat_colorways)
+        for i, cw in enumerate(goat_colorways, 1):
+            slug = cw.goat_id
+            self.stdout.write(f"  [{i}/{total}] fetching {slug} ...", ending="")
+            self.stdout.flush()
             try:
-                detail_resp = requests.get(
+                resp = requests.get(
                     f"{KICKS_API_BASE}/goat/products/{slug}",
                     headers={"Authorization": auth},
                     timeout=30,
                 )
-                detail_resp.raise_for_status()
-                raw = detail_resp.json()
-                detail = raw.get("data") or raw  # detail endpoint wraps under "data"
-                time.sleep(SLEEP_BETWEEN)
+                resp.raise_for_status()
+                raw = resp.json()
+                self.stdout.write(" OK")
             except requests.RequestException as exc:
-                self.stderr.write(self.style.ERROR(
-                    f"    [DETAIL ERROR] slug={slug}: {exc} — skipping colorway"
-                ))
-                time.sleep(SLEEP_BETWEEN)
-                continue
+                self.stderr.write(self.style.ERROR(f" ERROR: {exc}"))
+                raw = None
+            snapshot[str(cw.pk)] = {"goat_id": slug, "raw": raw}
+            time.sleep(SLEEP_BETWEEN)
+        return snapshot
 
-            goat_id = str(detail.get("id") or goat_id_from_search)
-            if not goat_id:
+    def _load_snapshot(self, path):
+        p = Path(path)
+        if not p.exists():
+            raise CommandError(f"Snapshot file not found: {path}")
+        with p.open(encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def _save_snapshot(self, snapshot, path):
+        p = Path(path)
+        with p.open("w", encoding="utf-8") as fh:
+            json.dump(snapshot, fh, indent=2)
+        self.stdout.write(self.style.SUCCESS(f"\nSnapshot saved to {p.resolve()}"))
+
+    def _process_colorway(self, cw, detail, insole_sizes, dry_run, run_started):
+        """
+        Given a colorway ORM object and its API detail dict, compute what
+        should change and optionally write it to the DB.
+
+        Returns a rollup dict for the parent shoe.
+        """
+        name            = _colorway_name(detail)
+        new_image_url   = detail.get("image_url") or cw.image_url
+        new_product_url = detail.get("link") or cw.product_url
+        sku             = detail.get("sku") or cw.sku
+
+        colorway_sizes = []
+        for variant in (detail.get("variants") or []):
+            if variant.get("market") != "US" or variant.get("currency") != "USD":
+                continue
+            try:
+                us_size = float(variant["size"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if insole_sizes and us_size not in insole_sizes:
+                continue
+            lowest_ask   = variant.get("lowest_ask")
+            is_available = bool(variant.get("available", False))
+            colorway_sizes.append({
+                "us_size":      us_size,
+                "price_usd":    lowest_ask if lowest_ask else None,
+                "is_available": is_available,
+            })
+
+        available_sizes = [s for s in colorway_sizes if s["is_available"]]
+        prices          = [s["price_usd"] for s in available_sizes if s["price_usd"] is not None]
+        min_price       = min(prices) if prices else None
+        has_available   = bool(available_sizes)
+
+        # Human-readable summary
+        if available_sizes:
+            price_str = f"${min_price:.2f}" if min_price else "price unknown"
+            avail_str = f"{len(available_sizes)} size(s) avail @ {price_str}"
+        else:
+            avail_str = "no available sizes for this insole size"
+
+        img_tag = "updated" if new_image_url   != cw.image_url   else "unchanged"
+        lnk_tag = "updated" if new_product_url != cw.product_url else "unchanged"
+        self.stdout.write(
+            f"    {'[DRY] ' if dry_run else ''}{name}: "
+            f"img={img_tag}, link={lnk_tag}, {avail_str}"
+        )
+
+        if colorway_sizes:
+            for sz in colorway_sizes:
+                flag = "avail" if sz["is_available"] else "OOS"
+                price = f"${sz['price_usd']:.2f}" if sz["price_usd"] else "no price"
+                self.stdout.write(f"         US {sz['us_size']}: {price} [{flag}]")
+        else:
+            self.stdout.write(f"         (no matching size variants in API response)")
+
+        if not dry_run:
+            with transaction.atomic():
+                ShoeColorway.objects.filter(pk=cw.pk).update(
+                    name=name,
+                    sku=sku,
+                    image_url=new_image_url,
+                    product_url=new_product_url,
+                    last_synced_at=run_started,
+                )
+
+                seen_sizes = set()
+                for size_row in colorway_sizes:
+                    us_sz = float(size_row["us_size"])
+                    ShoeColorwaySize.objects.update_or_create(
+                        colorway=cw,
+                        us_size=us_sz,
+                        defaults={
+                            "price_usd":    size_row["price_usd"],
+                            "is_available": size_row["is_available"],
+                        },
+                    )
+                    seen_sizes.add(us_sz)
+
+                # Insole sizes absent from GOAT response → mark unavailable
+                for missing in (insole_sizes - seen_sizes):
+                    ShoeColorwaySize.objects.update_or_create(
+                        colorway=cw,
+                        us_size=missing,
+                        defaults={"is_available": False, "price_usd": None},
+                    )
+
+        return {
+            "image_url":     new_image_url,
+            "product_url":   new_product_url,
+            "min_price":     min_price,
+            "has_available": has_available,
+        }
+
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
+
+    def handle(self, *args, **options):
+        save_to   = options.get("save_to")
+        load_from = options.get("load_from")
+        dry_run   = options["dry_run"]
+        force     = options["force"]
+
+        if save_to and load_from:
+            raise CommandError("--save-to and --load-from are mutually exclusive.")
+
+        # --save-to always implies no DB writes (acts like --dry-run for the DB)
+        if save_to:
+            dry_run = True
+
+        if dry_run:
+            self.stdout.write(self.style.WARNING("DRY RUN — no database writes.\n"))
+
+        # ── Build the queryset of shoes to process ────────────────────
+        goat_shoe_ids = (
+            ShoeColorway.objects
+            .filter(product_url__startswith=GOAT_URL_PREFIX)
+            .values_list("shoe_id", flat=True)
+            .distinct()
+        )
+        qs = (
+            Shoe.objects
+            .filter(pk__in=goat_shoe_ids)
+            .prefetch_related("sizes", "colorways")
+        )
+        if options.get("shoe_id"):
+            qs = qs.filter(pk=options["shoe_id"])
+
+        shoes = list(qs)
+        if not shoes:
+            self.stdout.write("No shoes with GOAT colorways found.")
+            return
+
+        # ── Collect all GOAT colorways we need to handle ──────────────
+        run_started   = timezone.now()
+        resync_cutoff = run_started - timezone.timedelta(days=RESYNC_DAYS)
+
+        all_goat_colorways = []   # ordered list for snapshot building
+        for shoe in shoes:
+            for cw in shoe.colorways.all():
+                if (cw.product_url or "").startswith(GOAT_URL_PREFIX):
+                    all_goat_colorways.append(cw)
+
+        # ── Decide data source: API or snapshot file ───────────────────
+        if load_from:
+            self.stdout.write(f"Loading snapshot from {load_from} ...\n")
+            snapshot = self._load_snapshot(load_from)
+            fetched_at = snapshot.get("fetched_at", "(unknown)")
+            self.stdout.write(f"Snapshot fetched at: {fetched_at}\n")
+        else:
+            # Determine which colorways are stale enough to fetch
+            to_fetch = []
+            for cw in all_goat_colorways:
+                if force or not cw.last_synced_at or cw.last_synced_at < resync_cutoff:
+                    to_fetch.append(cw)
+
+            if save_to:
+                self.stdout.write(
+                    f"Fetching {len(to_fetch)} colorway(s) from kicks.dev API "
+                    f"(saving to {save_to}) ...\n"
+                )
+            else:
+                self.stdout.write(
+                    f"Syncing {len(shoes)} shoe(s) — "
+                    f"{len(to_fetch)} colorway(s) to fetch, "
+                    f"{len(all_goat_colorways) - len(to_fetch)} fresh (skipped).\n"
+                )
+
+            api_key = os.environ.get("KICKS_API_KEY")
+            if not api_key:
+                raise CommandError("KICKS_API_KEY is not set. Add it to your .env file.")
+            auth = _auth_header(api_key)
+
+            raw_snapshot = self._fetch_from_api(to_fetch, auth)
+            snapshot = {
+                "fetched_at": run_started.isoformat(),
+                "colorways":  raw_snapshot,
+            }
+
+            if save_to:
+                self._save_snapshot(snapshot, save_to)
+                # Show a preview of what we fetched, then stop — no DB work.
+                self.stdout.write("\n--- PREVIEW (no DB writes) ---\n")
+                self._preview_snapshot(snapshot, shoes)
+                return
+
+        # ── Process each shoe using the snapshot (or live fetch) ───────
+        self.stdout.write(f"\nProcessing {len(shoes)} shoe(s)...\n")
+
+        total_updated = 0
+        total_skipped = 0
+        total_errors  = 0
+
+        colorways_data = snapshot.get("colorways", {})
+
+        for shoe in shoes:
+            insole_sizes = {
+                float(s.us_size)
+                for s in shoe.sizes.all()
+                if s.insole_length_in is not None
+            }
+
+            goat_colorways = [
+                cw for cw in shoe.colorways.all()
+                if (cw.product_url or "").startswith(GOAT_URL_PREFIX)
+            ]
+
+            self.stdout.write(
+                f"  {shoe.brand} {shoe.model} — {len(goat_colorways)} GOAT colorway(s)"
+            )
+
+            shoe_rollup = []
+
+            for cw in goat_colorways:
+                cw_key = str(cw.pk)
+
+                # If loading from a file, only process colorways present in snapshot
+                if load_from and cw_key not in colorways_data:
+                    # Not in snapshot — fall through to freshness-based skip
+                    pass
+
+                entry = colorways_data.get(cw_key)
+
+                if entry is not None:
+                    # Data came from snapshot (or live fetch this run)
+                    raw    = entry.get("raw")
+                    detail = (raw.get("data") or raw) if raw else None
+
+                    if detail is None:
+                        self.stderr.write(
+                            self.style.ERROR(f"    [ERROR] cw{cw.pk} {cw.goat_id}: API returned no data")
+                        )
+                        total_errors += 1
+                        continue
+
+                    rollup = self._process_colorway(cw, detail, insole_sizes, dry_run, run_started)
+                    shoe_rollup.append(rollup)
+                    total_updated += 1
+
+                else:
+                    # Not in snapshot and not loading from file → check freshness
+                    if not force and cw.last_synced_at and cw.last_synced_at >= resync_cutoff:
+                        self.stdout.write(f"    skip (fresh): {cw.name}")
+                        total_skipped += 1
+                        shoe_rollup.append({
+                            "image_url":     cw.image_url,
+                            "product_url":   cw.product_url,
+                            "min_price":     None,
+                            "has_available": ShoeColorwaySize.objects.filter(
+                                colorway=cw, is_available=True
+                            ).exists(),
+                        })
+                    else:
+                        self.stderr.write(
+                            self.style.WARNING(f"    [WARN] cw{cw.pk} {cw.goat_id}: not in snapshot, skipping")
+                        )
+                        total_skipped += 1
+
+            # ── Shoe-level rollup ──────────────────────────────────────
+            available_rollup = [r for r in shoe_rollup if r["has_available"]]
+            any_available    = bool(available_rollup)
+
+            priced = [r for r in available_rollup if r["min_price"] is not None]
+            best   = (
+                min(priced, key=lambda r: r["min_price"]) if priced
+                else (available_rollup[0] if available_rollup else None)
+            )
+
+            new_shoe_image = best["image_url"]   if best else None
+            new_shoe_url   = best["product_url"] if best else None
+            new_shoe_price = best["min_price"]   if best else None
+
+            price_display = f"${new_shoe_price:.2f}" if new_shoe_price else "n/a"
+            self.stdout.write(
+                f"    >> shoe rollup: active={any_available}, "
+                f"price={price_display}, "
+                f"image={'set' if new_shoe_image else 'none'}, "
+                f"link={'set' if new_shoe_url else 'none'}"
+            )
+
+            if not dry_run:
+                update_fields = {
+                    "is_active":      any_available,
+                    "last_synced_at": run_started,
+                }
+                if new_shoe_image is not None:
+                    update_fields["shoe_image_url"] = new_shoe_image
+                if new_shoe_url is not None:
+                    update_fields["product_url"] = new_shoe_url
+                if new_shoe_price is not None:
+                    update_fields["price_usd"] = new_shoe_price
+                Shoe.objects.filter(pk=shoe.pk).update(**update_fields)
+
+        self.stdout.write(self.style.SUCCESS(
+            f"\nDone. Updated: {total_updated}  "
+            f"Skipped (fresh): {total_skipped}  "
+            f"Errors: {total_errors}"
+            + (" (dry run)" if dry_run else "")
+        ))
+
+    def _preview_snapshot(self, snapshot, shoes):
+        """Print a human-readable summary of what's in the snapshot."""
+        colorways_data = snapshot.get("colorways", {})
+
+        # Build a cw_pk → shoe lookup
+        cw_shoe_map = {}
+        for shoe in shoes:
+            for cw in shoe.colorways.all():
+                cw_shoe_map[str(cw.pk)] = (shoe, cw)
+
+        for cw_key, entry in colorways_data.items():
+            pair = cw_shoe_map.get(cw_key)
+            if not pair:
+                continue
+            shoe, cw = pair
+            raw    = entry.get("raw")
+            detail = (raw.get("data") or raw) if raw else None
+            if not detail:
+                self.stderr.write(self.style.ERROR(f"  cw{cw_key}: API error — no data"))
                 continue
 
             name = _colorway_name(detail)
-            image_url = detail.get("image_url") or None
-            product_url = detail.get("link") or None
-            sku = detail.get("sku") or None
+            insole_sizes = {
+                float(s.us_size)
+                for s in shoe.sizes.all()
+                if s.insole_length_in is not None
+            }
 
-            # Collect per-size data for this colorway
-            colorway_sizes = []
-            for variant in (detail.get("variants") or []):
-                if variant.get("market") != "US" or variant.get("currency") != "USD":
+            relevant = []
+            for v in (detail.get("variants") or []):
+                if v.get("market") != "US" or v.get("currency") != "USD":
                     continue
                 try:
-                    us_size = float(variant["size"])
+                    sz = float(v["size"])
                 except (KeyError, TypeError, ValueError):
                     continue
-                if us_size not in insole_sizes:
+                if insole_sizes and sz not in insole_sizes:
                     continue
-                lowest_ask = variant.get("lowest_ask")
-                colorway_sizes.append({
-                    "us_size": us_size,
-                    "price_usd": lowest_ask if lowest_ask else None,
-                    "is_available": bool(variant.get("available", False)),
-                })
-
-            available_count = sum(1 for s in colorway_sizes if s["is_available"])
-            if available_count == 0:
-                continue  # No available inventory in our size — skip entirely
+                relevant.append(v)
 
             self.stdout.write(
-                f"    {'[DRY] ' if dry_run else ''}colorway: {name} (goat_id={goat_id})"
-                f" — {available_count} available in size"
+                f"  [{shoe.pk}] {shoe.brand} {shoe.model} / cw{cw.pk} {name}"
             )
-
-            shoe_data["colorways"].append({
-                "goat_id": goat_id,
-                "name": name,
-                "sku": sku,
-                "image_url": image_url,
-                "product_url": product_url,
-                "sizes": colorway_sizes,
-            })
-
-            colorways_upserted += 1
-            sizes_upserted += available_count
-
-            if not dry_run:
-                self._write_colorway(shoe, goat_id, name, sku, image_url, product_url, colorway_sizes, insole_sizes)
-
-        # --- Step 3: Mark stale / update is_active ---
-        if not dry_run:
-            stale_qs = ShoeColorwaySize.objects.filter(
-                colorway__shoe=shoe,
-                colorway__last_synced_at__lt=run_started,
-            )
-            stale_count = stale_qs.update(is_available=False)
-            if stale_count:
-                self.stdout.write(self.style.WARNING(f"    Marked {stale_count} stale sizes unavailable"))
-
-            Shoe.objects.filter(pk=shoe.pk).update(
-                is_active=(colorways_upserted > 0),
-                last_synced_at=timezone.now(),
-            )
-
-        self.stdout.write(f"    {colorways_upserted} colorways, {sizes_upserted} available in our size")
-        return colorways_upserted, sizes_upserted, shoe_data
-
-    # ------------------------------------------------------------------
-    # File-based population (no API calls)
-    # ------------------------------------------------------------------
-
-    def _populate_from_file(self, filepath):
-        if not os.path.exists(filepath):
-            raise CommandError(f"File not found: {filepath}")
-
-        with open(filepath, "r", encoding="utf-8") as f:
-            all_results = json.load(f)
-
-        self.stdout.write(f"Populating DB from {filepath}...\n")
-
-        run_started = timezone.now()
-        total_colorways = 0
-        total_sizes = 0
-        skipped = 0
-
-        for shoe_data in all_results:
-            shoe_id = shoe_data["shoe_id"]
-            colorways = shoe_data.get("colorways", [])
-
-            try:
-                shoe = Shoe.objects.get(pk=shoe_id)
-            except Shoe.DoesNotExist:
-                self.stderr.write(self.style.ERROR(f"  Shoe pk={shoe_id} not found — skipping"))
-                skipped += 1
-                continue
-
-            insole_sizes = set(shoe_data.get("insole_sizes", []))
-
-            if shoe_data.get("no_match") or not colorways:
-                self.stdout.write(self.style.WARNING(
-                    f"  {shoe.brand} {shoe.model} — no colorways in file, marking inactive"
-                ))
-                Shoe.objects.filter(pk=shoe_id).update(is_active=False, last_synced_at=timezone.now())
-                skipped += 1
-                continue
-
-            self.stdout.write(f"  {shoe.brand} {shoe.model} — {len(colorways)} colorways")
-
-            colorways_written = 0
-            sizes_written = 0
-
-            for cw in colorways:
-                goat_id = cw["goat_id"]
-                sizes_written_cw = self._write_colorway(
-                    shoe,
-                    goat_id,
-                    cw["name"],
-                    cw.get("sku"),
-                    cw.get("image_url"),
-                    cw.get("product_url"),
-                    cw.get("sizes", []),
-                    insole_sizes,
-                )
-                colorways_written += 1
-                sizes_written += sizes_written_cw
-
-            # Mark stale sizes from colorways not in this file
-            stale_qs = ShoeColorwaySize.objects.filter(
-                colorway__shoe=shoe,
-                colorway__last_synced_at__lt=run_started,
-            )
-            stale_count = stale_qs.update(is_available=False)
-            if stale_count:
-                self.stdout.write(self.style.WARNING(f"    Marked {stale_count} stale sizes unavailable"))
-
-            Shoe.objects.filter(pk=shoe_id).update(
-                is_active=(colorways_written > 0),
-                last_synced_at=timezone.now(),
-            )
-
-            total_colorways += colorways_written
-            total_sizes += sizes_written
-
-        self.stdout.write(self.style.SUCCESS(
-            f"\nDone. Colorways written: {total_colorways}  "
-            f"Sizes written: {total_sizes}  "
-            f"Skipped: {skipped}"
-        ))
-
-    # ------------------------------------------------------------------
-    # Shared DB write helper
-    # ------------------------------------------------------------------
-
-    def _write_colorway(self, shoe, goat_id, name, sku, image_url, product_url, sizes, insole_sizes):
-        """
-        Upsert one ShoeColorway and its ShoeColorwaySize rows.
-        Returns the count of size rows written.
-        """
-        sizes_written = 0
-        with transaction.atomic():
-            colorway, _ = ShoeColorway.objects.update_or_create(
-                goat_id=goat_id,
-                defaults={
-                    "shoe": shoe,
-                    "sku": sku,
-                    "name": name,
-                    "image_url": image_url,
-                    "product_url": product_url,
-                    "last_synced_at": timezone.now(),
-                },
-            )
-
-            variant_sizes_seen = set()
-            for size_row in sizes:
-                us_size = float(size_row["us_size"])
-                ShoeColorwaySize.objects.update_or_create(
-                    colorway=colorway,
-                    us_size=us_size,
-                    defaults={
-                        "price_usd": size_row.get("price_usd"),
-                        "is_available": bool(size_row.get("is_available", False)),
-                    },
-                )
-                variant_sizes_seen.add(us_size)
-                sizes_written += 1
-
-            # Mark any measured sizes not returned by GOAT as unavailable
-            for missing_size in (insole_sizes - variant_sizes_seen):
-                ShoeColorwaySize.objects.update_or_create(
-                    colorway=colorway,
-                    us_size=missing_size,
-                    defaults={"is_available": False, "price_usd": None},
-                )
-
-        return sizes_written
+            if relevant:
+                for v in relevant:
+                    flag  = "avail" if v.get("available") else "OOS"
+                    price = f"${v['lowest_ask']:.2f}" if v.get("lowest_ask") else "no price"
+                    self.stdout.write(f"       US {v['size']}: {price} [{flag}]")
+            else:
+                self.stdout.write(f"       (no variants for insole size(s) {insole_sizes})")

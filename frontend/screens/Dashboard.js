@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,11 @@ import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement
 import { getBestSize } from '../utils/shoeSize';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
+import {
+  readRecommendationsCache,
+  writeRecommendationsCache,
+  isCacheStale,
+} from '../services/recommendationsCache';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 24;
@@ -71,6 +76,20 @@ function firstNameFromDisplayName(displayName) {
   return t.split(/\s+/)[0];
 }
 
+/**
+ * Resolve an image URL, routing Converse / Demandware CDN URLs through the
+ * backend proxy so the server can attach the required browser headers.
+ * The React Native Image component (Fresco on Android) does not reliably
+ * forward custom headers set on the source prop.
+ */
+function resolveImageUrl(uri) {
+  if (!uri) return null;
+  if (uri.includes('converse.com') || uri.includes('demandware.static')) {
+    return `${API_BASE_URL}/api/proxy-image/?url=${encodeURIComponent(uri)}`;
+  }
+  return uri;
+}
+
 export default function Dashboard({ navigation }) {
   const [measurements, setMeasurements] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -82,14 +101,23 @@ export default function Dashboard({ navigation }) {
 
   const { savedMap } = useSavedShoes();
   const { ownedMap } = useOwnedShoes();
-  const savedItems = Object.values(savedMap).filter((item) => item && !ownedMap[item.id]);
-  const ownedItems = Object.values(ownedMap).filter(Boolean);
 
-  const recPreview = dedupeRecommendationsByBrandModel(recResults)
-    .filter((item) => !savedMap[item.id] && !ownedMap[item.id])
-    .slice(0, PREVIEW_LIMIT);
-  const savedPreview = savedItems.slice(0, PREVIEW_LIMIT);
-  const ownedPreview = ownedItems.slice(0, PREVIEW_LIMIT);
+  const savedItems = useMemo(
+    () => Object.values(savedMap).filter((item) => item && !ownedMap[item.id]),
+    [savedMap, ownedMap]
+  );
+  const ownedItems = useMemo(
+    () => Object.values(ownedMap).filter(Boolean),
+    [ownedMap]
+  );
+  const recPreview = useMemo(
+    () => dedupeRecommendationsByBrandModel(recResults)
+      .filter((item) => !savedMap[item.id] && !ownedMap[item.id])
+      .slice(0, PREVIEW_LIMIT),
+    [recResults, savedMap, ownedMap]
+  );
+  const savedPreview = useMemo(() => savedItems.slice(0, PREVIEW_LIMIT), [savedItems]);
+  const ownedPreview = useMemo(() => ownedItems.slice(0, PREVIEW_LIMIT), [ownedItems]);
   const recSlotWidth = REC_CARD_WIDTH + REC_GAP;
 
   useFocusEffect(
@@ -97,69 +125,112 @@ export default function Dashboard({ navigation }) {
       let cancelled = false;
       setLoadError(false);
       setRecFetchError(false);
-      setRecLoading(true);
 
       (async () => {
+        // Show cached recommendations immediately — no spinner if we have data.
+        const cache = await readRecommendationsCache();
+        if (cancelled) return;
+        if (cache?.results?.length) {
+          setRecResults(cache.results);
+          setRecLoading(false);
+        } else {
+          setRecLoading(true);
+        }
+
+        await ensureDevMockMeasurementIfNeeded();
+        if (cancelled) return;
+
+        const token = await SecureStore.getItemAsync('authToken');
+        if (!token || cancelled) {
+          setRecLoading(false);
+          setGreetingFirstName(null);
+          return;
+        }
+
+        // Fetch profile, latest measurement, and shoe count in parallel.
+        const [profileResult, measurementResult, healthResult] = await Promise.allSettled([
+          fetch(`${API_BASE_URL}/api/profile/`, { headers: { Authorization: `Token ${token}` } }),
+          fetch(`${API_BASE_URL}/api/measurements/latest/`, { headers: { Authorization: `Token ${token}` } }),
+          fetch(`${API_BASE_URL}/api/health/`),
+        ]);
+        if (cancelled) return;
+
+        // Profile → greeting
         try {
-          await ensureDevMockMeasurementIfNeeded();
-          if (cancelled) return;
-          const token = await SecureStore.getItemAsync('authToken');
-          if (!token || cancelled) {
-            setRecLoading(false);
-            setGreetingFirstName(null);
-            return;
+          if (profileResult.status === 'fulfilled' && profileResult.value.ok) {
+            const pData = await profileResult.value.json();
+            const raw = typeof pData.display_name === 'string' ? pData.display_name : '';
+            if (!cancelled) setGreetingFirstName(firstNameFromDisplayName(raw));
           }
+        } catch {}
 
-          let firstNameForGreeting = '';
-          try {
-            const pRes = await fetch(`${API_BASE_URL}/api/profile/`, {
-              headers: { Authorization: `Token ${token}` },
-            });
-            if (pRes.ok) {
-              const pData = await pRes.json();
-              const raw = typeof pData.display_name === 'string' ? pData.display_name : '';
-              firstNameForGreeting = firstNameFromDisplayName(raw);
-            }
-          } catch {
-            // ignore; greeting falls back to generic
-          }
-          if (!cancelled) setGreetingFirstName(firstNameForGreeting);
-
-          const mRes = await fetch(`${API_BASE_URL}/api/measurements/latest/`, {
-            headers: { Authorization: `Token ${token}` },
-          });
-          if (cancelled) return;
-          if (mRes.status === 404) setMeasurements(null);
-          else if (mRes.ok) {
+        // Measurement
+        let latestMeasurementId = null;
+        try {
+          const mRes = measurementResult.value;
+          if (mRes.status === 404) {
+            if (!cancelled) setMeasurements(null);
+          } else if (mRes.ok) {
             const mData = await mRes.json();
-            if (!cancelled) setMeasurements(mData);
-          } else throw new Error('measurements failed');
+            if (!cancelled) {
+              setMeasurements(mData);
+              latestMeasurementId = mData.id ?? null;
+            }
+          } else {
+            if (!cancelled) setLoadError(true);
+          }
+        } catch {
+          if (!cancelled) setLoadError(true);
+        }
 
+        // Shoe count from health endpoint
+        let currentShoeCount = null;
+        try {
+          const hRes = healthResult.value;
+          if (hRes.ok) {
+            const hData = await hRes.json();
+            currentShoeCount = hData.shoe_count ?? null;
+          }
+        } catch {}
+
+        if (cancelled) return;
+
+        // Only hit the recommendations API if something has changed.
+        if (!isCacheStale(cache, latestMeasurementId, currentShoeCount)) {
+          setRecLoading(false);
+          return;
+        }
+
+        try {
           const rRes = await fetch(`${API_BASE_URL}/api/recommendations/`, {
             headers: { Authorization: `Token ${token}` },
           });
           if (cancelled) return;
           if (rRes.status === 404) {
             setRecResults([]);
-          } else if (!rRes.ok) throw new Error('rec failed');
-          else {
+          } else if (!rRes.ok) {
+            throw new Error('rec failed');
+          } else {
             const rData = await rRes.json();
-            if (!cancelled) setRecResults(rData.results || []);
+            if (!cancelled) {
+              setRecResults(rData.results || []);
+              await writeRecommendationsCache({
+                results:           rData.results || [],
+                measurement_id:    latestMeasurementId,
+                shoe_count:        currentShoeCount,
+                has_toebox_data:   rData.has_toebox_data ?? false,
+                algorithm_version: rData.algorithm_version ?? null,
+              });
+            }
           }
         } catch {
-          if (!cancelled) {
-            setLoadError(true);
-            setRecFetchError(true);
-            setGreetingFirstName((prev) => (prev === null ? '' : prev));
-          }
+          if (!cancelled && !cache?.results?.length) setRecFetchError(true);
         } finally {
           if (!cancelled) setRecLoading(false);
         }
       })();
 
-      return () => {
-        cancelled = true;
-      };
+      return () => { cancelled = true; };
     }, [])
   );
 
@@ -254,7 +325,7 @@ export default function Dashboard({ navigation }) {
                 activeOpacity={0.9}
               >
                 {item.shoe_image_url ? (
-                  <Image source={{ uri: item.shoe_image_url }} style={styles.recImage} resizeMode="contain" />
+                  <Image source={{ uri: resolveImageUrl(item.shoe_image_url) }} style={styles.recImage} resizeMode="contain" />
                 ) : (
                   <View style={styles.recImagePlaceholder}>
                     <Ionicons name="image-outline" size={28} color="#B0A499" />
@@ -300,7 +371,7 @@ export default function Dashboard({ navigation }) {
               onPress={() => navigation.navigate('SavedShoes')}
             >
               {item.shoe_image_url ? (
-                <Image source={{ uri: item.shoe_image_url }} style={styles.thumbImage} resizeMode="cover" />
+                <Image source={{ uri: resolveImageUrl(item.shoe_image_url) }} style={styles.thumbImage} resizeMode="cover" />
               ) : (
                 <View style={styles.thumbPlaceholder}>
                   <Ionicons name="image-outline" size={24} color="#B0A499" />
@@ -338,7 +409,7 @@ export default function Dashboard({ navigation }) {
               onPress={() => navigation.navigate('OwnedShoes')}
             >
               {item.shoe_image_url ? (
-                <Image source={{ uri: item.shoe_image_url }} style={styles.thumbImage} resizeMode="cover" />
+                <Image source={{ uri: resolveImageUrl(item.shoe_image_url) }} style={styles.thumbImage} resizeMode="cover" />
               ) : (
                 <View style={styles.thumbPlaceholder}>
                   <Ionicons name="image-outline" size={24} color="#B0A499" />

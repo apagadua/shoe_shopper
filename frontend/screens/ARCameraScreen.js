@@ -16,8 +16,10 @@ import { API_BASE_URL } from '../config/api';
 const { ARCoreModule } = NativeModules;
 const ARCorePreview = requireNativeComponent('ARCorePreview');
 
-const TILT_OK_DEGREES = 15; // slightly more lenient than paper method
-const MIN_PLANE_EXTENT = 0.3; // metres — minimum floor extent to feel confident
+const TILT_OK_DEGREES  = 15;   // slightly more lenient than paper method
+const MIN_PLANE_EXTENT = 0.3;  // metres — minimum floor extent to feel confident
+const CAM_H_MIN_M      = 0.30; // 12 in — too close, plane data unstable
+const CAM_H_MAX_M      = 0.89; // 35 in — too far, projection error amplifies
 
 export default function ARCameraScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding ?? false;
@@ -34,6 +36,7 @@ export default function ARCameraScreen({ navigation, route }) {
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
   const [floorDetected, setFloorDetected] = useState(false);
+  const [cameraHeightM, setCameraHeightM] = useState(null); // null = not yet known
 
   // Track whether session is running so cleanup is safe
   const sessionActive = useRef(false);
@@ -120,7 +123,7 @@ export default function ARCameraScreen({ navigation, route }) {
   }, [phase]);
 
   // -------------------------------------------------------------------------
-  // Poll native for floor-plane detection while scanning
+  // Poll native for floor-plane detection + camera height while scanning
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (phase !== 'scanning') return;
@@ -129,6 +132,8 @@ export default function ARCameraScreen({ navigation, route }) {
       try {
         const state = await ARCoreModule.queryTrackingState();
         setFloorDetected(state.floorPlaneCount > 0);
+        // cameraHeightM is -1 when no floor plane is tracked yet
+        setCameraHeightM(state.cameraHeightM >= 0 ? state.cameraHeightM : null);
       } catch {
         // ignore transient errors
       }
@@ -224,7 +229,7 @@ export default function ARCameraScreen({ navigation, route }) {
   };
 
   // -------------------------------------------------------------------------
-  // Render: unavailable
+  // Render: unavailable / error
   // -------------------------------------------------------------------------
   if (phase === 'unavailable' || phase === 'error') {
     return (
@@ -299,17 +304,67 @@ export default function ARCameraScreen({ navigation, route }) {
   // -------------------------------------------------------------------------
   // Render: scanning (AR camera active)
   // -------------------------------------------------------------------------
+
+  // --- Tilt status ---
   const tiltLabel = tiltDegrees == null ? 'Tilt: —' : `Tilt: ${tiltDegrees}°`;
   const tiltStatus = isAligned ? 'Aligned' : 'Hold phone flatter';
   const tiltStatusColor = isAligned ? '#2E7D32' : '#C0392B';
-  const floorColor = floorDetected ? '#2E7D32' : '#B8860B';
-  const floorLabel = floorDetected ? 'Floor detected' : 'Scanning for floor…';
 
-  const canCapture = isAligned && floorDetected;
+  // --- Height / floor status (right column) ---
+  // Before floor is known: show scanning state.
+  // Once floor is detected: pivot to live height guidance.
+  let rightLabel, rightColor;
+  if (!floorDetected) {
+    rightLabel = 'Scanning for floor…';
+    rightColor = '#B8860B'; // amber
+  } else if (cameraHeightM === null) {
+    rightLabel = 'Reading height…';
+    rightColor = '#B8860B';
+  } else if (cameraHeightM > CAM_H_MAX_M) {
+    rightLabel = 'Lower the phone';
+    rightColor = '#C0392B'; // red
+  } else if (cameraHeightM < CAM_H_MIN_M) {
+    rightLabel = 'Raise the phone';
+    rightColor = '#B8860B';
+  } else {
+    rightLabel = 'Height: Good';
+    rightColor = '#2E7D32'; // green
+  }
+
+  // --- Guidance bar text ---
+  // Adapts as the user progresses through scanning → height → ready.
+  const heightInRange =
+    floorDetected &&
+    cameraHeightM !== null &&
+    cameraHeightM >= CAM_H_MIN_M &&
+    cameraHeightM <= CAM_H_MAX_M;
+
+  let guidanceTitle, guidanceBody;
+  if (!floorDetected) {
+    guidanceTitle = 'Point at the floor';
+    guidanceBody  = 'Move the phone slowly in a small arc over the floor until it is detected.';
+  } else if (!heightInRange) {
+    guidanceTitle = 'Adjust height';
+    guidanceBody  =
+      cameraHeightM !== null && cameraHeightM > CAM_H_MAX_M
+        ? 'Lower your phone — hold it 20–30" above your foot.'
+        : 'Raise your phone a little — hold it 20–30" above your foot.';
+  } else if (!isAligned) {
+    guidanceTitle = 'Almost ready';
+    guidanceBody  = 'Hold the phone a little flatter to reduce tilt.';
+  } else {
+    guidanceTitle = 'All set';
+    guidanceBody  = 'Keep still, then tap Capture.';
+  }
+
+  // --- Capture gate ---
+  const canCapture = isAligned && floorDetected && heightInRange;
   const captureLabel = !isAligned
     ? 'Align phone to capture'
     : !floorDetected
     ? 'Waiting for floor detection…'
+    : !heightInRange
+    ? (cameraHeightM !== null && cameraHeightM > CAM_H_MAX_M ? 'Lower the phone to capture' : 'Adjust height to capture')
     : 'Capture';
 
   return (
@@ -320,17 +375,19 @@ export default function ARCameraScreen({ navigation, route }) {
       <View style={styles.overlay}>
         {/* Top guidance bar */}
         <View style={styles.guidanceBar}>
-          <Text style={styles.guidanceTitle}>Point at the floor</Text>
-          <Text style={styles.guidanceBody}>
-            Move the phone slowly in a small arc over the floor until it is detected.
-          </Text>
-          <View style={styles.divider} />
+          <Text style={styles.guidanceTitle}>{guidanceTitle}</Text>
+          {guidanceBody ? (
+            <Text style={styles.guidanceBody}>{guidanceBody}</Text>
+          ) : null}
+          <View style={[styles.divider, guidanceBody ? null : styles.dividerCompact]} />
           <View style={styles.statusRow}>
-            <Text style={[styles.tiltStatus, { color: tiltStatusColor }]}>
+            {/* Left: tilt */}
+            <Text style={[styles.statusItem, { color: tiltStatusColor }]}>
               {tiltLabel} · {tiltStatus}
             </Text>
-            <Text style={[styles.tiltStatus, { color: floorColor }]}>
-              {floorLabel}
+            {/* Right: height (once floor known) or floor scanning */}
+            <Text style={[styles.statusItem, { color: rightColor }]}>
+              {rightLabel}
             </Text>
           </View>
         </View>
@@ -388,11 +445,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2D4C0',
     marginBottom: 8,
   },
+  dividerCompact: {
+    marginTop: 8,
+  },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  tiltStatus: {
+  statusItem: {
     fontSize: 12,
     fontWeight: '500',
   },

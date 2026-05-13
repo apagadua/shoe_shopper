@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'ownedShoes';
@@ -16,7 +16,7 @@ export function OwnedShoesProvider({ children }) {
       .catch(() => setOwnedMap({}));
   }, []);
 
-  function toggleOwned(shoe) {
+  const toggleOwned = useCallback((shoe) => {
     if (!shoe?.id) return;
     setOwnedMap((prev) => {
       const next = { ...prev };
@@ -28,16 +28,19 @@ export function OwnedShoesProvider({ children }) {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-  }
+  }, []);
 
-  function isOwned(id) {
-    return Boolean(ownedMap[id]);
-  }
+  const isOwned = useCallback((id) => Boolean(ownedMap[id]), [ownedMap]);
 
-  const ownedShoes = Object.values(ownedMap);
+  const ownedShoes = useMemo(() => Object.values(ownedMap), [ownedMap]);
+
+  const contextValue = useMemo(
+    () => ({ ownedMap, ownedShoes, toggleOwned, isOwned }),
+    [ownedMap, ownedShoes, toggleOwned, isOwned]
+  );
 
   return (
-    <OwnedShoesContext.Provider value={{ ownedMap, ownedShoes, toggleOwned, isOwned }}>
+    <OwnedShoesContext.Provider value={contextValue}>
       {children}
     </OwnedShoesContext.Provider>
   );

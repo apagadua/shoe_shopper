@@ -194,6 +194,10 @@ class ShoeColorway(models.Model):
     image_url = models.TextField(null=True, blank=True)
     product_url = models.TextField(null=True, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
+    dominant_color_hex = models.CharField(max_length=7, null=True, blank=True)
+    dominant_color_source_url = models.TextField(null=True, blank=True)
+    dominant_color_computed_at = models.DateTimeField(null=True, blank=True)
+    color_palette_hex = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

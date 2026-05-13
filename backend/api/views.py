@@ -16,6 +16,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from google.auth import exceptions as google_auth_exceptions
 from google.auth.transport import requests as google_requests
@@ -33,8 +34,9 @@ from backend.api.serializers import (
     RecommendationSerializer,
     ShoeSerializer,
 )
-from backend.models import GuestSession, Measurement, Profile, Shoe, ShoeColorwaySize
+from backend.models import GuestSession, Measurement, Profile, Shoe
 from backend.services.ar_measurement import compute_dimensions as ar_compute_dimensions
+from backend.services.ar_measurement import compute_dimensions_with_wall as ar_compute_dimensions_with_wall
 from backend.services.fit_algorithm import ALGORITHM_VERSION, LENGTH_BIAS_CORRECTION, estimate_us_size, score_shoe, status_label
 
 logger = logging.getLogger(__name__)
@@ -179,6 +181,76 @@ def _validate_ar_snapshot(snapshot):
         )
 
     return None
+
+
+_AR_DEBUG_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "ar_debug",
+)
+
+def _save_ar_debug_image(rotated_img, predictions, label=""):
+    """
+    Draw Roboflow polygon predictions on the (already-rotated) image and
+    save it to ar_debug/ at the repo root for offline inspection.
+
+    Coordinate system: predictions here are still in Roboflow/rotated-image
+    space, so they map directly onto rotated_img without any counter-rotation.
+
+    Each class gets a distinct colour; polygons are outlined and labelled
+    with class name + confidence.  Saves as JPEG named:
+        ar_debug_<label>_<timestamp>.jpg
+    """
+    try:
+        from PIL import ImageDraw, ImageFont
+        import datetime
+
+        os.makedirs(_AR_DEBUG_DIR, exist_ok=True)
+
+        vis = rotated_img.copy().convert("RGB")
+        draw = ImageDraw.Draw(vis)
+
+        CLASS_COLORS = {
+            "foot":       (0,   220,  0),    # green
+            "insole":     (0,   180, 255),   # cyan-blue
+            "toe box":    (255, 140,  0),    # orange
+            "wall base":  (220,   0,  0),    # red
+        }
+        DEFAULT_COLOR = (180, 0, 220)        # purple for anything else
+
+        for pred in predictions:
+            cls   = (pred.get("class") or "").lower()
+            conf  = pred.get("confidence", 0)
+            color = CLASS_COLORS.get(cls, DEFAULT_COLOR)
+            pts   = pred.get("points", [])
+
+            if pts:
+                poly = [(pt["x"], pt["y"]) for pt in pts]
+                # Outline the polygon
+                for i in range(len(poly)):
+                    draw.line([poly[i], poly[(i + 1) % len(poly)]], fill=color, width=3)
+                # Label near first point
+                if poly:
+                    lx, ly = poly[0]
+                    draw.rectangle([lx - 2, ly - 14, lx + len(cls) * 7 + 4, ly + 2], fill=(0, 0, 0))
+                    draw.text((lx, ly - 13), f"{cls} {conf:.2f}", fill=color)
+            else:
+                # Bounding-box-only prediction (Wall Base has no polygon)
+                x  = pred.get("x", 0)
+                y  = pred.get("y", 0)
+                w  = pred.get("width", 0)
+                h  = pred.get("height", 0)
+                x0, y0 = x - w / 2, y - h / 2
+                x1, y1 = x + w / 2, y + h / 2
+                draw.rectangle([x0, y0, x1, y1], outline=color, width=3)
+                draw.text((x0 + 2, y0 + 2), f"{cls} {conf:.2f}", fill=color)
+
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        fname = f"ar_debug{'_' + label if label else ''}_{ts}.jpg"
+        fpath = os.path.join(_AR_DEBUG_DIR, fname)
+        vis.save(fpath, format="JPEG", quality=90)
+        logger.info("AR debug image saved: %s", fpath)
+    except Exception as exc:
+        logger.warning("AR debug image save failed (non-fatal): %s", exc)
 
 
 class FootMeasureView(APIView):
@@ -345,23 +417,136 @@ class FootMeasureView(APIView):
         except _RoboflowError as e:
             return Response({"detail": e.detail}, status=e.http_status)
 
+        # Save debug image BEFORE counter-rotation so polygon coords match
+        # the rotated image that was actually sent to Roboflow.
+        _save_ar_debug_image(img_rotated, all_preds, label=str(request.user.id))
+
         # Counter-rotate all polygon points back to sensor space so the
         # camera-intrinsics-based ray casting uses consistent coordinates.
         H_sensor = ar_snapshot.get("image_dimensions", [640, 480])[1]
         all_preds = _counter_rotate_preds(all_preds, H_sensor)
 
-        foot = None
+        # ── Diagnostic: resolution + intrinsics ──────────────────────────────
+        snap_w, snap_h = ar_snapshot.get("image_dimensions", [0, 0])
+        pil_w, pil_h   = img.size   # original (pre-rotation) PIL dimensions
+        K = ar_snapshot.get("camera_intrinsics", [])
+        fx = K[0][0] if K else None
+        fy = K[1][1] if K else None
+        cx = K[0][2] if K else None
+        cy = K[1][2] if K else None
+        logger.info(
+            "AR dims: snapshot=%dx%d  PIL_sensor=%dx%d  match=%s",
+            snap_w, snap_h, pil_w, pil_h,
+            "YES" if (pil_w == snap_w and pil_h == snap_h) else "NO — MISMATCH",
+        )
+        logger.info(
+            "AR intrinsics: fx=%.1f  fy=%.1f  cx=%.1f  cy=%.1f",
+            fx or 0, fy or 0, cx or 0, cy or 0,
+        )
+        import numpy as _np
+        _cam_h_in = None   # used below for camera-height gate
+        try:
+            _pose = _np.array(ar_snapshot["camera_pose"], dtype=float)
+            _n    = _np.array(ar_snapshot["plane_normal"], dtype=float)
+            _p0   = _np.array(ar_snapshot["plane_center"], dtype=float)
+            _n    = _n / _np.linalg.norm(_n)
+            _cam  = _pose[:3, 3]
+            _cam_h_m  = float(_np.dot(_cam - _p0, _n))
+            _cam_h_in = _cam_h_m * 39.3701
+            logger.info(
+                "AR camera height above floor: %.4f m  (%.3f in)  cam_pos=%s",
+                _cam_h_m, _cam_h_in,
+                [round(float(v), 4) for v in _cam],
+            )
+        except Exception as _e:
+            logger.info("AR height calc failed: %s", _e)
+
+        # Camera-height gate: floor projections become unreliable when the phone
+        # is held too high (>35") because any sub-pixel detection error in the
+        # Roboflow polygon maps to a proportionally larger floor distance, causing
+        # uniform over-measurement across both length and width.  Below ~12" the
+        # camera is too close for the floor plane to stabilise.
+        _CAM_H_MIN_IN, _CAM_H_MAX_IN = 12.0, 35.0
+        if _cam_h_in is not None and not (_CAM_H_MIN_IN <= _cam_h_in <= _CAM_H_MAX_IN):
+            logger.warning(
+                "AR camera height out of range for user %s: %.1f in (allowed %g–%g in)",
+                request.user.id, _cam_h_in, _CAM_H_MIN_IN, _CAM_H_MAX_IN,
+            )
+            if _cam_h_in > _CAM_H_MAX_IN:
+                msg = (
+                    f"Camera is too far from your foot ({_cam_h_in:.0f}\"). "
+                    "Hold your phone 20–30\" above your foot and try again."
+                )
+            else:
+                msg = (
+                    f"Camera is too close to your foot ({_cam_h_in:.0f}\"). "
+                    "Hold your phone 20–30\" above your foot and try again."
+                )
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+        # ────────────────────────────────────────────────────────────────────
+
+        logger.info(
+            "AR Roboflow classes for user %s: %s",
+            request.user.id,
+            [(p.get("class"), round(p.get("confidence", 0), 2)) for p in all_preds],
+        )
+
+        # Collect foot/insole candidates (prefer "foot", fall back to "insole")
+        foot_candidates = []
         for cls in ("foot", "insole"):
             candidates = [p for p in all_preds if p.get("class", "").lower() == cls]
             if candidates:
-                foot = max(candidates, key=lambda p: p.get("confidence", 0))
+                foot_candidates = candidates
                 break
 
-        if foot is None:
+        if not foot_candidates:
             return Response(
                 {"detail": "No foot or insole detected in image."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Wall Base — model v24+ returns a polygon; earlier models returned only a
+        # bbox.  _counter_rotate_preds already converted polygon points to sensor
+        # space, so extract_wall_seam's polygon path receives pre-rotated coords.
+        # The bbox fallback path inside extract_wall_seam does its own rotation.
+        wall_pred = next(
+            (p for p in all_preds if p.get("class", "").lower() == "wall base"),
+            None,
+        )
+
+        # Toe Box polygon — already counter-rotated to sensor space.
+        # Passed to the wall measurement so the toe reference can be extended
+        # past where the Foot polygon stops (often ~1" short of the true tip).
+        toebox_pred = next(
+            (p for p in all_preds if p.get("class", "").lower() == "toe box"),
+            None,
+        )
+        toebox_pts = _pts(toebox_pred) if toebox_pred else []
+        if toebox_pts:
+            logger.info("AR toe box polygon: %d points (will extend toe reference)", len(toebox_pts))
+
+        if wall_pred is not None:
+            wall_pts = wall_pred.get("points", [])
+            if wall_pts:
+                logger.info("AR wall base: polygon (%d pts) — will use actual seam edge", len(wall_pts))
+            else:
+                logger.info("AR wall base: bbox-only — falling back to horizontal scanline")
+
+        # When multiple feet are visible and a wall is detected, pick the foot
+        # whose heel is closest to the wall seam — that is the foot being measured.
+        # Pre-computes dims so we don't re-do the wall math below.
+        pre_dims = None
+        if wall_pred is not None and len(foot_candidates) > 1:
+            logger.info(
+                "AR multi-foot: %d foot candidates detected, using wall seam to select",
+                len(foot_candidates),
+            )
+            foot, pre_dims = self._select_foot_for_wall(
+                foot_candidates, wall_pred, ar_snapshot, request.user.id,
+                toebox_pts=toebox_pts,
+            )
+        else:
+            foot = max(foot_candidates, key=lambda p: p.get("confidence", 0))
 
         foot_pts = _pts(foot)
         if len(foot_pts) < 3:
@@ -370,27 +555,69 @@ class FootMeasureView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            dims = ar_compute_dimensions(foot_pts, ar_snapshot)
-        except ValueError as exc:
-            logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc)
-            return Response(
-                {"detail": f"AR measurement failed: {exc}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        measurement_path = "pairwise"
+        heel_gap_in = None
+
+        if pre_dims is not None:
+            # Already computed by _select_foot_for_wall — reuse to avoid a duplicate API call.
+            # Re-run with toebox_pts since _select_foot_for_wall didn't have them.
+            if wall_pred is not None and toebox_pts:
+                try:
+                    pre_dims = ar_compute_dimensions_with_wall(
+                        _pts(foot), wall_pred, ar_snapshot,
+                        toebox_points_px=toebox_pts,
+                    )
+                except ValueError:
+                    pass   # keep pre_dims as-is if toebox extension fails
+            dims = pre_dims
+            measurement_path = dims["measurement_path"]
+            heel_gap_in = dims.get("heel_gap_in")
+        else:
+            try:
+                if wall_pred is not None:
+                    dims = ar_compute_dimensions_with_wall(
+                        foot_pts, wall_pred, ar_snapshot,
+                        toebox_points_px=toebox_pts,
+                    )
+                    measurement_path = dims["measurement_path"]
+                    heel_gap_in = dims.get("heel_gap_in")
+                else:
+                    dims = ar_compute_dimensions(foot_pts, ar_snapshot)
+            except ValueError as exc:
+                if wall_pred is not None:
+                    logger.info(
+                        "Wall seam fitting failed for user %s (%s) — falling back to pairwise",
+                        request.user.id, exc,
+                    )
+                    try:
+                        dims = ar_compute_dimensions(foot_pts, ar_snapshot)
+                    except ValueError as exc2:
+                        logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc2)
+                        return Response(
+                            {"detail": f"AR measurement failed: {exc2}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                else:
+                    logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc)
+                    return Response(
+                        {"detail": f"AR measurement failed: {exc}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         length_in  = dims["length_in"]
         width_in   = dims["width_in"]
         area_sq_in = dims["area_sq_in"]
 
-        # Sanity-check before writing to DB. A human foot is always 3–16 inches.
-        # Values outside this window indicate corrupt AR plane data (e.g., a
-        # stale plane from a different session, or a near-zero normal vector).
-        FOOT_MIN_IN, FOOT_MAX_IN = 3.0, 16.0
+        # Sanity-check before writing to DB.  Human feet range from toddler (~3")
+        # to the largest men's sizes (~13.0").  Values outside this window indicate
+        # bad AR plane data or a camera that was held at the wrong height/angle.
+        # The camera-height gate above already catches the most common over-shoot
+        # scenario; this is a last-resort catch for corner cases.
+        FOOT_MIN_IN, FOOT_MAX_IN = 3.0, 13.0
         if not (FOOT_MIN_IN <= length_in <= FOOT_MAX_IN):
             logger.warning(
-                "AR measurement out of range for user %s: length_in=%s",
-                request.user.id, length_in,
+                "AR measurement out of range for user %s: length_in=%s path=%s",
+                request.user.id, length_in, measurement_path,
             )
             return Response(
                 {
@@ -402,6 +629,63 @@ class FootMeasureView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        logger.info(
+            "AR measurement complete for user %s: path=%s length_in=%.3f width_in=%.3f heel_gap_in=%s",
+            request.user.id, measurement_path, length_in, width_in,
+            f"{heel_gap_in:.3f}" if heel_gap_in is not None else "n/a",
+        )
+        if heel_gap_in is not None and heel_gap_in > 1.0:
+            logger.warning(
+                "AR large heel_gap for user %s: %.3f in — seam may have drifted; "
+                "falling back to polygon span (path=%s)",
+                request.user.id, heel_gap_in, measurement_path,
+            )
+        if dims.get("heel_point") and dims.get("toe_point"):
+            hp = dims["heel_point"]
+            tp = dims["toe_point"]
+            sc = dims.get("seam_centroid")
+            logger.info(
+                "AR 3D points: heel=[%.4f, %.4f, %.4f]  toe=[%.4f, %.4f, %.4f]  "
+                "direct_dist_m=%.4f (%.3f in)",
+                hp[0], hp[1], hp[2], tp[0], tp[1], tp[2],
+                sum((a - b) ** 2 for a, b in zip(hp, tp)) ** 0.5,
+                sum((a - b) ** 2 for a, b in zip(hp, tp)) ** 0.5 * 39.3701,
+            )
+            if sc:
+                logger.info(
+                    "AR seam centroid: [%.4f, %.4f, %.4f]",
+                    sc[0], sc[1], sc[2],
+                )
+            sd = dims.get("seam_dir")
+            ua = dims.get("u_axis")
+            if sd and ua:
+                import math as _math
+                seam_tilt_deg = _math.degrees(_math.asin(abs(float(sd[2]))))
+                logger.info(
+                    "AR seam_dir: [%.4f, %.4f, %.4f]  u_axis: [%.4f, %.4f, %.4f]  "
+                    "seam_Z_tilt=%.1f°",
+                    sd[0], sd[1], sd[2], ua[0], ua[1], ua[2], seam_tilt_deg,
+                )
+            if dims.get("width_band_pts") is not None:
+                width_frame = (
+                    "foot-axis" if "fallback" in measurement_path else "seam-axis"
+                )
+                logger.info(
+                    "AR width: %.3f in  band_pts=%d  lo=%.3f in  hi=%.3f in  frame=%s",
+                    dims["width_in"],
+                    dims["width_band_pts"],
+                    dims.get("width_lo_in", 0),
+                    dims.get("width_hi_in", 0),
+                    width_frame,
+                )
+            clean = dims.get("seam_clean_bins", -1)
+            total = dims.get("seam_total_bins", -1)
+            if clean >= 0:
+                logger.info(
+                    "AR seam bins: %d/%d clean  toe_ext=%.3f in",
+                    clean, total, dims.get("toe_ext_in", 0.0),
+                )
 
         toebox_length_in, toebox_width_in = self._extract_toebox(all_preds, ar_snapshot=ar_snapshot)
 
@@ -419,7 +703,7 @@ class FootMeasureView(APIView):
             measurement_method=Measurement.MeasurementMethod.ARCORE,
         )
 
-        return Response({
+        response_data = {
             "id": measurement.id,
             "length_in": length_in,
             "width_in": width_in,
@@ -427,7 +711,14 @@ class FootMeasureView(APIView):
             "toebox_width_in": toebox_width_in,
             "area_sq_in": area_sq_in,
             "measurement_method": "arcore",
-        })
+            "measurement_path": measurement_path,
+        }
+        # Warn the client when it appears the heel wasn't flush against the wall.
+        # Covers both pairwise path (large gap) and wall_seam_gap_fallback (seam
+        # centroid drifted > 25 mm from heel, so polygon span was used instead).
+        if heel_gap_in is not None and heel_gap_in > 0.4 and measurement_path != "wall_seam":
+            response_data["warning"] = "heel_not_touching_wall"
+        return Response(response_data)
 
     def _run_roboflow(self, request, b64_image):
         """
@@ -448,14 +739,15 @@ class FootMeasureView(APIView):
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        rf_url = f"https://detect.roboflow.com/{workspace}/workflows/{project}"
+        # Direct model — bypasses the foot-measuring workflow, which strips Wall Base predictions.
+        rf_url = f"https://serverless.roboflow.com/shoe-shopper/24"
+        logger.info("Roboflow request URL: %s", rf_url)
         try:
             rf_resp = http_requests.post(
                 rf_url,
-                json={
-                    "api_key": api_key,
-                    "inputs": {"image": {"type": "base64", "value": b64_image}},
-                },
+                params={"api_key": api_key, "confidence": 0.25},
+                data=b64_image,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
                 timeout=30,
             )
             rf_resp.raise_for_status()
@@ -467,17 +759,7 @@ class FootMeasureView(APIView):
             ) from exc
 
         response_json = rf_resp.json()
-        all_preds = []
-        for output in response_json.get("outputs", []):
-            for val in output.values():
-                if not isinstance(val, dict):
-                    continue
-                preds = val.get("predictions", [])
-                if isinstance(preds, dict):
-                    preds = preds.get("predictions", [])
-                if isinstance(preds, list):
-                    all_preds.extend(preds)
-        return all_preds
+        return response_json.get("predictions", [])
 
     def _extract_toebox(self, all_preds, ppi=None, ar_snapshot=None):
         """
@@ -509,6 +791,65 @@ class FootMeasureView(APIView):
                 return None, None
 
         return None, None
+
+    def _select_foot_for_wall(self, foot_candidates, wall_pred, ar_snapshot, user_id,
+                              toebox_pts=None):
+        """
+        When multiple foot polygons are detected and a wall seam is present,
+        pick the foot whose heel is closest to the wall on the positive (toe) side.
+
+        Strategy: run ar_compute_dimensions_with_wall for every candidate and
+        compare heel_gap_in.  The foot pressed against the wall has the smallest
+        non-negative gap.  If all candidates return negative gaps (anomalous
+        geometry), fall back to the least-negative one.
+
+        Returns (foot_pred, dims) — dims is already computed so the caller can
+        reuse it without a second call.  Returns (highest-confidence candidate, None)
+        if every candidate raises ValueError.
+        """
+        scored = []
+        for candidate in foot_candidates:
+            pts = _pts(candidate)
+            if len(pts) < 3:
+                continue
+            try:
+                dims = ar_compute_dimensions_with_wall(
+                    pts, wall_pred, ar_snapshot,
+                    toebox_points_px=toebox_pts or [],
+                )
+                gap = dims.get("heel_gap_in", float("inf"))
+                scored.append((gap, candidate, dims))
+            except ValueError:
+                continue
+
+        if not scored:
+            # All candidates failed — return highest-confidence foot, no pre-computed dims
+            logger.warning(
+                "AR multi-foot: all %d candidates failed wall fitting for user %s",
+                len(foot_candidates), user_id,
+            )
+            return max(foot_candidates, key=lambda p: p.get("confidence", 0)), None
+
+        # Prefer the foot with a non-negative heel_gap closest to zero
+        positive = [(g, c, d) for g, c, d in scored if g >= 0]
+        if positive:
+            positive.sort(key=lambda x: x[0])
+            gap, foot, dims = positive[0]
+            logger.info(
+                "AR multi-foot: selected foot with heel_gap=%.3f in (wall-side, %d candidates)",
+                gap, len(foot_candidates),
+            )
+        else:
+            # All negative — pick least-negative (closest to wall seam)
+            scored.sort(key=lambda x: x[0], reverse=True)
+            gap, foot, dims = scored[0]
+            logger.warning(
+                "AR multi-foot: all candidates have negative heel_gap; "
+                "chose %.3f in for user %s",
+                gap, user_id,
+            )
+
+        return foot, dims
 
 
 class LatestMeasurementView(APIView):
@@ -567,7 +908,7 @@ class RecommendationsView(APIView):
 
         sub_type = request.query_params.get("sub_type") or None
 
-        shoes = Shoe.objects.prefetch_related("sizes").filter(is_active=True)
+        shoes = Shoe.objects.prefetch_related("sizes", "colorways__sizes").filter(is_active=True)
 
         results = []
         for shoe in shoes:
@@ -629,13 +970,12 @@ class RecommendationsView(APIView):
                     "flags": [],
                 }
 
-            # Sizes available in at least one live colorway
+            # Sizes available in at least one live colorway (uses prefetched data — no extra query)
             available_us_sizes = set(
-                float(v)
-                for v in ShoeColorwaySize.objects.filter(
-                    colorway__shoe=shoe,
-                    is_available=True,
-                ).values_list("us_size", flat=True)
+                float(s.us_size)
+                for cw in shoe.colorways.all()
+                for s in cw.sizes.all()
+                if s.is_available
             )
 
             if available_us_sizes:
@@ -656,34 +996,37 @@ class RecommendationsView(APIView):
                 else:
                     recommended_size = None
 
-            # Build colorway options for the recommended size (cheapest first)
+            # Build colorway options using prefetched data (no extra DB queries).
+            # Each entry includes goat_id/sku so the frontend can key the carousel,
+            # plus sizes scoped to the recommended size so price/availability are correct.
             colorway_options = []
-            if recommended_size is not None:
-                colorway_options = list(
-                    ShoeColorwaySize.objects.filter(
-                        colorway__shoe=shoe,
-                        us_size=recommended_size,
-                        is_available=True,
-                    )
-                    .select_related("colorway")
-                    .order_by("price_usd")
-                    .values(
-                        "colorway__name",
-                        "colorway__image_url",
-                        "colorway__product_url",
-                        "price_usd",
-                    )
-                )
-                # Rename keys for the serializer / frontend
-                colorway_options = [
-                    {
-                        "name":        row["colorway__name"],
-                        "image_url":   row["colorway__image_url"],
-                        "product_url": row["colorway__product_url"],
-                        "price_usd":   str(row["price_usd"]) if row["price_usd"] is not None else None,
-                    }
-                    for row in colorway_options
-                ]
+            for cw in shoe.colorways.all():
+                if recommended_size is not None:
+                    cw_sizes = [
+                        s for s in cw.sizes.all()
+                        if float(s.us_size) == recommended_size
+                    ]
+                else:
+                    cw_sizes = [s for s in cw.sizes.all() if s.is_available]
+                colorway_options.append({
+                    "goat_id":            cw.goat_id,
+                    "sku":                cw.sku,
+                    "name":               cw.name,
+                    "image_url":          cw.image_url,
+                    "product_url":        cw.product_url,
+                    "dominant_color_hex": cw.dominant_color_hex,
+                    "color_palette_hex":  cw.color_palette_hex or [],
+                    "sizes": [
+                        {
+                            "us_size":      float(s.us_size),
+                            "price_usd":    str(s.price_usd) if s.price_usd is not None else None,
+                            "is_available": s.is_available,
+                        }
+                        for s in sorted(cw_sizes, key=lambda s: s.price_usd or 999999)
+                    ],
+                })
+            # Colorways with images first, then alphabetically by name
+            colorway_options.sort(key=lambda c: (0 if c["image_url"] else 1, c["name"] or ""))
 
             results.append({
                 "shoe":             shoe,
@@ -918,3 +1261,54 @@ class MeasurementUploadView(APIView):
 
         output = MeasurementSerializer(measurement).data
         return Response(output, status=status.HTTP_201_CREATED)
+
+
+class ProxyImageView(APIView):
+    """
+    Server-side proxy for CDN images that require browser-like headers
+    (e.g. Converse / Demandware) which block plain app requests.
+
+    GET /api/proxy-image/?url=<percent-encoded URL>
+
+    Only whitelisted CDN hostnames are permitted.
+    """
+    permission_classes = [AllowAny]
+    ALLOWED_HOSTS = ('converse.com', 'demandware.static')
+
+    def get(self, request):
+        url = request.GET.get('url', '')
+        if not url or not any(h in url for h in self.ALLOWED_HOSTS):
+            return HttpResponse(status=400)
+        try:
+            resp = http_requests.get(
+                url,
+                headers={
+                    'Referer':          'https://www.converse.com/',
+                    'Origin':           'https://www.converse.com',
+                    'User-Agent': (
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                        'AppleWebKit/537.36 (KHTML, like Gecko) '
+                        'Chrome/124.0.0.0 Safari/537.36'
+                    ),
+                    'Accept':           'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                    'Accept-Language':  'en-US,en;q=0.9',
+                    'Accept-Encoding':  'gzip, deflate, br',
+                    'sec-fetch-dest':   'image',
+                    'sec-fetch-mode':   'no-cors',
+                    'sec-fetch-site':   'same-origin',
+                },
+                timeout=10,
+            )
+            # Surface upstream errors clearly rather than silently passing them through.
+            if resp.status_code >= 400:
+                logger.warning(
+                    'ProxyImageView upstream %s for %s', resp.status_code, url
+                )
+            return HttpResponse(
+                resp.content,
+                content_type=resp.headers.get('Content-Type', 'image/jpeg'),
+                status=resp.status_code,
+            )
+        except Exception as exc:
+            logger.warning('ProxyImageView error fetching %s: %s', url, exc)
+            return HttpResponse(status=502)

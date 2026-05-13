@@ -9,6 +9,7 @@ from backend.api.views import (
     LatestMeasurementView,
     MeasurementUploadView,
     ProfileView,
+    ProxyImageView,
     RecommendationsView,
     ShoeListView,
 )
@@ -24,4 +25,5 @@ urlpatterns = [
     path("measurements/latest/", LatestMeasurementView.as_view(), name="latest-measurement"),
     path("recommendations/", RecommendationsView.as_view(), name="recommendations"),
     path("dev/mock-measurement/", DevMockMeasurementView.as_view(), name="dev-mock-measurement"),
+    path("proxy-image/", ProxyImageView.as_view(), name="proxy-image"),
 ]

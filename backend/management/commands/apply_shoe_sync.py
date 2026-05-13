@@ -218,11 +218,23 @@ class Command(BaseCommand):
                     self.style.WARNING(f"    Marked {stale_count} stale size(s) unavailable")
                 )
 
-            Shoe.objects.filter(pk=shoe_id).update(
-                is_active=True,
-                product_url=source_url or shoe.product_url,
-                last_synced_at=run_started,
-            )
+            # Build shoe-level update fields
+            shoe_update = {
+                "is_active": True,
+                "product_url": source_url or shoe.product_url,
+                "last_synced_at": run_started,
+            }
+
+            # shoe_image_url: accept explicit value from payload (used for eBay and
+            # other single-listing shoes that don't derive their image from a colorway).
+            # For multi-colorway shoes, the frontend derives the display image from
+            # ShoeColorway.image_url, so we leave shoe_image_url unchanged unless
+            # the payload explicitly provides it.
+            explicit_image = record.get("shoe_image_url")
+            if explicit_image:
+                shoe_update["shoe_image_url"] = explicit_image
+
+            Shoe.objects.filter(pk=shoe_id).update(**shoe_update)
 
         stats["activated"] += 1
         stats["colorways_upserted"] += colorways_written
