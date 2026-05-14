@@ -234,8 +234,11 @@ export default function Dashboard({ navigation }) {
     }, [])
   );
 
-  const goTabRecommendations = () => {
-    navigation.getParent()?.navigate('Recommendations', { screen: 'RecommendationsHome' });
+  const goTabRecommendations = (scrollToShoeId) => {
+    navigation.getParent()?.navigate('Recommendations', {
+      screen: 'RecommendationsHome',
+      params: scrollToShoeId != null ? { scrollToShoeId } : undefined,
+    });
   };
 
   return (
@@ -295,7 +298,7 @@ export default function Dashboard({ navigation }) {
       </View>
 
       {/* Recommended for you */}
-      <SectionHeader title="Recommended For You" onViewAll={goTabRecommendations} />
+      <SectionHeader title="Recommended For You" onViewAll={() => goTabRecommendations()} />
       {recLoading ? (
         <View style={styles.recLoading}>
           <ActivityIndicator color="#C28A5B" />
@@ -321,7 +324,7 @@ export default function Dashboard({ navigation }) {
                   styles.recCard,
                   { width: REC_CARD_WIDTH, marginRight: index === recPreview.length - 1 ? 0 : REC_GAP },
                 ]}
-                onPress={goTabRecommendations}
+                onPress={() => goTabRecommendations(item.id)}
                 activeOpacity={0.9}
               >
                 {item.shoe_image_url ? (

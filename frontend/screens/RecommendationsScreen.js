@@ -238,6 +238,9 @@ export default function RecommendationsScreen({ navigation, route }) {
   const [activeColorwayByShoe, setActiveColorwayByShoe] = useState({});
   const [failedImageByColorway, setFailedImageByColorway] = useState({});
   const [catalogByShoeId, setCatalogByShoeId] = useState(() => new Map());
+  const carouselRefs = useRef({});
+  const flatListRef = useRef(null);
+  const scrollToShoeId = route.params?.scrollToShoeId ?? null;
 
   const showToast = useCallback((message) => {
     setToastMessage(message);
@@ -354,6 +357,23 @@ export default function RecommendationsScreen({ navigation, route }) {
     }
     setCatalogByShoeId(map);
   }, [allResults]);
+
+  useEffect(() => {
+    if (scrollToShoeId == null || loading || displayedResults.length === 0) return;
+    const idx = displayedResults.findIndex((r) => r.id === scrollToShoeId);
+    if (idx <= 0) return;
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0 });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [scrollToShoeId, loading, displayedResults]);
+
+  const onScrollToIndexFailed = useCallback((info) => {
+    flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0 });
+    }, 300);
+  }, []);
 
   const { subcategories: subcategoriesDraft } =
     getCategoriesAndSubcategories(pathDraft, selectedCategoryDraft);
@@ -473,6 +493,7 @@ export default function RecommendationsScreen({ navigation, route }) {
 
     return (
       <ScrollView
+        ref={(ref) => { carouselRefs.current[item.id] = ref; }}
         horizontal
         pagingEnabled
         nestedScrollEnabled
@@ -563,11 +584,22 @@ export default function RecommendationsScreen({ navigation, route }) {
               {hasColorways && (
                 <View style={styles.colorwayPills}>
                   {colorways.map((cw, index) => (
-                    <ColorwaySwatch
+                    <TouchableOpacity
                       key={`${item.id}-${cw.goat_id ?? ''}-${cw.sku ?? index}`}
-                      colors={getColorwayPalette(cw)}
-                      active={index === activeIndex}
-                    />
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        carouselRefs.current[item.id]?.scrollTo({
+                          x: index * CAROUSEL_WIDTH,
+                          animated: true,
+                        });
+                        setActiveColorwayByShoe((prev) => ({ ...prev, [item.id]: index }));
+                      }}
+                    >
+                      <ColorwaySwatch
+                        colors={getColorwayPalette(cw)}
+                        active={index === activeIndex}
+                      />
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -731,6 +763,7 @@ export default function RecommendationsScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <FlatList
+        ref={flatListRef}
         data={displayedResults}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
@@ -743,6 +776,7 @@ export default function RecommendationsScreen({ navigation, route }) {
         maxToRenderPerBatch={3}
         initialNumToRender={4}
         windowSize={5}
+        onScrollToIndexFailed={onScrollToIndexFailed}
       />
 
       {toastMessage && (
