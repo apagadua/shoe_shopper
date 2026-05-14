@@ -146,6 +146,44 @@ class TestColorPaletteFromImage(unittest.TestCase):
         else:
             self.assertIsNone(single)
 
+    def test_vivid_accent_not_excluded_by_neutral_dominance(self):
+        """
+        A vivid chromatic accent covering ~5% of pixels must appear in the
+        palette even when three neutral colours each exceed the neutral
+        minimum-share threshold and would otherwise fill all three slots.
+
+        Layout (100×100, white border used as background):
+          cols  5-44  (40 px wide): mid-grey        ~40% of interior
+          cols 45-74  (30 px wide): dark grey        ~30%
+          cols 75-94  (20 px wide): light grey       ~20%
+          cols 95-99  ( 5 px wide): neon green       ~ 5%
+        """
+        img = Image.new("RGB", (100, 100), (255, 255, 255))  # white border → bg
+        for x in range(5, 45):
+            for y in range(5, 95):
+                img.putpixel((x, y), (130, 130, 130))   # mid-grey
+        for x in range(45, 75):
+            for y in range(5, 95):
+                img.putpixel((x, y), (40, 40, 40))      # dark grey
+        for x in range(75, 95):
+            for y in range(5, 95):
+                img.putpixel((x, y), (200, 200, 200))   # light grey
+        for x in range(95, 100):
+            for y in range(5, 95):
+                img.putpixel((x, y), (30, 210, 30))     # neon green accent
+
+        result = color_palette_from_image(img, max_colors=3)
+        greens = [
+            c for c in result
+            if int(c[3:5], 16) > 150       # G channel high
+            and int(c[1:3], 16) < 80       # R channel low
+            and int(c[5:7], 16) < 80       # B channel low
+        ]
+        self.assertTrue(
+            greens,
+            f"Expected neon-green accent in palette despite three dominant neutrals; got {result}",
+        )
+
 
 class TestExtractDominantColorHex(unittest.TestCase):
     def test_returns_none_for_empty_url(self):

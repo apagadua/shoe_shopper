@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const CACHE_KEY = 'rec_cache_v3';
+const CACHE_KEY = 'rec_cache_v4';
 
 /**
  * Read recommendations from AsyncStorage.

@@ -11,7 +11,18 @@ MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 MAX_WORKING_DIMENSION = 160
 MIN_ALPHA = 30
 BACKGROUND_TOLERANCE = 30
-MIN_COLOR_SHARE = 0.04
+# Neutrals (grey, black, white, beige) need at least 4% pixel share to appear
+# in the palette.  This prevents noise clusters from cluttering the result.
+NEUTRAL_MIN_SHARE = 0.04
+
+# Chromatic accents (neon, vivid red, royal blue …) earn a much lower bar
+# because even 1–2% neon-green stitching is more visually identifying than a
+# 6% shade-of-grey variant.  Two constants control this:
+#   ACCENT_SAT_THRESHOLD – HSV-style saturation above which a color is
+#                          considered "chromatic" (range 0–1, chroma / max_channel)
+#   ACCENT_MIN_SHARE     – minimum pixel share for an accent to be included
+ACCENT_SAT_THRESHOLD = 0.35
+ACCENT_MIN_SHARE = 0.01
 
 
 def rgb_to_hex(r: int, g: int, b: int) -> str:
@@ -91,6 +102,17 @@ def _is_neutral_extreme(pixel: tuple[int, int, int]) -> bool:
     brightness = (r + g + b) / 3
     saturation = max(r, g, b) - min(r, g, b)
     return saturation < 20 and (brightness > 220 or brightness < 35)
+
+
+def _rgb_saturation(rgb: tuple[int, int, int]) -> float:
+    """
+    HSV-style saturation: (max_channel - min_channel) / max_channel.
+
+    Returns 0.0 for achromatic colors (grey, black, white).
+    Returns 1.0 for fully-saturated colors (pure red, neon green, …).
+    """
+    max_c = max(rgb)
+    return (max_c - min(rgb)) / max_c if max_c else 0.0
 
 
 def _rgb_distance_sq(
@@ -196,13 +218,59 @@ def color_palette_from_image(
 
     merged = _merge_similar_palette_entries(entries, min_distance=40)
 
+    # Split merged (still count-sorted) into neutral and chromatic pools.
+    neutrals = [(rgb, cnt) for rgb, cnt in merged if _rgb_saturation(rgb) < ACCENT_SAT_THRESHOLD]
+    accents  = [(rgb, cnt) for rgb, cnt in merged if _rgb_saturation(rgb) >= ACCENT_SAT_THRESHOLD]
+
     result: list[str] = []
-    for rgb, count in merged:
-        if len(result) >= max_colors:
-            break
-        share = count / total if total else 0
-        if share >= MIN_COLOR_SHARE or len(result) < 2:
+
+    # ------------------------------------------------------------------
+    # Pass 1 — dominant neutrals
+    # Reserve the last slot for a chromatic accent when one exists.
+    # The first 2 neutrals are always included (same "always keep top 2"
+    # guarantee as before); beyond that the NEUTRAL_MIN_SHARE gate applies.
+    # ------------------------------------------------------------------
+    neutral_limit = max_colors - 1 if accents else max_colors
+    for i, (rgb, cnt) in enumerate(neutrals):
+        share = cnt / total if total else 0
+        if i < 2 or share >= NEUTRAL_MIN_SHARE:
             result.append(rgb_to_hex(*rgb))
+        if len(result) >= neutral_limit:
+            break
+
+    # ------------------------------------------------------------------
+    # Pass 2 — most visually striking chromatic accent
+    # Scored by saturation × pixel-share so that a large vivid region
+    # beats a tiny but slightly more saturated sliver.
+    # ------------------------------------------------------------------
+    if accents and len(result) < max_colors:
+        best_accent = max(
+            accents,
+            key=lambda x: _rgb_saturation(x[0]) * (x[1] / total if total else 0),
+        )
+        if best_accent[1] / total >= ACCENT_MIN_SHARE:
+            result.append(rgb_to_hex(*best_accent[0]))
+
+    # ------------------------------------------------------------------
+    # Pass 3 — fill any remaining slots
+    # Handles fully-chromatic shoes (no neutrals at all) and cases where
+    # Pass 2 found no qualifying accent.  Uses the full merged list with
+    # saturation-aware thresholds.
+    # ------------------------------------------------------------------
+    if len(result) < max_colors:
+        in_result = set(result)
+        for rgb, cnt in merged:
+            h = rgb_to_hex(*rgb)
+            if h in in_result:
+                continue
+            share = cnt / total if total else 0
+            sat = _rgb_saturation(rgb)
+            threshold = ACCENT_MIN_SHARE if sat >= ACCENT_SAT_THRESHOLD else NEUTRAL_MIN_SHARE
+            if len(result) < 2 or share >= threshold:
+                result.append(h)
+                in_result.add(h)
+            if len(result) >= max_colors:
+                break
 
     return result
 

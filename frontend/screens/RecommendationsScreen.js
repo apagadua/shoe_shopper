@@ -267,23 +267,37 @@ export default function RecommendationsScreen({ navigation, route }) {
         const token = await SecureStore.getItemAsync('authToken');
         if (!token || cancelled) { setLoading(false); return; }
 
-        // 2. Fetch health (shoe count) in parallel with recommendations check.
+        // 2. Fetch shoe count and latest measurement ID in parallel.
+        //    Both are needed to correctly detect stale cache — a remeasure
+        //    changes measurement_id but not shoe_count, so checking only one
+        //    would miss the other invalidation case.
         let currentShoeCount = null;
+        let latestMeasurementId = null;
+        const [healthResult, measurementResult] = await Promise.allSettled([
+          fetch(`${API_BASE_URL}/api/health/`),
+          fetch(`${API_BASE_URL}/api/measurements/latest/`, {
+            headers: { Authorization: `Token ${token}` },
+          }),
+        ]);
         try {
-          const hRes = await fetch(`${API_BASE_URL}/api/health/`);
+          const hRes = healthResult.value;
           if (hRes.ok) {
             const hData = await hRes.json();
             currentShoeCount = hData.shoe_count ?? null;
           }
         } catch {}
+        try {
+          const mRes = measurementResult.value;
+          if (mRes.ok) {
+            const mData = await mRes.json();
+            latestMeasurementId = mData.id ?? null;
+          }
+        } catch {}
         if (cancelled) return;
 
-        // 3. Skip the full recs fetch if cache is still valid.
-        //    measurement_id check is deferred to the recs response (we don't
-        //    fetch /measurements/latest/ here — let the recs API return fresh data).
-        const shoeCountChanged = currentShoeCount != null && cache?.shoe_count !== currentShoeCount;
-        if (!shoeCountChanged && cache?.results?.length) {
-          // Cache is still good for shoe count; results already shown above.
+        // 3. Skip the full recs fetch if neither measurement nor shoe count changed.
+        if (!isCacheStale(cache, latestMeasurementId, currentShoeCount)) {
+          setLoading(false);
           return;
         }
 
@@ -308,7 +322,7 @@ export default function RecommendationsScreen({ navigation, route }) {
           // Persist so Dashboard and next visit are instant.
           await writeRecommendationsCache({
             results:           data.results || [],
-            measurement_id:    data.measurement_id ?? null,
+            measurement_id:    latestMeasurementId,
             shoe_count:        currentShoeCount,
             has_toebox_data:   data.has_toebox_data ?? false,
             algorithm_version: data.algorithm_version ?? null,
