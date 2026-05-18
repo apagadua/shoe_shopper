@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import AppLogo from '../components/AppLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Section has scroll padding 24*2 + section padding 18*2
@@ -41,6 +44,7 @@ const FEATURES = [
 ];
 
 export default function WelcomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [activeIndex, setActiveIndex] = useState(0);
 
   const onScroll = useCallback((e) => {
@@ -52,10 +56,14 @@ export default function WelcomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 0) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroSection}>
+          <AppLogo size="lg" style={styles.heroLogo} />
           <Text style={styles.title}>Find Your Perfect Fit</Text>
           <Text style={styles.subtitle}>
             Upload a photo of your foot and let our AI-powered measurements recommend
@@ -128,12 +136,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 64,
     paddingBottom: 40,
   },
   heroSection: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  heroLogo: {
+    marginBottom: 20,
   },
   title: {
     fontSize: 30,

@@ -1,7 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { useState } from 'react';
 import { Alert, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { StackActions } from '@react-navigation/native';
 import { googleSignIn, signInWithGoogle } from '../services/auth';
+import AppLogo from '../components/AppLogo';
 
 export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
@@ -22,42 +26,87 @@ export default function LoginScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Log In</Text>
-      <Text style={styles.subtitle}>
-        Sign in with your Google account to continue.
-      </Text>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => navigation.dispatch(StackActions.popToTop())}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={24} color="#2F2A25" />
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Log In</Text>
+        <View style={styles.topBarSpacer} />
+      </View>
 
-      <TouchableOpacity
-        style={[styles.googleButton, loading && styles.buttonDisabled]}
-        disabled={loading}
-        onPress={handleGooglePress}
-      >
-        <Text style={styles.googleButtonText}>
-          {loading ? 'Signing in...' : 'Continue with Google'}
+      <View style={styles.body}>
+        <View style={styles.logoWrap}>
+          <AppLogo size="xl" />
+        </View>
+        <Text style={styles.subtitle}>
+          Sign in with your Google account to continue.
         </Text>
-      </TouchableOpacity>
-    </View>
+
+        <TouchableOpacity
+          style={[styles.googleButton, loading && styles.buttonDisabled]}
+          disabled={loading}
+          onPress={handleGooglePress}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.googleButtonText}>
+            {loading ? 'Signing in...' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
     backgroundColor: '#F5EFE6',
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBarTitle: {
+    flex: 1,
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 24,
     color: '#2F2A25',
-    marginBottom: 6,
+    textAlign: 'center',
+    marginRight: 40,
+    letterSpacing: -0.3,
+  },
+  topBarSpacer: {
+    width: 0,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   subtitle: {
     fontSize: 15,
     color: '#6B5F52',
-    marginBottom: 32,
+    lineHeight: 22,
+    marginBottom: 28,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   googleButton: {
     backgroundColor: '#FFFBF5',
