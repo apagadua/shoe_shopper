@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -34,7 +35,7 @@ export default function FootCaptureScreen({ navigation, route }) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Measure your foot</Text>
       <Text style={styles.subtitle}>
         Choose a method. AR is faster and requires no paper — just a flat floor and good lighting.
@@ -90,8 +91,26 @@ export default function FootCaptureScreen({ navigation, route }) {
         <TouchableOpacity style={styles.galleryAction} onPress={handlePickFromGallery}>
           <Text style={styles.galleryText}>Pick from gallery</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.galleryAction} onPress={handleManualMeasurement}>
-          <Text style={styles.galleryText}>Measure manually</Text>
+      </View>
+
+      {/* ── Divider ── */}
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      {/* ── Manual method ── */}
+      <View style={styles.methodCard}>
+        <View style={styles.methodHeader}>
+          <Ionicons name="pencil-outline" size={22} color="#6B5F52" />
+          <Text style={styles.methodTitleSecondary}>Enter manually</Text>
+        </View>
+        <Text style={styles.methodDesc}>
+          Already know your foot length and width? Type them in directly.
+        </Text>
+        <TouchableOpacity style={styles.outlineButton} onPress={handleManualMeasurement}>
+          <Text style={styles.outlineButtonText}>Enter measurements</Text>
         </TouchableOpacity>
       </View>
 
@@ -103,16 +122,19 @@ export default function FootCaptureScreen({ navigation, route }) {
           <Text style={styles.skipText}>Skip for now</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
     backgroundColor: '#F5EFE6',
+  },
+  container: {
     paddingHorizontal: 24,
     paddingTop: 60,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 26,
