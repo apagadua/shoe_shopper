@@ -29,6 +29,10 @@ export default function FootCaptureScreen({ navigation, route }) {
     }
   };
 
+  const handleManualMeasurement = () => {
+    navigation.navigate('ManualMeasurement', { fromOnboarding });
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Measure your foot</Text>
@@ -85,6 +89,9 @@ export default function FootCaptureScreen({ navigation, route }) {
         </TouchableOpacity>
         <TouchableOpacity style={styles.galleryAction} onPress={handlePickFromGallery}>
           <Text style={styles.galleryText}>Pick from gallery</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.galleryAction} onPress={handleManualMeasurement}>
+          <Text style={styles.galleryText}>Measure manually</Text>
         </TouchableOpacity>
       </View>
 

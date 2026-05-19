@@ -30,13 +30,6 @@ def test_too_wide():  # should shrink width
     width_signal, length_signal = compute_signals(values)
     new_tolerances = compute_tolerances(width_signal, length_signal,
                                         tolerances, 0.5, len(feedback_rows))
-    
-    # print("old tolerances")
-    # for key, value in tolerances.items():
-    #     print(f"{key}: {value}")
-    # print("new tolerances:")
-    # for key, value in new_tolerances.items():
-    #     print(f"{key}: {value}")
 
     # Ensure width shrinks
     assert new_tolerances["width"]["opt_low"] < tolerances["width"]["opt_low"]
@@ -77,13 +70,6 @@ def test_too_narrow():  # should expand width
         count=1
     )
 
-    # print("old tolerances")
-    # for key, value in tolerances.items():
-    #     print(f"{key}: {value}")
-    # print("new tolerances:")
-    # for key, value in new_tolerances.items():
-    #     print(f"{key}: {value}")
-
     # Ensure width expands
     assert new_tolerances["width"]["opt_low"] > tolerances["width"]["opt_low"]
     assert new_tolerances["width"]["opt_high"] > tolerances["width"]["opt_high"]
@@ -123,12 +109,6 @@ def test_too_long():  # should shrink length
         count=1
     )
 
-    # print("old tolerances")
-    # for key, value in tolerances.items():
-    #     print(f"{key}: {value}")
-    # print("new tolerances:")
-    # for key, value in new_tolerances.items():
-    #     print(f"{key}: {value}")
 
     # Ensure length shrinks
     assert new_tolerances["length"]["opt_low"] < tolerances["length"]["opt_low"]
@@ -169,13 +149,6 @@ def test_too_short():  # should expand length
         count=1
     )
 
-    # print("old tolerances")
-    # for key, value in tolerances.items():
-    #     print(f"{key}: {value}")
-    # print("new tolerances:")
-    # for key, value in new_tolerances.items():
-    #     print(f"{key}: {value}")
-
     # Ensure length expands
     assert new_tolerances["length"]["opt_low"] > tolerances["length"]["opt_low"]
     assert new_tolerances["length"]["opt_high"] > tolerances["length"]["opt_high"]
@@ -215,13 +188,6 @@ def test_balanced():  # shouldn't change things much
         count=1
     )
 
-    # print("old tolerances")
-    # for key, value in tolerances.items():
-    #     print(f"{key}: {value}")
-    # print("new tolerances:")
-    # for key, value in new_tolerances.items():
-    #     print(f"{key}: {value}")
-
     # Ensure width and length don't change much (alpha=0.5 but signals should be small)
     assert abs(new_tolerances["width"]["opt_low"] - tolerances["width"]["opt_low"]) < 0.25
     assert abs(new_tolerances["width"]["opt_high"] - tolerances["width"]["opt_high"]) < 0.25
@@ -234,8 +200,8 @@ def test_balanced():  # shouldn't change things much
     print("test_balanced:   passed!")
 
 if __name__ == "__main__":
-    test_too_wide()  # good so far
-    test_too_narrow()  # good so far
-    test_too_long()  # tb_width min is incrementing a tiny bit instead of remaining the same, but otherwise good
-    test_too_short()  # tb_width min is incrementing a tiny bit instead of remaining the same, but otherwise good
-    test_balanced()  # all within 0.25 of old values with alpha=0.5
+    test_too_wide()
+    test_too_narrow()
+    test_too_long()
+    test_too_short()
+    test_balanced()
