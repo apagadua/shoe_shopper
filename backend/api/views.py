@@ -739,8 +739,8 @@ class FootMeasureView(APIView):
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        # Direct model — bypasses the foot-measuring workflow, which strips Wall Base predictions.
-        rf_url = f"https://serverless.roboflow.com/shoe-shopper/24"
+        model_id = settings.ROBOFLOW_MODEL_ID
+        rf_url = f"https://serverless.roboflow.com/{model_id}"
         logger.info("Roboflow request URL: %s", rf_url)
         try:
             rf_resp = http_requests.post(

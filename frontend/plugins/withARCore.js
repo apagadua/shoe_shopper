@@ -51,6 +51,19 @@ function withARCoreManifest(config) {
     const manifest     = config.modResults.manifest;
     const application  = manifest.application[0];
 
+    // --- uses-permission: CAMERA (required by ARCore at runtime) ---
+    if (!manifest['uses-permission']) {
+      manifest['uses-permission'] = [];
+    }
+    const hasCameraPerm = manifest['uses-permission'].some(
+      (p) => p.$?.['android:name'] === 'android.permission.CAMERA',
+    );
+    if (!hasCameraPerm) {
+      manifest['uses-permission'].push({
+        $: { 'android:name': 'android.permission.CAMERA' },
+      });
+    }
+
     // --- uses-feature (required=false so app installs on non-AR devices) ---
     if (!manifest['uses-feature']) {
       manifest['uses-feature'] = [];

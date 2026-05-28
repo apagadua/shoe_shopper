@@ -20,6 +20,7 @@ import CameraScreen from './screens/CameraScreen';
 import ARFootCaptureScreen from './screens/ARFootCaptureScreen';
 import ARCameraScreen from './screens/ARCameraScreen';
 import PhotoPreviewScreen from './screens/PhotoPreviewScreen';
+import ManualMeasurementScreen from './screens/ManualMeasurementScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -128,6 +129,14 @@ function ClosetStackNavigator() {
         component={PhotoPreviewScreen}
         options={({ navigation }) => ({
           title: 'Check Photo',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
+        name="ManualMeasurement"
+        component={ManualMeasurementScreen}
+        options={({ navigation }) => ({
+          title: 'Manual Measurement',
           headerLeft: () => headerLeftBack(navigation),
         })}
       />
