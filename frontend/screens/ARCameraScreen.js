@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   NativeModules,
   requireNativeComponent,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCameraPermissions } from 'expo-camera';
+import { openPermissionSettings } from '../utils/openPermissionSettings';
 import { Accelerometer } from 'expo-sensors';
-import { API_BASE_URL } from '../config/api';
 
 const { ARCoreModule } = NativeModules;
 const ARCorePreview = requireNativeComponent('ARCorePreview');
@@ -24,14 +24,14 @@ const CAM_H_MAX_M      = 0.89; // 35 in — too far, projection error amplifies
 export default function ARCameraScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding ?? false;
 
-  // Phases: 'initializing' → 'scanning' → 'preview' → 'processing' | 'unavailable' | 'error'
+  const [permission] = useCameraPermissions();
+
+  // Phases: 'initializing' → 'scanning' | 'unavailable' | 'error'
+  // Preview is now a separate screen (PhotoPreviewScreen).
   const [phase, setPhase] = useState('initializing');
   const [initError, setInitError] = useState(null);
 
-  const [capturedUri, setCapturedUri] = useState(null);
-  const [arSnapshot, setArSnapshot] = useState(null);
   const [captureError, setCaptureError] = useState(null);
-  const [uploadError, setUploadError] = useState(null);
 
   const [tiltDegrees, setTiltDegrees] = useState(null);
   const [isAligned, setIsAligned] = useState(false);
@@ -41,67 +41,125 @@ export default function ARCameraScreen({ navigation, route }) {
   // Track whether session is running so cleanup is safe
   const sessionActive = useRef(false);
 
+  // When the user taps Capture and we navigate to PhotoPreview, the screen
+  // loses focus which normally triggers the useFocusEffect cleanup and stops
+  // the AR session. That would make the captured image file inaccessible and
+  // crash the upload. Set this ref to true just before navigating to
+  // PhotoPreview so the cleanup skips stopSession; PhotoPreview will stop
+  // the session itself after a successful upload.
+  const keepSessionForPreview = useRef(false);
+
   // -------------------------------------------------------------------------
-  // Initialization: check ARCore availability, then start session
+  // Initialization: reset all state and (re)start the AR session every time
+  // this screen comes into focus. This ensures the user always gets a fresh
+  // scanning phase — whether it's their first visit or they returned from
+  // Measurements after a completed capture.
+  // Cleanup on blur stops the native session so it doesn't run in background.
   // -------------------------------------------------------------------------
-  useEffect(() => {
-    let cancelled = false;
+  useFocusEffect(
+    useCallback(() => {
+      if (!permission?.granted) return;
 
-    const init = async () => {
-      try {
-        if (!ARCoreModule) {
-          setInitError('ARCore is not available on this device or platform.');
-          setPhase('unavailable');
-          return;
-        }
+      let cancelled = false;
 
-        const availability = await ARCoreModule.checkAvailability();
+      // Always reset the scanning sub-state so the UI is fresh.
+      setCaptureError(null);
+      setFloorDetected(false);
+      setCameraHeightM(null);
+      setTiltDegrees(null);
+      setIsAligned(false);
 
-        if (cancelled) return;
+      if (sessionActive.current) {
+        // ---------------------------------------------------------------
+        // RETAKE PATH: the session was kept alive intentionally when we
+        // navigated to PhotoPreview (keepSessionForPreview). Don't stop
+        // and restart — captureSnapshot() leaves the native session in a
+        // post-capture state where startSession() reliably fails.
+        // Just reset the UI and let the already-running session resume.
+        // ---------------------------------------------------------------
+        setPhase('scanning');
+        // Return the normal cleanup; if the user now navigates away for
+        // real (not to PhotoPreview), the session will be stopped then.
+        return () => {
+          cancelled = true;
+          if (sessionActive.current && !keepSessionForPreview.current) {
+            ARCoreModule?.stopSession?.();
+            sessionActive.current = false;
+          }
+          keepSessionForPreview.current = false;
+        };
+      }
 
-        if (availability === 'unsupported') {
-          setInitError('ARCore is not supported on this device.');
-          setPhase('unavailable');
-          return;
-        }
+      // -------------------------------------------------------------------
+      // FRESH START PATH: no session running — first visit, or returning
+      // after a completed measurement where the session was properly stopped.
+      // -------------------------------------------------------------------
+      setPhase('initializing');
+      setInitError(null);
 
-        if (availability === 'supported_not_installed') {
-          try {
-            await ARCoreModule.requestInstall();
-          } catch {
-            if (!cancelled) {
-              setInitError('ARCore (Google Play Services for AR) is required. Please install it from the Play Store.');
-              setPhase('unavailable');
-            }
+      const init = async () => {
+        try {
+          if (!ARCoreModule) {
+            setInitError('ARCore is not available on this device or platform.');
+            setPhase('unavailable');
             return;
           }
+
+          const availability = await ARCoreModule.checkAvailability();
+
+          if (cancelled) return;
+
+          if (availability === 'unsupported') {
+            setInitError('ARCore is not supported on this device.');
+            setPhase('unavailable');
+            return;
+          }
+
+          if (availability === 'supported_not_installed') {
+            try {
+              await ARCoreModule.requestInstall();
+            } catch {
+              if (!cancelled) {
+                setInitError('ARCore (Google Play Services for AR) is required. Please install it from the Play Store.');
+                setPhase('unavailable');
+              }
+              return;
+            }
+          }
+
+          // Defensive stop in case something left a session open unexpectedly.
+          try { await ARCoreModule?.stopSession?.(); } catch { /* ignore */ }
+
+          await ARCoreModule.startSession();
+
+          if (!cancelled) {
+            sessionActive.current = true;
+            setPhase('scanning');
+          }
+        } catch (e) {
+          if (!cancelled) {
+            setInitError(e.message || 'Failed to start AR session.');
+            setPhase('error');
+          }
         }
+      };
 
-        // Start the AR session
-        await ARCoreModule.startSession();
+      init();
 
-        if (!cancelled) {
-          sessionActive.current = true;
-          setPhase('scanning');
+      // Cleanup: runs when the screen loses focus (navigating away) or unmounts.
+      return () => {
+        cancelled = true;
+        if (sessionActive.current && !keepSessionForPreview.current) {
+          // Normal blur (back button, tab switch, navigate to Measurements, etc.)
+          // — stop the session immediately.
+          ARCoreModule?.stopSession?.();
+          sessionActive.current = false;
         }
-      } catch (e) {
-        if (!cancelled) {
-          setInitError(e.message || 'Failed to start AR session.');
-          setPhase('error');
-        }
-      }
-    };
-
-    init();
-
-    return () => {
-      cancelled = true;
-      if (sessionActive.current) {
-        ARCoreModule?.stopSession?.();
-        sessionActive.current = false;
-      }
-    };
-  }, []);
+        // Always reset the flag so the NEXT blur uses normal cleanup.
+        keepSessionForPreview.current = false;
+      };
+    }, [permission?.granted])
+  );
 
   // -------------------------------------------------------------------------
   // Accelerometer tilt detection while scanning
@@ -145,7 +203,10 @@ export default function ARCameraScreen({ navigation, route }) {
   }, [phase]);
 
   // -------------------------------------------------------------------------
-  // Capture: request AR snapshot from native module
+  // Capture: validate AR snapshot then hand off to the shared preview screen.
+  // Navigating away triggers useFocusEffect cleanup → session stops.
+  // If the user presses Retake in PhotoPreviewScreen, goBack() returns here
+  // and useFocusEffect fires again → fresh session starts automatically.
   // -------------------------------------------------------------------------
   const handleCapture = async () => {
     setCaptureError(null);
@@ -166,67 +227,62 @@ export default function ARCameraScreen({ navigation, route }) {
         return;
       }
 
-      setCapturedUri(snapshot.imageUri);
-      setArSnapshot(snapshot);
-      setPhase('preview');
+      // Tell the blur cleanup not to stop the session — the image file
+      // is still needed for the upload that happens in PhotoPreviewScreen.
+      keepSessionForPreview.current = true;
+      navigation.navigate('PhotoPreview', {
+        capturedUri: snapshot.imageUri,
+        method: 'arcore',
+        arSnapshot: {
+          camera_intrinsics: snapshot.cameraIntrinsics,
+          camera_pose: snapshot.cameraPose,
+          plane_center: snapshot.planeCenter,
+          plane_normal: snapshot.planeNormal,
+          plane_extent_x: snapshot.planeExtentX,
+          plane_extent_z: snapshot.planeExtentZ,
+          image_dimensions: snapshot.imageDimensions,
+          tracking_state: snapshot.trackingState,
+        },
+        fromOnboarding,
+      });
     } catch (e) {
       setCaptureError(e.message || 'Could not capture AR snapshot. Try again.');
     }
   };
 
   // -------------------------------------------------------------------------
-  // Upload: POST image + ar_snapshot to /api/foot/measure/
+  // Render: permission not yet loaded
   // -------------------------------------------------------------------------
-  const handleUsePhoto = async () => {
-    setPhase('processing');
-    setUploadError(null);
-    try {
-      const token = await SecureStore.getItemAsync('authToken');
+  if (!permission) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#C28A5B" />
+      </View>
+    );
+  }
 
-      const formData = new FormData();
-      const filename = capturedUri.split('/').pop();
-      formData.append('image', { uri: capturedUri, name: filename, type: 'image/jpeg' });
-      formData.append('measurement_method', 'arcore');
-      formData.append('ar_snapshot', JSON.stringify({
-        camera_intrinsics: arSnapshot.cameraIntrinsics,
-        camera_pose: arSnapshot.cameraPose,
-        plane_center: arSnapshot.planeCenter,
-        plane_normal: arSnapshot.planeNormal,
-        plane_extent_x: arSnapshot.planeExtentX,
-        plane_extent_z: arSnapshot.planeExtentZ,
-        image_dimensions: arSnapshot.imageDimensions,
-        tracking_state: arSnapshot.trackingState,
-      }));
-
-      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
-        method: 'POST',
-        headers: { Authorization: `Token ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Measurement failed');
-      }
-
-      navigation.navigate('Measurements', { fromOnboarding, measurements: data });
-    } catch (e) {
-      setUploadError(e.message || 'Could not process photo. Please try again.');
-      setPhase('preview');
-    } finally {
-      if (capturedUri) ARCoreModule?.cleanupCaptureFile?.(capturedUri);
-    }
-  };
-
-  const handleRetake = () => {
-    if (capturedUri) ARCoreModule?.cleanupCaptureFile?.(capturedUri);
-    setCapturedUri(null);
-    setArSnapshot(null);
-    setCaptureError(null);
-    setUploadError(null);
-    setPhase('scanning');
-  };
+  // -------------------------------------------------------------------------
+  // Render: camera permission denied
+  // -------------------------------------------------------------------------
+  if (!permission.granted) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.unavailableTitle}>Camera access needed</Text>
+        <Text style={styles.unavailableText}>
+          Enable camera permission in Settings to use AR measurement.
+        </Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={openPermissionSettings}>
+          <Text style={styles.primaryButtonText}>Open Settings</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('FootCapture')}
+        >
+          <Text style={styles.secondaryButtonText}>Use paper method</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Render: unavailable / error
@@ -244,7 +300,7 @@ export default function ARCameraScreen({ navigation, route }) {
           style={styles.primaryButton}
           onPress={() => navigation.navigate('FootCapture')}
         >
-          <Text style={styles.primaryButtonText}>Use paper method instead</Text>
+          <Text style={styles.primaryButtonText}>Use paper method</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.secondaryButtonText}>Go back</Text>
@@ -261,42 +317,6 @@ export default function ARCameraScreen({ navigation, route }) {
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#C28A5B" />
         <Text style={styles.loadingText}>Starting AR session…</Text>
-      </View>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Render: processing spinner
-  // -------------------------------------------------------------------------
-  if (phase === 'processing') {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#C28A5B" />
-        <Text style={styles.loadingText}>Processing…</Text>
-      </View>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Render: preview (photo confirmation)
-  // -------------------------------------------------------------------------
-  if (phase === 'preview' && capturedUri) {
-    return (
-      <View style={styles.previewContainer}>
-        <Text style={styles.previewTitle}>Check your photo</Text>
-        <Text style={styles.previewSubtitle}>
-          Make sure your full foot is visible and the floor is clear.
-        </Text>
-        <View style={styles.previewFrame}>
-          <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="contain" />
-        </View>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleUsePhoto}>
-          <Text style={styles.primaryButtonText}>Use this photo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleRetake}>
-          <Text style={styles.secondaryButtonText}>Retake</Text>
-        </TouchableOpacity>
-        {uploadError ? <Text style={styles.errorText}>{uploadError}</Text> : null}
       </View>
     );
   }
@@ -511,37 +531,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
-  previewContainer: {
-    flex: 1,
-    backgroundColor: '#F5EFE6',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  previewTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2F2A25',
-    marginBottom: 6,
-  },
-  previewSubtitle: {
-    fontSize: 14,
-    color: '#6B5F52',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  previewFrame: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    backgroundColor: '#E8DDD0',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
   primaryButton: {
     backgroundColor: '#C28A5B',
     paddingVertical: 16,
@@ -562,12 +551,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6B5F52',
     fontWeight: '500',
-  },
-  errorText: {
-    marginTop: 12,
-    fontSize: 13,
-    color: '#B33',
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });

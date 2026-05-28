@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function ARFootCaptureScreen({ navigation }) {
+export default function ARFootCaptureScreen({ navigation, route }) {
+  const fromOnboarding = route.params?.fromOnboarding ?? false;
   return (
     <ScrollView
       style={styles.container}
@@ -55,7 +56,7 @@ export default function ARFootCaptureScreen({ navigation }) {
 
       <TouchableOpacity
         style={styles.captureButton}
-        onPress={() => navigation.navigate('ARCamera')}
+        onPress={() => navigation.navigate('ARCamera', { fromOnboarding })}
       >
         <Text style={styles.captureButtonText}>Open AR Camera</Text>
       </TouchableOpacity>
@@ -64,7 +65,7 @@ export default function ARFootCaptureScreen({ navigation }) {
         style={styles.fallbackAction}
         onPress={() => navigation.navigate('FootCapture')}
       >
-        <Text style={styles.fallbackText}>Use paper method instead</Text>
+        <Text style={styles.fallbackText}>Use paper method</Text>
       </TouchableOpacity>
     </ScrollView>
   );

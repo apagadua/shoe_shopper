@@ -19,6 +19,7 @@ import FootCaptureScreen from './screens/FootCaptureScreen';
 import CameraScreen from './screens/CameraScreen';
 import ARFootCaptureScreen from './screens/ARFootCaptureScreen';
 import ARCameraScreen from './screens/ARCameraScreen';
+import PhotoPreviewScreen from './screens/PhotoPreviewScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -123,6 +124,14 @@ function ClosetStackNavigator() {
         })}
       />
       <ClosetStack.Screen
+        name="PhotoPreview"
+        component={PhotoPreviewScreen}
+        options={({ navigation }) => ({
+          title: 'Check Photo',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
         name="Measurements"
         component={MeasurementsScreen}
         options={{
@@ -160,7 +169,7 @@ function ProfileStackNavigator() {
 }
 
 const TAB_BAR_STYLE_VISIBLE = { backgroundColor: '#FFFBF5', borderTopColor: '#E2D4C0' };
-const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'Measurements'];
+const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'PhotoPreview', 'Measurements'];
 
 function MainTabs() {
   return (
@@ -290,6 +299,14 @@ export default function App() {
           component={ARCameraScreen}
           options={({ navigation }) => ({
             title: 'AR Camera',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
+          name="PhotoPreview"
+          component={PhotoPreviewScreen}
+          options={({ navigation }) => ({
+            title: 'Check Photo',
             headerLeft: () => headerLeftBack(navigation),
           })}
         />
