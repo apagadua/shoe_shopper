@@ -26,14 +26,14 @@ def retrain():
         return
     
     # compute intermediary values based on feedback
-    values = compute_dimension_vals(feedback_rows)
+    values = compute_dimension_vals(feedback_rows, tolerances)
 
     # compute directional signals for width and length adjustments
     width_signal, length_signal = compute_signals(values)
 
     # calculate learning rate alpha based on new feedback count and total feedback count
     old_count = tolerances_full["total_feedback_count"]
-    new_count = len(feedback_rows)
+    new_count = len(feedback_rows) - old_count
     if old_count == 0:
         alpha = 0.05
     else:

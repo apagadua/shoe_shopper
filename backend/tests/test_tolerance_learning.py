@@ -10,26 +10,40 @@ from services.tolerance_learning import (
     compute_tolerances
 )
 
+TEST_TOLERANCES = {
+    "total_feedback_count": 5,
+    "length":   {"type": "length", "min": 0.15, "opt_low": 0.42, "opt_high": 0.60, "max": 0.70},
+    "width":    {"type": "width", "min": -0.30, "opt_low": 0.10, "opt_high": 0.25, "max": 0.40},
+    "tb_len":   {"type": "length", "min": 0.15, "opt_low": 0.42, "opt_high": 0.60, "max": 0.70},
+    "tb_width": {"type": "width", "min": -0.20, "opt_low": 0.10, "opt_high": 0.20, "max": 0.4}
+}
+
 def test_too_wide():  # should shrink width
     print("Running test_too_wide...")
 
     feedback_rows = [
-        {"feedback_type": "too wide", "total_score": 90, "severity": 5},
-        {"feedback_type": "too wide", "total_score": 80, "severity": 3}
+        {"feedback_type": "too wide", "tolerances": TEST_TOLERANCES, "severity_rating": 5},
+        {"feedback_type": "too wide", "tolerances": TEST_TOLERANCES, "severity_rating": 3}
         ]
     
     tolerances = {
-        "meta": {"total_feedback_count": 5},
+        "total_feedback_count": 5,
         "length":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "width":    {"type": "width", "min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
         "tb_len":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "tb_width": {"type": "width", "min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
     }
     
-    values = compute_dimension_vals(feedback_rows)
+    values = compute_dimension_vals(feedback_rows, tolerances)
     width_signal, length_signal = compute_signals(values)
-    new_tolerances = compute_tolerances(width_signal, length_signal,
-                                        tolerances, 0.5, len(feedback_rows))
+    new_tolerances = compute_tolerances(
+        width_signal,
+        length_signal,
+        tolerances,
+        0.5,
+        10,
+        len(feedback_rows)
+    )
 
     # Ensure width shrinks
     assert new_tolerances["width"]["opt_low"] < tolerances["width"]["opt_low"]
@@ -46,28 +60,29 @@ def test_too_wide():  # should shrink width
 def test_too_narrow():  # should expand width
     print("Running test_too_narrow...")
 
-    feedback_rows = [
-        {"feedback_type": "too narrow", "total_score": 90, "severity": 5},
-            {"feedback_type": "too narrow", "total_score": 80, "severity": 3}
-    ]
-
     tolerances = {
-        "meta": {"total_feedback_count": 5},
+        "total_feedback_count": 5,
         "length":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "width":    {"type": "width", "min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
         "tb_len":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "tb_width": {"type": "width", "min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
     }
 
-    values = compute_dimension_vals(feedback_rows)
+    feedback_rows = [
+        {"feedback_type": "too narrow", "tolerances": TEST_TOLERANCES, "severity_rating": 5},
+        {"feedback_type": "too narrow", "tolerances": TEST_TOLERANCES, "severity_rating": 3}
+    ]
+
+    values = compute_dimension_vals(feedback_rows, tolerances)
     width_signal, _ = compute_signals(values)
 
     new_tolerances = compute_tolerances(
         width_signal,
         0,
         tolerances,
-        alpha=0.5,
-        count=1
+        0.5,
+        10,
+        len(feedback_rows)
     )
 
     # Ensure width expands
@@ -85,28 +100,29 @@ def test_too_narrow():  # should expand width
 def test_too_long():  # should shrink length
     print("Running test_too_long...")
 
-    feedback_rows = [
-        {"feedback_type": "too long", "total_score": 90, "severity": 5},
-        {"feedback_type": "too long", "total_score": 80, "severity": 3}
-    ]
-
     tolerances = {
-        "meta": {"total_feedback_count": 5},
+        "total_feedback_count": 5,
         "length":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "width":    {"type": "width", "min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
         "tb_len":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "tb_width": {"type": "width", "min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
     }
 
-    values = compute_dimension_vals(feedback_rows)
+    feedback_rows = [
+        {"feedback_type": "too long", "tolerances": TEST_TOLERANCES, "severity_rating": 5},
+        {"feedback_type": "too long", "tolerances": TEST_TOLERANCES, "severity_rating": 3}
+    ]
+
+    values = compute_dimension_vals(feedback_rows, tolerances)
     _, length_signal = compute_signals(values)
 
     new_tolerances = compute_tolerances(
         0,
         length_signal,
         tolerances,
-        alpha=0.5,
-        count=1
+        0.5,
+        10,
+        len(feedback_rows)
     )
 
 
@@ -125,28 +141,29 @@ def test_too_long():  # should shrink length
 def test_too_short():  # should expand length
     print("Running test_too_short...")
 
-    feedback_rows = [
-        {"feedback_type": "too short", "total_score": 90, "severity": 5},
-        {"feedback_type": "too short", "total_score": 80, "severity": 3}
-    ]
-
     tolerances = {
-        "meta": {"total_feedback_count": 5},
+        "total_feedback_count": 5,
         "length":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "width":    {"type": "width", "min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
         "tb_len":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "tb_width": {"type": "width", "min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
     }
 
-    values = compute_dimension_vals(feedback_rows)
+    feedback_rows = [
+        {"feedback_type": "too short", "tolerances": TEST_TOLERANCES, "severity_rating": 5},
+        {"feedback_type": "too short", "tolerances": TEST_TOLERANCES, "severity_rating": 3}
+    ]
+
+    values = compute_dimension_vals(feedback_rows, tolerances)
     _, length_signal = compute_signals(values)
 
     new_tolerances = compute_tolerances(
         0,
         length_signal,
         tolerances,
-        alpha=0.5,
-        count=1
+        0.5,
+        10,
+        len(feedback_rows)
     )
 
     # Ensure length expands
@@ -163,29 +180,31 @@ def test_too_short():  # should expand length
 
 def test_balanced():  # shouldn't change things much
     print("Running test_balanced...")
-    feedback_rows = [
-        {"feedback_type": "too wide", "total_score": 90, "severity": 5},
-        {"feedback_type": "too narrow", "total_score": 90, "severity": 3},
-        {"feedback_type": "perfect", "total_score": 90, "severity": 0},
-    ]
 
     tolerances = {
-        "meta": {"total_feedback_count": 5},
+        "total_feedback_count": 5,
         "length":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "width":    {"type": "width", "min": -0.25, "opt_low": 0.12, "opt_high": 0.20, "max": 0.39},
         "tb_len":   {"type": "length", "min": 0.20, "opt_low": 0.47, "opt_high": 0.55, "max": 0.67},
         "tb_width": {"type": "width", "min": -0.16, "opt_low": 0.12, "opt_high": 0.16, "max": 0.39}
     }
 
-    values = compute_dimension_vals(feedback_rows)
+    feedback_rows = [
+        {"feedback_type": "too wide", "tolerances": TEST_TOLERANCES, "severity_rating": 5},
+        {"feedback_type": "too narrow", "tolerances": TEST_TOLERANCES, "severity_rating": 3},
+        {"feedback_type": "perfect", "tolerances": TEST_TOLERANCES, "severity_rating": 0},
+    ]
+
+    values = compute_dimension_vals(feedback_rows, tolerances)
     width_signal, length_signal = compute_signals(values)
 
     new_tolerances = compute_tolerances(
         width_signal,
         length_signal,
         tolerances,
-        alpha=0.5,
-        count=1
+        0.5,
+        10,
+        len(feedback_rows)
     )
 
     # Ensure width and length don't change much (alpha=0.5 but signals should be small)

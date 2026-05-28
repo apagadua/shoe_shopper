@@ -9,45 +9,68 @@ META = ["total_feedback_count"]
 '''feedback_rows = [
     {
      "feedback_type": "too wide",
-     "fit_score": 72,
      "severity_rating": 3,
+     "tolerances": { "width": {"max": ...}, ... }
     }, etc....
 ]'''
 
-def compute_dimension_vals(feedback_rows):
+def compute_tolerance_euclidean_difference(old_tolerances, current_tolerances, dimension):
+    # Compute the Euclidean difference between old and new tolerances
+    # For length and width feedback focus on relevant tolerances
+    dimensions = ["width", "length", "tb_width", "tb_len"]
+    if dimension == "width":
+        dimensions = ["width", "tb_width"]
+    elif dimension == "length":
+        dimensions = ["length", "tb_len"]
+    
+    final = 0
+    for dim in dimensions:
+        min_delta = current_tolerances[dim]["min"] - old_tolerances[dim]["min"]
+        opt_low_delta = current_tolerances[dim]["opt_low"] - old_tolerances[dim]["opt_low"]
+        opt_high_delta = current_tolerances[dim]["opt_high"] - old_tolerances[dim]["opt_high"]
+        max_delta = current_tolerances[dim]["max"] - old_tolerances[dim]["max"]
+        squared_diffs = (min_delta ** 2) + (opt_low_delta ** 2) + (opt_high_delta ** 2) + (max_delta ** 2)
+        final += squared_diffs ** 0.5
+    return final
+
+
+def compute_dimension_vals(feedback_rows, tolerances):
     # Weigh fit score by severity rating for non-perfect feedback, and use max severity for perfect feedback to give it more weight    
     stats = {
-        "perfect": {"adjusted_score": 0, "count": 0},
-        "too wide": {"adjusted_score": 0, "count": 0},
-        "too narrow": {"adjusted_score": 0, "count": 0},
-        "too long": {"adjusted_score": 0, "count": 0},
-        "too short": {"adjusted_score": 0, "count": 0}
+        "perfect": {"value": 0, "count": 0},
+        "too wide": {"value": 0, "count": 0},
+        "too narrow": {"value": 0, "count": 0},
+        "too long": {"value": 0, "count": 0},
+        "too short": {"value": 0, "count": 0}
         }
     
     # iterate through feedback rows and aggregate stats
     for feedback in feedback_rows:
         # gather feedback stats
-        if feedback["fit_score"] is None:
+        if feedback["tolerances"] is None:
             continue
         if feedback["feedback_type"] != "perfect" and feedback["severity_rating"] is None:
             continue
 
-        if feedback["feedback_type"] != "perfect":
-            stats[feedback["feedback_type"]]["adjusted_score"] += feedback["fit_score"] * feedback["severity_rating"]
-            stats[feedback["feedback_type"]]["count"] += 1
+        if feedback["feedback_type"] == "too wide" or feedback["feedback_type"] == "too narrow":
+            dimension = "width"
+        elif feedback["feedback_type"] == "too long" or feedback["feedback_type"] == "too short":
+            dimension = "length"
         else:
-            stats[feedback["feedback_type"]]["adjusted_score"] += feedback["fit_score"] * MAX_SEVERITY
+            dimension = None  # perfect feedback has no dimension
+        
+        difference = compute_tolerance_euclidean_difference(feedback["tolerances"], tolerances, dimension)
+        if feedback["feedback_type"] != "perfect":
+            stats[feedback["feedback_type"]]["value"] += feedback["severity_rating"] * (1 / (difference + EPSILON))
             stats[feedback["feedback_type"]]["count"] += 1
-
-    # average values
-    for stat in stats.keys():
-        if stats[stat]["count"] > 0:
-            stats[stat]["adjusted_score"] /= stats[stat]["count"]
+        else:  # if feedback is perfect
+            stats[feedback["feedback_type"]]["value"] += MAX_SEVERITY * (1 / (difference + EPSILON))
+            stats[feedback["feedback_type"]]["count"] += 1
 
     # compute dimension values for signal calculation
     values = {}
     for stat in stats:
-        values[stat] = stats[stat]["count"] * (stats[stat]["adjusted_score"] / MAX_SHOE_SCORE)
+        values[stat] = stats[stat]["value"]
     return values
 
 
