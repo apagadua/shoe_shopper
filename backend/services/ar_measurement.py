@@ -615,28 +615,6 @@ def compute_dimensions(foot_points_px, ar_snapshot):
                 max_dist = d
                 p1_idx, p2_idx = i, j
 
-    # If a Wall Base was detected, replace the heel endpoint with a point
-    # projected from the wall-floor junction — more accurate than the polygon edge.
-    if wall_base:
-        refined_heel = _refine_heel_with_wall_base(
-            foot_points_px, wall_base, K_inv, ray_origin, R, n, p0
-        )
-        if refined_heel is not None:
-            # Identify which of the two span endpoints is the heel (the one
-            # closest to the refined heel position), then replace it.
-            d0 = float(np.linalg.norm(world_points[p1_idx] - refined_heel))
-            d1 = float(np.linalg.norm(world_points[p2_idx] - refined_heel))
-            if d0 <= d1:
-                toe_world = world_points[p2_idx]
-            else:
-                toe_world = world_points[p1_idx]
-            max_dist = float(np.linalg.norm(toe_world - refined_heel))
-            # Rebuild world_points with the refined heel so width/area stay consistent
-            if d0 <= d1:
-                world_points[p1_idx] = refined_heel
-            else:
-                world_points[p2_idx] = refined_heel
-
     length_m = max_dist
 
     # --- Width: 95th-percentile perpendicular span ---
