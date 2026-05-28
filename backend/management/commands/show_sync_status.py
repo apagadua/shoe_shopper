@@ -145,7 +145,7 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS(
-            f"═══ Shoe Sync Status — {now.strftime('%Y-%m-%d %H:%M UTC')} ═══"
+            f"=== Shoe Sync Status --- {now.strftime('%Y-%m-%d %H:%M UTC')} ==="
         ))
         self.stdout.write(
             f"  {len(rows)} total shoes  |  "
@@ -156,10 +156,10 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # GOAT section
-        self.stdout.write(self.style.WARNING(f"── GOAT shoes ({len(goat_rows)}) — managed by seed_kicks ──"))
+        self.stdout.write(self.style.WARNING(f"-- GOAT shoes ({len(goat_rows)}) -- managed by seed_kicks --"))
         for r in goat_rows:
-            stale_flag = " ⚠ STALE" if r["stale"] else ""
-            active_flag = "✓" if r["is_active"] else "✗"
+            stale_flag = " !! STALE" if r["stale"] else ""
+            active_flag = "+" if r["is_active"] else "-"
             price_str = f"${r['price_usd']:.2f}" if r["price_usd"] else "no price"
             self.stdout.write(
                 f"  [{active_flag}] pk={r['shoe_id']:3d}  {r['brand']} {r['model']} ({r['gender']})  "
@@ -182,10 +182,10 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # Non-GOAT section
-        self.stdout.write(self.style.WARNING(f"── Non-GOAT shoes ({len(non_goat_rows)}) — managed by pullmd/Chrome ──"))
+        self.stdout.write(self.style.WARNING(f"-- Non-GOAT shoes ({len(non_goat_rows)}) -- managed by pullmd/Chrome --"))
         for r in non_goat_rows:
-            stale_flag = " ⚠ STALE" if r["stale"] else ""
-            active_flag = "✓" if r["is_active"] else "✗"
+            stale_flag = " !! STALE" if r["stale"] else ""
+            active_flag = "+" if r["is_active"] else "-"
             price_str = f"${r['price_usd']:.2f}" if r["price_usd"] else "no price"
             sizes_str = ", ".join(str(s) for s in r["measured_sizes"])
             self.stdout.write(
@@ -211,13 +211,13 @@ class Command(BaseCommand):
         # Stale summary
         stale_shoes = [r for r in rows if r["stale"]]
         if stale_shoes:
-            self.stdout.write(self.style.WARNING(f"⚠  {len(stale_shoes)} shoe(s) need syncing:"))
+            self.stdout.write(self.style.WARNING(f"!!  {len(stale_shoes)} shoe(s) need syncing:"))
             for r in stale_shoes:
                 self.stdout.write(
                     f"   pk={r['shoe_id']:3d}  {r['brand']} {r['model']}  "
                     f"source={r['source']}  last synced: {r['staleness']}"
                 )
         else:
-            self.stdout.write(self.style.SUCCESS("✓  All shoes are fresh — no sync needed."))
+            self.stdout.write(self.style.SUCCESS("OK  All shoes are fresh -- no sync needed."))
 
         self.stdout.write("")

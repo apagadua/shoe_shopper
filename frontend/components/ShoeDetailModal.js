@@ -13,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { API_BASE_URL } from '../config/api';
 import ShoeCardKeyFacts from './ShoeCardKeyFacts';
 
@@ -87,20 +88,62 @@ function tagsForItem(item) {
   return out;
 }
 
-function ColorwayDot({ colors, active, onPress }) {
-  const palette = colors?.length ? colors.slice(0, 3) : ['#C9B8A7'];
+// SVG viewBox "0 0 18 18", center (9, 9), radius 8.5
+const SWATCH_R = 8.5;
+const SWATCH_C = 9;
+
+function swatchPointOnCircle(angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: SWATCH_C + SWATCH_R * Math.cos(rad), y: SWATCH_C + SWATCH_R * Math.sin(rad) };
+}
+
+function describeSwatchSlice(index, count) {
+  const startAngle = -90 + (index * 360) / count;
+  const endAngle   = -90 + ((index + 1) * 360) / count;
+  const start = swatchPointOnCircle(startAngle);
+  const end   = swatchPointOnCircle(endAngle);
+  const largeArc = (360 / count) > 180 ? 1 : 0;
+  return [
+    `M ${SWATCH_C} ${SWATCH_C}`,
+    `L ${start.x.toFixed(4)} ${start.y.toFixed(4)}`,
+    `A ${SWATCH_R} ${SWATCH_R} 0 ${largeArc} 1 ${end.x.toFixed(4)} ${end.y.toFixed(4)}`,
+    'Z',
+  ].join(' ');
+}
+
+function ColorwaySwatch({ colors, active, onPress }) {
+  const palette = Array.isArray(colors) && colors.length > 0 ? colors.slice(0, 3) : ['#C9B8A7'];
+
+  if (palette.length === 1) {
+    return (
+      <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
+        <View
+          style={[
+            styles.swatchCircle,
+            active && styles.swatchCircleActive,
+            { backgroundColor: palette[0] },
+          ]}
+        />
+      </TouchableOpacity>
+    );
+  }
+
+  const borderColor = active ? '#9A6645' : '#D9CCBD';
+  const borderWidth = active ? 2 : 1;
+
   return (
     <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
-      <View style={[styles.colorDotOuter, active && styles.colorDotOuterActive]}>
-        {palette.length === 1 ? (
-          <View style={[styles.colorDotSingle, { backgroundColor: palette[0] }]} />
-        ) : (
-          <View style={styles.colorDotSplit}>
-            {palette.map((c, i) => (
-              <View key={`${c}-${i}`} style={{ flex: 1, backgroundColor: c }} />
-            ))}
-          </View>
-        )}
+      <View style={[styles.swatchPieContainer, active && { transform: [{ scale: 1.1 }] }]}>
+        <Svg width={18} height={18} viewBox="0 0 18 18">
+          {palette.map((color, index) => (
+            <Path
+              key={`${color}-${index}`}
+              d={describeSwatchSlice(index, palette.length)}
+              fill={color}
+            />
+          ))}
+          <Circle cx={SWATCH_C} cy={SWATCH_C} r={SWATCH_R} fill="none" stroke={borderColor} strokeWidth={borderWidth} />
+        </Svg>
       </View>
     </TouchableOpacity>
   );
@@ -311,7 +354,7 @@ function ShoeDetailModal({
               {hasColorways && (
                 <View style={styles.colorwayPills}>
                   {colorways.map((cw, index) => (
-                    <ColorwayDot
+                    <ColorwaySwatch
                       key={`${item.id}-${cw.goat_id ?? ''}-${cw.sku ?? index}`}
                       colors={getColorwayPalette(cw)}
                       active={index === activeColorwayIndex}
@@ -442,30 +485,22 @@ const styles = StyleSheet.create({
   name: { fontSize: 17, fontWeight: '700', color: '#2F2A25', marginBottom: 2 },
   colorway: { fontSize: 12, color: '#8C7B6E', marginBottom: 10 },
   colorwayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  colorDotOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: '#D9CCBD',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  colorDotOuterActive: {
-    borderWidth: 2,
-    borderColor: '#9A6645',
-    transform: [{ scale: 1.08 }],
-  },
-  colorDotSingle: {
+  swatchCircle: {
     width: 18,
     height: 18,
     borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#D9CCBD',
+    overflow: 'hidden',
   },
-  colorDotSplit: {
+  swatchCircleActive: {
+    borderWidth: 2,
+    borderColor: '#9A6645',
+    transform: [{ scale: 1.1 }],
+  },
+  swatchPieContainer: {
     width: 18,
     height: 18,
-    flexDirection: 'row',
     borderRadius: 9,
     overflow: 'hidden',
   },
