@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {
   writeRecommendationsCache,
   isCacheStale,
 } from '../services/recommendationsCache';
+import ShoeDetailModal from '../components/ShoeDetailModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 24;
@@ -99,8 +100,11 @@ export default function Dashboard({ navigation }) {
   /** null = not loaded yet; string (maybe empty) = first name for greeting */
   const [greetingFirstName, setGreetingFirstName] = useState(null);
 
-  const { savedMap } = useSavedShoes();
-  const { ownedMap } = useOwnedShoes();
+  const { savedMap, toggleSaved, isSaved } = useSavedShoes();
+  const { ownedMap, toggleOwned, isOwned } = useOwnedShoes();
+  const [detailShoe, setDetailShoe] = useState(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const shoeModalRef = useRef(null);
 
   const savedItems = useMemo(
     () => Object.values(savedMap).filter((item) => item && !ownedMap[item.id]),
@@ -234,14 +238,45 @@ export default function Dashboard({ navigation }) {
     }, [])
   );
 
-  const goTabRecommendations = (scrollToShoeId) => {
+  const goTabRecommendations = () => {
     navigation.getParent()?.navigate('Recommendations', {
       screen: 'RecommendationsHome',
-      params: scrollToShoeId != null ? { scrollToShoeId } : undefined,
     });
   };
 
+  const openShoeDetail = (item) => {
+    setDetailShoe(item);
+    setDetailVisible(true);
+  };
+
+  const closeShoeDetail = () => {
+    shoeModalRef.current?.dismiss();
+  };
+
+  const onShoeDetailClosed = () => {
+    setDetailVisible(false);
+    setDetailShoe(null);
+  };
+
+  const handleToggleSaved = (cardItem) => {
+    const wasSaved = isSaved(cardItem.id);
+    toggleSaved(cardItem);
+    if (!wasSaved) closeShoeDetail();
+  };
+
+  const handleToggleOwned = (cardItem) => {
+    const wasOwned = isOwned(cardItem.id);
+    if (!wasOwned && isSaved(cardItem.id)) {
+      toggleSaved(cardItem);
+    }
+    toggleOwned({ ...cardItem, returnToWishlistOnRemove: false });
+    if (!wasOwned) {
+      closeShoeDetail();
+    }
+  };
+
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -324,7 +359,7 @@ export default function Dashboard({ navigation }) {
                   styles.recCard,
                   { width: REC_CARD_WIDTH, marginRight: index === recPreview.length - 1 ? 0 : REC_GAP },
                 ]}
-                onPress={() => goTabRecommendations(item.id)}
+                onPress={() => openShoeDetail(item)}
                 activeOpacity={0.9}
               >
                 {item.shoe_image_url ? (
@@ -423,6 +458,18 @@ export default function Dashboard({ navigation }) {
         </ScrollView>
       )}
     </ScrollView>
+
+    <ShoeDetailModal
+      ref={shoeModalRef}
+      visible={detailVisible}
+      item={detailShoe}
+      onClose={onShoeDetailClosed}
+      isSaved={isSaved}
+      isOwned={isOwned}
+      onToggleSaved={handleToggleSaved}
+      onToggleOwned={handleToggleOwned}
+    />
+    </>
   );
 }
 

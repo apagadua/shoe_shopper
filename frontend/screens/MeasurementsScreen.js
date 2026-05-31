@@ -13,6 +13,9 @@ function formatInches(val) {
 export default function MeasurementsScreen({ navigation, route }) {
   const fromOnboarding = route.params?.fromOnboarding;
   const measurements = route.params?.measurements ?? null;
+  const measurementMethod = route.params?.measurementMethod ?? 'paper';
+  const retakeRoute = measurementMethod === 'arcore' ? 'ARCamera' : 'Camera';
+  const retakeParams = fromOnboarding ? { fromOnboarding: true } : undefined;
 
   return (
     <View style={styles.container}>
@@ -73,7 +76,12 @@ export default function MeasurementsScreen({ navigation, route }) {
       ) : (
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate('Recommendations')}
+          onPress={() => {
+            // Reset Closet stack to ClosetHome before switching tabs,
+            // otherwise Dashboard tab resumes with Measurements on top.
+            navigation.popToTop();
+            navigation.navigate('Recommendations');
+          }}
         >
           <Text style={styles.primaryButtonText}>See Recommendations</Text>
         </TouchableOpacity>
@@ -83,7 +91,7 @@ export default function MeasurementsScreen({ navigation, route }) {
         style={styles.secondaryAction}
         onPress={() =>
           fromOnboarding
-            ? navigation.navigate('Camera', { fromOnboarding: true })
+            ? navigation.navigate(retakeRoute, retakeParams)
             : navigation.navigate('ClosetHome')
         }
       >
@@ -95,7 +103,7 @@ export default function MeasurementsScreen({ navigation, route }) {
       {!fromOnboarding && (
         <TouchableOpacity
           style={styles.tertiaryAction}
-          onPress={() => navigation.navigate('Camera')}
+          onPress={() => navigation.navigate(retakeRoute)}
         >
           <Text style={styles.tertiaryText}>Retake Photo</Text>
         </TouchableOpacity>

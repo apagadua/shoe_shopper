@@ -7,7 +7,10 @@
     "start:tunnel": "npx expo start --tunnel",
     "android": "npx expo start --lan",
     "ios": "npx expo start --ios",
-    "web": "npx expo start --web"
+    "web": "npx expo start --web",
+    "android:sdk": "node ./scripts/write-android-local-properties.js",
+    "generate:icon": "node ./scripts/generate-app-icon.js",
+    "run:android": "node ./scripts/write-android-local-properties.js && npx expo run:android"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.3.0",
@@ -30,6 +33,7 @@
     "expo-dev-client": "~6.0.20",
     "expo-font": "~14.0.11",
     "expo-image-picker": "~17.0.10",
+    "expo-intent-launcher": "~13.0.8",
     "expo-linear-gradient": "~15.0.8",
     "expo-secure-store": "~15.0.8",
     "expo-sensors": "~15.0.8",
@@ -49,7 +53,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "dotenv": "^16.6.1"
+    "dotenv": "^16.6.1",
+    "sharp": "^0.34.5"
   },
   "private": true
 }

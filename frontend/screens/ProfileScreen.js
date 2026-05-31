@@ -18,6 +18,7 @@ import { CommonActions, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_BASE_URL } from '../config/api';
+import AppLogo from '../components/AppLogo';
 
 const ACCENT = '#C28A5B';
 const ACCENT_DEEP = '#9A6645';
@@ -271,6 +272,10 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={styles.brandFooter}>
+          <AppLogo size="watermark" style={styles.brandLogo} />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -439,5 +444,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     fontSize: 15,
     color: '#B3513D',
+  },
+  brandFooter: {
+    alignItems: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
+    opacity: 0.72,
+  },
+  brandLogo: {
+    opacity: 0.9,
   },
 });

@@ -1,10 +1,12 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import AppLogo, { HeaderLogoCorner } from './components/AppLogo';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Outfit_600SemiBold, Outfit_400Regular } from '@expo-google-fonts/outfit';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer, StackActions } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +19,7 @@ import FootCaptureScreen from './screens/FootCaptureScreen';
 import CameraScreen from './screens/CameraScreen';
 import ARFootCaptureScreen from './screens/ARFootCaptureScreen';
 import ARCameraScreen from './screens/ARCameraScreen';
+import PhotoPreviewScreen from './screens/PhotoPreviewScreen';
 import ManualMeasurementScreen from './screens/ManualMeasurementScreen';
 import MeasurementsScreen from './screens/MeasurementsScreen';
 import RecommendationsScreen from './screens/RecommendationsScreen';
@@ -50,15 +53,7 @@ const headerLeftBack = (navigation) => (
   </TouchableOpacity>
 );
 
-const headerLeftToWelcome = (navigation) => (
-  <TouchableOpacity
-    onPress={() => navigation.dispatch(StackActions.popToTop())}
-    style={{ paddingHorizontal: 4 }}
-    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-  >
-    <Ionicons name="chevron-back" size={24} color="#2F2A25" />
-  </TouchableOpacity>
-);
+const headerLogoRight = () => <HeaderLogoCorner />;
 
 function ClosetStackNavigator() {
   return (
@@ -70,6 +65,7 @@ function ClosetStackNavigator() {
           title: 'Dashboard',
           headerBackVisible: false,
           headerTitleStyle: { fontFamily: 'Outfit_600SemiBold', fontSize: 24 },
+          headerRight: headerLogoRight,
         }}
       />
       <ClosetStack.Screen
@@ -129,6 +125,14 @@ function ClosetStackNavigator() {
         })}
       />
       <ClosetStack.Screen
+        name="PhotoPreview"
+        component={PhotoPreviewScreen}
+        options={({ navigation }) => ({
+          title: 'Check Photo',
+          headerLeft: () => headerLeftBack(navigation),
+        })}
+      />
+      <ClosetStack.Screen
         name="ManualMeasurement"
         component={ManualMeasurementScreen}
         options={({ navigation }) => ({
@@ -174,7 +178,7 @@ function ProfileStackNavigator() {
 }
 
 const TAB_BAR_STYLE_VISIBLE = { backgroundColor: '#FFFBF5', borderTopColor: '#E2D4C0' };
-const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'Measurements'];
+const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'PhotoPreview', 'Measurements'];
 
 function MainTabs() {
   return (
@@ -242,7 +246,8 @@ export default function App() {
   if (!fontsLoaded || initialRoute === null) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#C28A5B" />
+        <AppLogo size="lg" style={styles.loadingLogo} />
+        <ActivityIndicator size="large" color="#C28A5B" style={styles.loadingSpinner} />
       </View>
     );
   }
@@ -252,6 +257,7 @@ export default function App() {
   return (
     <OwnedShoesProvider>
       <SavedShoesProvider>
+        <SafeAreaProvider>
         <NavigationContainer>
         <StatusBar style="dark" />
         <RootStack.Navigator
@@ -261,16 +267,12 @@ export default function App() {
         <RootStack.Screen
           name="Welcome"
           component={WelcomeScreen}
-          options={{ title: 'Shoe Shopper', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <RootStack.Screen
           name="Login"
           component={LoginScreen}
-          options={({ navigation }) => ({
-            title: 'Log In',
-            headerBackVisible: false,
-            headerLeft: () => headerLeftToWelcome(navigation),
-          })}
+          options={{ headerShown: false }}
         />
         <RootStack.Screen
           name="MainTabs"
@@ -310,6 +312,14 @@ export default function App() {
           })}
         />
         <RootStack.Screen
+          name="PhotoPreview"
+          component={PhotoPreviewScreen}
+          options={({ navigation }) => ({
+            title: 'Check Photo',
+            headerLeft: () => headerLeftBack(navigation),
+          })}
+        />
+        <RootStack.Screen
           name="Measurements"
           component={MeasurementsScreen}
           options={{
@@ -328,6 +338,7 @@ export default function App() {
         />
         </RootStack.Navigator>
         </NavigationContainer>
+        </SafeAreaProvider>
       </SavedShoesProvider>
     </OwnedShoesProvider>
   );
@@ -339,5 +350,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8F0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingLogo: {
+    marginBottom: 28,
+  },
+  loadingSpinner: {
+    marginTop: 4,
   },
 });

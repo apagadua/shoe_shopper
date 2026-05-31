@@ -41,7 +41,6 @@ from django.utils import timezone
 from backend.models import Shoe, ShoeColorway, ShoeColorwaySize
 
 KICKS_API_BASE  = "https://api.kicks.dev/v3"
-GOAT_URL_PREFIX = "https://www.goat.com/"
 SLEEP_BETWEEN   = 0.1   # seconds between API calls
 RESYNC_DAYS     = 6     # skip detail fetch for colorways synced this recently
 
@@ -260,9 +259,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("DRY RUN — no database writes.\n"))
 
         # ── Build the queryset of shoes to process ────────────────────
+        # GOAT colorways are identified by their goat_id slug pattern:
+        # lowercase alphanumeric + hyphens only, NO underscore.
+        # All synthetic (non-GOAT) goat_ids contain underscores (web_, nike_, ebay_, etc.).
         goat_shoe_ids = (
             ShoeColorway.objects
-            .filter(product_url__startswith=GOAT_URL_PREFIX)
+            .filter(goat_id__isnull=False)
+            .exclude(goat_id__contains="_")
             .values_list("shoe_id", flat=True)
             .distinct()
         )
@@ -286,7 +289,7 @@ class Command(BaseCommand):
         all_goat_colorways = []   # ordered list for snapshot building
         for shoe in shoes:
             for cw in shoe.colorways.all():
-                if (cw.product_url or "").startswith(GOAT_URL_PREFIX):
+                if cw.goat_id and "_" not in cw.goat_id:
                     all_goat_colorways.append(cw)
 
         # ── Decide data source: API or snapshot file ───────────────────
@@ -350,7 +353,7 @@ class Command(BaseCommand):
 
             goat_colorways = [
                 cw for cw in shoe.colorways.all()
-                if (cw.product_url or "").startswith(GOAT_URL_PREFIX)
+                if cw.goat_id and "_" not in cw.goat_id
             ]
 
             self.stdout.write(
