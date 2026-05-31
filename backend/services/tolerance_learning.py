@@ -37,11 +37,11 @@ def compute_tolerance_euclidean_difference(old_tolerances, current_tolerances, d
 def compute_dimension_vals(feedback_rows, tolerances):
     # Weigh fit score by severity rating for non-perfect feedback, and use max severity for perfect feedback to give it more weight    
     stats = {
-        "perfect": {"value": 0, "count": 0},
-        "too wide": {"value": 0, "count": 0},
-        "too narrow": {"value": 0, "count": 0},
-        "too long": {"value": 0, "count": 0},
-        "too short": {"value": 0, "count": 0}
+        "perfect": {"value": 0.0, "count": 0},
+        "too wide": {"value": 0.0, "count": 0},
+        "too narrow": {"value": 0.0, "count": 0},
+        "too long": {"value": 0.0, "count": 0},
+        "too short": {"value": 0.0, "count": 0}
         }
     
     # iterate through feedback rows and aggregate stats
@@ -75,7 +75,7 @@ def compute_dimension_vals(feedback_rows, tolerances):
 
 
 def compute_signals(values):
-    # width signal is positive if shoe is too wide, negative if shoe is too narrow
+    # width signal is positive if shoes are too narrow, negative if shoes are too wide
     width_signal = ((values["too narrow"] - values["too wide"]) /
                     (values["perfect"] + values["too narrow"] + values["too wide"]
                      + EPSILON))
