@@ -104,7 +104,7 @@ A `Measurement` record is created with `status=complete` and all computed dimens
 
 The model was trained to recognize foot, toebox, paper, wall base, and insole. 
 
-Annotation was done manually using bounded boxes to highlight the objects mentioned above. The model was then trained using Roboflow's RF-DETR. In generaly, larger model sizes yielded better metrics.
+Annotation was done manually using bounded boxes to highlight the objects mentioned above. The model was then trained using Roboflow's RF-DETR. In general, larger model sizes yielded better metrics.
 
 ---
 
