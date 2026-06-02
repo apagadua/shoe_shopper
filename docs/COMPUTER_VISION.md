@@ -100,6 +100,12 @@ If a `toe box` polygon is also detected, `toebox_length_in` and `toebox_width_in
 
 A `Measurement` record is created with `status=complete` and all computed dimensions. The image itself is not stored (see `SECURITY_REVIEW.md` M5).
 
+### Training the Model
+
+The model was trained to recognize foot, toebox, paper, wall base, and insole. 
+
+Annotation was done manually using bounded boxes to highlight the objects mentioned above. The model was then trained using Roboflow's RF-DETR. In generaly, larger model sizes yielded better metrics.
+
 ---
 
 ## 3. Fit Algorithm
