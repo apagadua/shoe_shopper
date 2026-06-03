@@ -36,6 +36,7 @@ shift = alpha * K * signal
 To retrain, navigate to the shoe_shopper directory.
 
 ### Activate Virtual Environment
+
 ```bash
 # macOS/Linux
 source venv/bin/activate
@@ -46,12 +47,26 @@ venv\Scripts\activate
 
 
 ### Start Shell
+
 ```bash
 python manage.py shell
 ```
 
 ### Retrain
+
 ```bash
 from backend.tasks.retrain import retrain
 retrain()
+```
+
+## Testing
+
+Correction algorithm was tested with `backend/tests/test_tolerance_learning.py`.
+
+Tests are test_too_wide(), test_too_narrow(), test_too_long(), test_too_short(), and test_balanced(). These tests simulate potential outcomes of the correction algorithm by ensuring that tolerance shifts are in the direction and severity expected.
+
+To run the tests, navigate to `backend/tests`
+
+```bash
+python test_tolerance_learning.py
 ```
