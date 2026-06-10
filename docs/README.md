@@ -19,7 +19,7 @@ Onboarding and reference documentation for new team members.
 | Doc | What it covers |
 |---|---|
 | [BACKEND.md](./BACKEND.md) | Django project layout, all 8 models, all 7 API endpoints, serializers, services |
-| [FRONTEND.md](./FRONTEND.md) | React Native app, all 10 screens, navigation, state management, storage, patterns |
+| [FRONTEND.md](./FRONTEND.md) | React Native app, screens, navigation, contexts, services, storage, patterns |
 | [COMPUTER_VISION.md](./COMPUTER_VISION.md) | Roboflow measurement pipeline, fit algorithm, tolerance profiles, scoring math |
 
 ---

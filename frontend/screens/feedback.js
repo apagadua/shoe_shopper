@@ -1,3 +1,7 @@
+/**
+ * Fit feedback sliders for owned shoes (length/width −5…+5).
+ * UI-only today — submit does not POST to the backend; see FRONTEND_FEATURES.md §9.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,6 +117,7 @@ export default function FeedbackScreen({ route, navigation }) {
     };
   }, []);
 
+  // TODO: POST feedback to backend when /api/feedback/ exists — see FRONTEND_FEATURES.md §9.
   const handleSubmit = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);

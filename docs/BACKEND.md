@@ -171,7 +171,7 @@ Unique constraint: `(shoe, us_size, width)`. Index: `(shoe, us_size, width, is_a
 
 ### UserCollection
 
-Tracks shoes a user has saved (wishlist) or owns. The model exists but **no frontend screens are wired to it yet** — `SavedShoesScreen` and `OwnedShoesScreen` are stubs.
+Tracks shoes a user has saved (wishlist) or owns. The backend model exists, but the **frontend uses local AsyncStorage** (`SavedShoesContext` / `OwnedShoesContext` → `Wishlist.js` / `Closet.js`) and does not read or write `UserCollection` yet.
 
 | Field | Type | Notes |
 |---|---|---|

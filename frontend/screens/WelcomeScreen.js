@@ -1,3 +1,4 @@
+/** Unauthenticated landing + feature carousel (iconBg color swatches per step). */
 import React, { useState, useCallback } from 'react';
 import {
   View,

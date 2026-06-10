@@ -2,6 +2,8 @@
 
 Last updated: 2026-04-26
 
+> **Status (June 2026):** This merge is **complete** on `main`. Screen renames below (`Dashboard`, `Wishlist`, `Closet`, AR screens, `feedback.js`) are live. Keep this document for historical reference only — do not follow the step-by-step merge instructions unless reviving a similar integration.
+
 ---
 
 ## Goal

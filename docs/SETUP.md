@@ -179,6 +179,9 @@ EXPO_PUBLIC_API_URL=
 
 # Google OAuth client ID for the mobile sign-in flow
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+
+# Optional — emulator dev workflow without a camera
+# EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1
 ```
 
 URL cheat-sheet:
@@ -268,15 +271,21 @@ Expected response:
 
 ### In-app smoke test
 
-Navigate to **Profile → Backend Smoke Test** in the app. This button hits `/api/health/` and `/api/shoes/` and displays results inline. If it shows a `shoe_count` and a list of brands, your full stack is wired correctly.
+1. Sign in with Google — confirm you land on the **Dashboard** tab
+2. Open **Recommendations** — confirm shoe cards load (or the “no foot scan yet” empty state if you have no measurement)
+3. Open **Profile** — confirm your display name loads and saves
+
+For API-only verification, use the backend health check above.
+
+**Emulator without a camera:** set `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1` in `frontend/.env`, enable the backend dev mock route, sign in, then revisit Dashboard or Recommendations.
 
 ### End-to-end measurement test
 
 1. Sign in with Google
-2. Go to **Closet → Capture Foot Photo**
-3. Follow the on-screen instructions (foot on paper, phone held level)
-4. Take and confirm a photo
-5. Verify the MeasurementsScreen shows length/width/area values
+2. Dashboard → **Update Measurements** (or Foot Capture → paper or AR method)
+3. Follow on-screen instructions (flat phone for paper; floor scan for AR)
+4. Capture and confirm a photo
+5. Verify **Measurements** shows length, width, and estimated US size
 
 ---
 

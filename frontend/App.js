@@ -1,3 +1,8 @@
+/**
+ * App root: loads Outfit fonts, checks auth token for initial route, wraps the tree in
+ * OwnedShoesProvider + SavedShoesProvider, and defines all navigation (root stack,
+ * bottom tabs, Closet / Recommendations / Profile nested stacks).
+ */
 import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
@@ -178,6 +183,7 @@ function ProfileStackNavigator() {
 }
 
 const TAB_BAR_STYLE_VISIBLE = { backgroundColor: '#FFFBF5', borderTopColor: '#E2D4C0' };
+// Hide bottom tabs during foot-capture flows so the camera UI is full-screen.
 const HIDE_TAB_BAR_SCREENS = ['FootCapture', 'Camera', 'ARFootCapture', 'ARCamera', 'PhotoPreview', 'Measurements'];
 
 function MainTabs() {

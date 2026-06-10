@@ -1,5 +1,7 @@
 # ARCore Foot Measurement — Implementation Plan
 
+> **Status (June 2026):** AR measurement is **implemented on `main`**. `FootCaptureScreen` offers AR as the primary path and paper as secondary; `ARCameraScreen` uploads to `/api/foot/measure/` with `measurement_method: arcore`. This document remains the design reference for the AR snapshot approach.
+
 Experimental branch to test ARCore-based foot measurement as an alternative to the paper-based method. Goal: compare usability, speed, and accuracy side-by-side to decide if AR replaces paper, supplements it, or gets cut.
 
 ---
@@ -121,8 +123,8 @@ This gives real-world distance in meters (ARCore's native unit), which we conver
 
 | File | Change |
 |---|---|
-| `frontend/App.js` | Add AR screen routes to navigation (behind feature flag) |
-| `frontend/screens/ClosetScreen.js` | Add "Measure with AR" button alongside existing "Capture your foot" |
+| `frontend/App.js` | AR screen routes added to Closet stack and root stack (done) |
+| `frontend/screens/FootCaptureScreen.js` | AR vs paper method chooser (implemented — AR is the primary path) |
 | `frontend/app.json` | Add `withARCore` config plugin |
 | `frontend/package.json` | Add ARCore-related dependencies |
 | `backend/api/views.py` | `FootMeasureView.post()` — detect `ar_snapshot` in request, branch to AR math |
@@ -496,12 +498,12 @@ This lets us query and compare accuracy by method later.
 
 ## Navigation: How the User Chooses
 
-On the `ClosetScreen`, the existing "Capture your foot" flow stays. We add a second entry point:
+Entry is **`Dashboard` → Update Measurements** or **`FootCaptureScreen`** (implemented):
 
 ```
-ClosetScreen
-├── "Measure with paper" → FootCaptureScreen → CameraScreen (existing)
-└── "Measure with AR"    → ARFootCaptureScreen → ARCameraScreen (new)
+FootCaptureScreen
+├── "Measure with AR"    → ARFootCaptureScreen → ARCameraScreen
+└── "Paper method"       → CameraScreen (or gallery pick)
 ```
 
 Both flows end at the same `MeasurementsScreen` with the same data shape. The user doesn't need to know the difference after capture.
@@ -612,7 +614,7 @@ dependencies {
 10. Create `ARFootCaptureScreen.js` (instructions)
 11. Create `ARCameraScreen.js` (AR camera + capture)
 12. Add AR routes to `App.js` navigation
-13. Add "Measure with AR" entry point on `ClosetScreen`
+13. ~~Add "Measure with AR" entry point on `ClosetScreen`~~ → done via `FootCaptureScreen` / Dashboard
 
 ### Phase 4: Integration + Testing
 

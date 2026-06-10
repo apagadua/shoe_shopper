@@ -1,3 +1,7 @@
+/**
+ * Wishlist state: shoes heart-saved from Recommendations. Persisted in AsyncStorage only
+ * (not synced to backend UserCollection). See FRONTEND_FEATURES.md §8.
+ */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

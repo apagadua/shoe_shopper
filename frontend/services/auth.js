@@ -1,3 +1,7 @@
+/**
+ * Google Sign-In: native picker → ID token → POST /api/auth/google/ → DRF authtoken key.
+ * See FRONTEND_FEATURES.md §2.
+ */
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { API_BASE_URL } from '../config/api';
 

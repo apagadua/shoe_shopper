@@ -1,45 +1,85 @@
 # Shoe Shopper – Frontend
 
-Expo + React Native app for the Shoe Shopper experience.
+Expo + React Native mobile app for foot measurement, personalized shoe recommendations, wishlist/closet management, and fit feedback.
+
+**Stack:** Expo SDK 54 · React Native 0.81 · React 19 · React Navigation 7
 
 ## Table of Contents
+
+- [What the app does](#what-the-app-does)
 - [Prerequisites](#prerequisites)
-- [Install & Run](#install--run)
-- [Running on Devices](#running-on-devices)
+- [Environment variables](#environment-variables)
+- [Install & run](#install--run)
+- [Running on devices](#running-on-devices)
+- [Project structure](#project-structure)
+- [Development notes](#development-notes)
 - [Troubleshooting](#troubleshooting)
-- [Project Structure](#project-structure)
-- [Development Notes](#development-notes)
+- [Additional resources](#additional-resources)
+
+---
+
+## What the app does
+
+| Area | Screens | Summary |
+|------|---------|---------|
+| Onboarding | `WelcomeScreen`, `LoginScreen` | Landing page and Google sign-in |
+| Dashboard | `Dashboard` | Foot profile, recommendation/wishlist/closet previews |
+| Recommendations | `RecommendationsScreen` | Filterable shoe cards with fit scores |
+| Wishlist & closet | `Wishlist`, `Closet` | Saved shoes and owned shoes (local AsyncStorage) |
+| Foot scan | `FootCaptureScreen`, `CameraScreen`, `ARFootCaptureScreen`, `ARCameraScreen`, `MeasurementsScreen` | Paper photo or AR measurement flow |
+| Profile | `ProfileScreen` | Display name, sign out, delete account |
+| Feedback | `feedback.js` | Per-shoe fit sliders (owned shoes) |
+
+Navigation is defined entirely in `App.js`: a root stack (auth), bottom tabs (Dashboard / Recommendations / Profile), and a nested Closet stack for dashboard sub-screens and the measurement flow.
 
 ---
 
 ## Prerequisites
 
-- **Node.js** v18+ (includes `npm`)
-  - Download from `https://nodejs.org`
-  - Verify:
-    ```bash
-    node --version
-    npm --version
-    ```
-- **Expo CLI tooling**
-  - We use `npx expo …` (no global install required).
-- **Expo Go** (optional, for physical devices)
-  - iOS: App Store → “Expo Go”
-  - Android: Play Store → “Expo Go”
+- **Node.js** v18+ ([nodejs.org](https://nodejs.org))
+  ```bash
+  node --version
+  npm --version
+  ```
+- **Expo tooling** — use `npx expo …` (no global install required).
+- **Backend running** — the Django API must be up for sign-in, scans, and recommendations. See the [repo root README](../README.md) for backend setup.
+
+> **Native modules:** This app uses camera, sensors, Google Sign-In, and ARCore (Android). It does **not** work fully in Expo Go. Use an **EAS development build** on a device or the Android emulator for day-to-day development.
 
 ---
 
-## Install & Run
+## Environment variables
 
-All commands below run from the `frontend` folder.
+Create `frontend/.env` (not committed to git). Restart Metro after any change.
+
+```env
+# Backend URL — leave blank on Android emulator (defaults to http://10.0.2.2:8000)
+# or iOS simulator (defaults to http://127.0.0.1:8000)
+EXPO_PUBLIC_API_URL=
+
+# Required for Google sign-in
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+
+# Optional — emulator dev workflow without a camera
+# EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1
+```
+
+| Scenario | `EXPO_PUBLIC_API_URL` |
+|----------|------------------------|
+| Android emulator | Leave blank → `http://10.0.2.2:8000` |
+| iOS simulator | Leave blank → `http://127.0.0.1:8000` |
+| Physical device (same Wi‑Fi) | Your machine's LAN IP, e.g. `http://192.168.1.50:8000` |
+
+Mock measurements require `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1` in this file **and** `DJANGO_DEBUG=1` or `ENABLE_DEV_MOCK_MEASUREMENT=1` in the root `.env`.
+
+---
+
+## Install & run
+
+All commands run from the `frontend` folder.
 
 ```bash
 cd frontend
-```
-
-### Install dependencies
-
-```bash
 npm install
 ```
 
@@ -49,21 +89,20 @@ If you hit peer dependency conflicts:
 npm install --legacy-peer-deps
 ```
 
-### Start the development server
-
-Standard Expo dev server with tunnel (good for phones on different networks):
+### Start Metro
 
 ```bash
+# Default — tunnel mode (good for phones on different networks)
 npm start
+
+# Dev client (required for native modules)
+npx expo start --dev-client
+
+# Clear Metro cache
+npx expo start --clear
 ```
 
-or explicitly:
-
-```bash
-npx expo start
-```
-
-You’ll see Metro start, a QR code, and shortcuts like:
+With the dev server running, use terminal shortcuts:
 
 ```text
 › Press a │ open Android
@@ -72,208 +111,163 @@ You’ll see Metro start, a QR code, and shortcuts like:
 › Press r │ reload app
 ```
 
-To clear the Metro cache:
+### Typical two-terminal workflow
+
+**Terminal 1** (repo root) — backend:
 
 ```bash
-npx expo start --clear
+python manage.py runserver 0.0.0.0:8000
+```
+
+**Terminal 2** (`frontend/`) — Metro:
+
+```bash
+npx expo start --dev-client
+```
+
+Open the installed dev client app on your emulator or device.
+
+---
+
+## Running on devices
+
+### Android emulator (development build) — recommended
+
+1. **Install Android Studio** and create an AVD (Device Manager → Create Device).
+2. **Build the dev client** (one-time, or when native deps/config change):
+   ```bash
+   npx eas-cli build --profile development --platform android
+   ```
+   Log in with an Expo account that has access to the **shoeshopper** org.
+3. **Install the APK** — download from the EAS build page and drag the `.apk` onto the emulator window.
+4. **Start Metro** with `npx expo start --dev-client`, start the emulator, press `a` or open the app from the drawer.
+
+Rebuild the dev client only when you change native dependencies or `app.json` plugins. Normal JS/UI edits reload via Metro.
+
+### Physical Android device
+
+Same EAS development build as above — install the APK on the device. Set `EXPO_PUBLIC_API_URL` to your computer's LAN IP and ensure the backend is bound to `0.0.0.0:8000`.
+
+### iOS
+
+No iOS dev client is configured in this repo. Limited testing may work in **Expo Go** on a physical iPhone, but camera, AR, and Google Sign-In flows require native modules and are best tested on Android with the dev client.
+
+---
+
+## Project structure
+
+```
+frontend/
+├── App.js                      # Navigation, fonts, context providers
+├── index.js                    # Expo entry point
+├── app.json                    # Expo config (plugins, package name, EAS project)
+├── eas.json                    # EAS build profiles
+├── SavedShoesContext.js        # Wishlist state (AsyncStorage)
+├── OwnedShoesContext.js        # Owned / closet state (AsyncStorage)
+├── assets/                     # logo.svg, app icons, splash, scan reference images
+├── components/                 # Reserved for shared UI (empty today)
+├── config/
+│   └── api.js                  # API_BASE_URL
+├── constants/
+│   └── attributes.js           # Recommendation filter definitions
+├── frontend-documents/
+│   ├── FRONTEND_STYLE_GUIDE.md # Coding conventions (read before contributing)
+│   ├── FRONTEND_FEATURES.md    # Feature map, data flow, line references
+│   └── FRONTEND_TESTING.md     # Manual test results (Android emulator/device)
+├── plugins/
+│   └── withARCore.js           # Android ARCore native config
+├── screens/
+│   ├── WelcomeScreen.js
+│   ├── LoginScreen.js
+│   ├── Dashboard.js            # Tab home — foot profile + previews
+│   ├── RecommendationsScreen.js
+│   ├── Wishlist.js             # Saved shoes
+│   ├── Closet.js               # Owned shoes
+│   ├── ProfileScreen.js
+│   ├── FootCaptureScreen.js    # Choose AR or paper scan
+│   ├── CameraScreen.js         # Paper photo capture
+│   ├── ARFootCaptureScreen.js
+│   ├── ARCameraScreen.js
+│   ├── MeasurementsScreen.js
+│   └── feedback.js             # Fit feedback sliders
+├── services/
+│   ├── auth.js                 # Google Sign-In + backend token exchange
+│   └── devMockMeasurement.js   # Dev-only mock scan helper
+├── styles/
+│   └── emptyState.js           # Shared empty-state styles
+└── utils/
+    └── shoeSize.js             # US men's size conversion helpers
 ```
 
 ---
 
-## Running on Devices
+## Development notes
 
-### Using Expo Go (physical devices)
-
-1. Install **Expo Go** on your phone.
-2. Make sure phone and computer have network connectivity (same Wi‑Fi works best).
-3. From `frontend` run `npm start` / `npx expo start`.
-4. In the terminal or Expo Dev Tools:
-   - Scan the QR code with your phone’s camera (iOS) or Expo Go app (Android), **or**
-   - Manually enter the URL shown (usually `exp://…exp.direct` when using tunnel).
-
-### Using the Android emulator (dev client)
-
-This project also supports an **Expo development build** for Android via EAS. High‑level flow:
-
-1. Install Android Studio and create an AVD.
-2. Build the dev client from `frontend`:
-   ```bash
-   npx eas-cli build --profile development --platform android
-   ```
-3. Download the APK from the EAS build page and drag‑and‑drop it onto the emulator.
-4. Run the dev server for the dev client:
-   ```bash
-   npx expo start --dev-client
-   ```
-5. With the emulator running, press `a` in the terminal or open the installed app icon directly.
-
-You only need to rebuild the dev client when native config/dependencies change; normal JS changes just use Metro.
-
-### iOS
-
-Currently **iOS uses Expo Go only** (no iOS dev client in this repo). Follow the Expo Go steps above.
-
+- **Style guide:** [frontend-documents/FRONTEND_STYLE_GUIDE.md](./frontend-documents/FRONTEND_STYLE_GUIDE.md) — navigation, state, API patterns, colors, and naming conventions.
+- **Feature map:** [frontend-documents/FRONTEND_FEATURES.md](./frontend-documents/FRONTEND_FEATURES.md) — major features, files, line refs, and backend data flow.
+- **Manual QA:** [frontend-documents/FRONTEND_TESTING.md](./frontend-documents/FRONTEND_TESTING.md) — manual test cases and results from Android testing.
+- **Backend:** API endpoints and Django setup live in [backend/README.md](../backend/README.md) and the [root README](../README.md).
+- **Auth token:** Stored in `expo-secure-store` under `authToken`; sent as `Authorization: Token <key>`.
+- **Local shoe lists:** Wishlist and closet persist in AsyncStorage via context providers — not synced to the backend yet.
 ---
 
 ## Troubleshooting
 
-### “Unable to resolve module” / broken `node_modules`
+### "Unable to resolve module" / broken `node_modules`
 
 ```bash
-rm -rf node_modules package-lock.json  # Mac
+# Mac / Linux
+rm -rf node_modules package-lock.json && npm install
 
-:: Windows
-rmdir /s node_modules
+# Windows
+rmdir /s /q node_modules
 del package-lock.json
-
 npm install
 ```
 
-### “Port 8081 already in use”
+### Port 8081 already in use
 
-- Close other Expo/Metro instances, or:
+Close other Metro instances, or on Windows:
 
 ```bash
-:: Windows
 netstat -ano | findstr :8081
 taskkill /PID <PID> /F
 ```
 
-### “Can’t connect to development server” / Expo Go cannot load app
+### Can't connect to the dev server
 
-- Ensure device and computer are on the same network (or use tunnel mode).
-- Check the URL shown in the terminal matches your machine’s IP / tunnel URL.
-- Restart the dev server:
-  ```bash
-  npm start
-  ```
+- Phone and computer need network access (same Wi‑Fi, or use tunnel mode via `npm start`).
+- Confirm `EXPO_PUBLIC_API_URL` matches how you're reaching the backend.
+- Restart Metro: `npx expo start --dev-client --clear`
 
-### Metro cache issues
+### "Unable to load script" (dev client)
 
-```bash
-npx expo start --clear
-```
+- Ensure `npx expo start --dev-client` is running in `frontend/`.
+- Start the emulator after Metro is up, then open the dev client app.
 
-### Dependency / version mismatches
+### Sign-in fails / missing Google client ID
+
+Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `frontend/.env` and restart Metro. The Web client ID must match `GOOGLE_CLIENT_ID` in the backend `.env`.
+
+### Recommendations empty on emulator
+
+Set `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1`, enable the backend dev mock route, sign in, and revisit the Dashboard or Recommendations tab.
+
+### Dependency version mismatches
 
 ```bash
 npm install
-# If that doesn't work:
+# or
 npm install --legacy-peer-deps
 ```
 
-Expo SDK 54 in this project expects `"react": "19.1.0"` as configured in `package.json`.
+This project pins React 19.1.0 for Expo SDK 54 — see `package.json`.
 
 ---
 
-## Project Structure
+## Additional resources
 
-```
-frontend/
-├── .expo/            # Expo cache (auto-generated, gitignored)
-├── App.js            # Main app component
-├── app.json          # Expo configuration
-├── assets/           # Images, fonts, etc.
-│   ├── adaptive-icon.png
-│   ├── favicon.png
-│   ├── icon.png
-│   └── splash-icon.png
-├── components/       # Reusable UI components
-├── screens/          # Screen components (Login, Upload, Recommendations, etc.)
-├── services/         # API service files (backend API calls, authentication)
-├── styles/           # Styling files (theme files, global styles)
-├── utils/            # Utility functions (helpers, formatters, validators)
-├── index.js          # Entry point
-├── package.json      # Dependencies and scripts
-├── package-lock.json # Locked dependency versions
-└── README.md         # This file
-```
-
----
-
-## Development Notes
-
-- Frontend coding conventions and patterns live in `FRONTEND_STYLE_GUIDE.md`.
-- Backend and environment configuration are documented in the backend README and `.env` files (at the repo root and in `frontend/.env`).
-
----
-
-## Additional Resources
-
-- [Expo Documentation](https://docs.expo.dev/)
-- [React Native Documentation](https://reactnative.dev/)
-- [Expo Go Guide](https://docs.expo.dev/get-started/expo-go/)
-
----
-
-## Expo Development Build (Android Dev Client)
-
-Besides Expo Go, you can run an **Expo development build (dev client)** in the **Android Studio emulator**. The project is under the **shoeshopper** Expo organization; teammates must be invited to that org to run EAS builds. **“Expo development”** (as opposed to Expo Go).
-
-**Android only.** iOS uses Expo Go only (see next section).
-
-### One-time setup
-
-1. **Install Android Studio** (Windows or Mac)  
-   - [developer.android.com/studio](https://developer.android.com/studio) → Standard install (installs the Android SDK).
-
-2. **Create an Android Virtual Device (AVD)**
-   - Android Studio → **Device Manager** → **Create Device**.
-   - Pick a phone (e.g. Pixel 6/7), then a **System Image** (e.g. API 36, Google Play Intel x86_64). Finish the wizard.
-
-3. **Start the emulator**
-   - In **Device Manager**, click the **Play ▶** button next to your device.
-   - Wait for the Android home screen to appear.
-
-4. **Build the dev client with EAS**  
-   From the `frontend` directory:
-   ```bash
-   npx eas-cli build --profile development --platform android
-   ```
-   - Log in with your Expo account (must be a member of the **shoeshopper** org).
-   - When the build finishes, EAS will show a **build page URL**.
-   - Open that URL in your browser.
-   - On the build page, click **Download build** to download the **.apk** file (ignore the QR‑code “Install” option; that’s for real devices).
-   - Build takes about **10–25 minutes**; do it when you have time.
-
-5. **Install the APK into the emulator**
-   - Start the emulator if it isn’t already running.
-   - Locate the downloaded `.apk` file (e.g. in your Downloads folder).
-   - **Drag and drop the `.apk` onto the emulator window**.
-   - Android will install the app; you can find it in the **app drawer** and optionally drag it to the home screen.
-
-You only need to run this build again if you add native dependencies or change native config. For normal JS/UI changes, no rebuild needed—use the daily workflow below.
-
-### Daily development (dev client)
-
-1. **Start the dev server**  
-   From `frontend`:
-   ```bash
-   npx expo start --dev-client
-   ```
-   Leave this running.
-
-2. **Open the Android emulator**
-   - Start your AVD from Android Studio (Device Manager → Play).
-
-3. **Launch the app in the emulator**
-   - With `expo start --dev-client` running, press **`a`** in the terminal to target Android, **then**
-   - Open the installed app icon (e.g. `Shoe Shopper`) in the emulator’s app drawer / home screen.
-
-4. **Iterate**
-   - Edit code in the `frontend` project.
-   - The dev client will reload changes via Metro (fast refresh / hot reload).
-   - Use the usual shortcuts (reload, dev menu, etc.).
-
-If you see **“Unable to load script”** in the emulator, make sure:
-- `npx expo start --dev-client` is running in `frontend`, and
-- The emulator is started **after** (or while) the dev server is running.
-
----
-
-## iOS (Expo Go only)
-
-This repo does **not** use an Expo dev client for iOS. Use **Expo Go** on an iPhone (see Expo Go Setup and Running the App). No Mac or Xcode required.
-
-To add an iOS dev client later you’d need the Apple Developer Program ($99/year), EAS Build for iOS, and ideally a Mac for the simulator.
-
+- [Expo documentation](https://docs.expo.dev/)
+- [React Native documentation](https://reactnative.dev/)
+- [EAS Build](https://docs.expo.dev/build/introduction/)
+- [React Navigation](https://reactnavigation.org/docs/getting-started)

@@ -9,7 +9,7 @@ This guide walks you through getting the Shoe Shopper app running on a new compu
 Before touching any code, make sure you have the following:
 
 - **A computer** running Windows, Mac, or Linux
-- **An Android or iPhone** for testing (the app cannot be fully tested in a simulator)
+- **An Android phone or Android emulator** for testing (recommended — the dev client supports camera, sensors, and Google Sign-In). iOS is limited to Expo Go for basic UI checks.
 - **The project files** (either a zip from a teammate, or git access to the repo)
 - **The `.env` secrets file** — ask a teammate for this. It contains API keys that are never stored in the code. Without it, the backend will not work.
 - **Internet connection** throughout setup
@@ -299,15 +299,15 @@ venv\Scripts\activate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-**Step 2**: Start the Expo server (in the `frontend` folder):
+**Step 2**: Start the Expo server for the **development build** (in the `frontend` folder):
 
 ```
-npm start
+npx expo start --dev-client
 ```
 
-This uses **tunnel mode** — it routes through the internet so the app can reach your computer from anywhere, even if your phone is on a different network. Wait about 10 seconds for the QR code to appear.
+For a physical device on a different network you can use tunnel mode instead: `npm start` (same dev client app — not Expo Go).
 
-**Step 3**: Open the app on your phone (it's named "shoe_shopper" and has the shoe icon). Scan the QR code shown in the terminal with your phone's camera. The app will load.
+**Step 3**: Open the **shoe_shopper** dev client app on your phone or emulator (installed from the EAS build in Part 5). Press `a` in the terminal to target Android if needed.
 
 **Step 4**: Sign in with Google in the app. The backend verifies your Google account.
 
@@ -317,11 +317,11 @@ That's it — the app should be fully functional.
 
 ## Troubleshooting Common Problems
 
-### "Unable to load script" or app won't load after scanning QR code
+### "Unable to load script" or app won't connect to Metro
 
-- Make sure you ran `npm start` (not `npm run android`) — `npm start` uses tunnel mode which works on any network
-- Make sure the Expo server has fully started and the QR code is visible before scanning
-- Try closing and reopening the app on your phone, then scan again
+- Make sure you ran `npx expo start --dev-client` (not Expo Go)
+- Open the installed **dev client** app, not the Expo Go app from the Play Store
+- Ensure the backend is running and `frontend/.env` has the correct `EXPO_PUBLIC_API_URL` for your setup
 
 ### Backend API not working (foot scan or sign-in fails)
 
@@ -371,7 +371,7 @@ You'll have two terminals open when running the app:
 | Terminal | Location | Command | Purpose |
 |---|---|---|---|
 | Terminal 1 | `shoe_shopper_dev/` | `python manage.py runserver 0.0.0.0:8000` | Runs the backend API |
-| Terminal 2 | `shoe_shopper_dev/frontend/` | `npm start` | Serves the phone app |
+| Terminal 2 | `shoe_shopper_dev/frontend/` | `npx expo start --dev-client` | Serves the phone app |
 
 Both must be running at the same time for the app to work.
 
@@ -382,6 +382,6 @@ Both must be running at the same time for the app to work.
 | File | Location | Where to get it |
 |---|---|---|
 | `.env` | `shoe_shopper_dev/` | Ask a teammate |
-| `frontend/.env` | `shoe_shopper_dev/frontend/` | Create it yourself (Part 5.2) |
+| `frontend/.env` | `shoe_shopper_dev/frontend/` | Create it yourself (Part 4.2) |
 
 Everything else is already in the code.

@@ -40,8 +40,9 @@ shoe_shopper_dev/
 │   ├── models/        All 8 database models (single __init__.py)
 │   └── services/      Fit algorithm (fit_algorithm.py)
 ├── frontend/          React Native + Expo SDK 54
-│   ├── screens/       10 screens (one file each)
-│   ├── services/      auth.js (Google Sign-In)
+│   ├── screens/       Welcome, Login, Dashboard, Wishlist, Closet, Recommendations, Profile, capture/AR flow, feedback
+│   ├── SavedShoesContext.js / OwnedShoesContext.js  ← wishlist + closet (AsyncStorage)
+│   ├── services/      auth.js, devMockMeasurement.js
 │   └── config/        api.js (platform-aware base URL)
 ├── shoeshopper/       Django project config (settings.py, urls.py)
 └── manage.py
@@ -207,6 +208,6 @@ These are documented more fully in [`SECURITY_REVIEW.md`](../SECURITY_REVIEW.md)
 - No CORS configuration
 - DRF auth tokens never expire
 - No automated tests (unit or integration)
-- `SavedShoesScreen` and `OwnedShoesScreen` are stub placeholders
-- No shared component library — UI logic is duplicated across screens
-- 6 files have unresolved git merge conflicts (see [`CONTRIBUTING.md`](./CONTRIBUTING.md))
+- Wishlist and closet are local AsyncStorage only — not synced to `UserCollection` on the backend
+- Fit feedback is local-only — not persisted to the API yet
+- No shared component library — shoe card and empty-state UI is duplicated across screens

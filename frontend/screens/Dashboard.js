@@ -1,3 +1,7 @@
+/**
+ * Tab home: foot profile from GET /api/measurements/latest/, recommendation/wishlist/closet
+ * previews from context + GET /api/recommendations/. See FRONTEND_FEATURES.md §4.
+ */
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,

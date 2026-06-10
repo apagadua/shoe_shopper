@@ -1,3 +1,4 @@
+/** Shows scan results from route.params.measurements; US size via utils/shoeSize. See FRONTEND_FEATURES.md §3. */
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { getBestSize, getSizeRange } from '../utils/shoeSize';

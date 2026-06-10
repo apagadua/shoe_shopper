@@ -1,3 +1,4 @@
+/** AR capture instructions before ARCameraScreen. See FRONTEND_FEATURES.md §3.3. */
 import React from 'react';
 import {
   View,

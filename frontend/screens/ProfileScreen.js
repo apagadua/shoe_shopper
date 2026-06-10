@@ -1,3 +1,4 @@
+/** Profile display name (PATCH /api/profile/), sign out, delete account. */
 import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';

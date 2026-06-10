@@ -1,3 +1,4 @@
+/** Boolean attribute keys for Recommendations filter drawer (matches shoe.attributes_json). */
 export const ATTRIBUTE_FILTERS = [
   { key: 'waterproof',     label: 'Waterproof' },
   { key: 'vegan',          label: 'Vegan' },

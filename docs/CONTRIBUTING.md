@@ -72,7 +72,8 @@ There are no automated tests yet. Before opening a PR, manually verify the flows
 | Auth | Sign in with Google; confirm token is saved and MainTabs loads |
 | Foot measurement | Capture a photo in-app; verify MeasurementsScreen shows values |
 | Recommendations | After a measurement, confirm scored results load |
-| Profile smoke test | Profile → Backend Smoke Test button; confirm shoe_count appears |
+| Wishlist / closet | Heart and bag icons on Recommendations; confirm items appear on Wishlist and My Closet |
+| Profile | Edit display name, save, sign out, and return to Welcome |
 | Sign out / delete | Verify both flows return to WelcomeScreen cleanly |
 
 If you add a backend service or utility function, write a `django.test.TestCase` in `backend/tests.py` (create the file if it doesn't exist).
@@ -85,7 +86,7 @@ Use a short imperative prefix followed by a concise description:
 
 ```
 feat: add waterproof filter to recommendations
-fix: handle null measurement in ClosetScreen
+fix: handle null measurement on Dashboard
 chore: bump expo-camera to 15.0.3
 docs: add CONTRIBUTING guide
 refactor: extract shoe card into shared component
@@ -146,7 +147,8 @@ Include:
 - **One screen per file** in `frontend/screens/`.
 - **API base URL** is always imported from `frontend/config/api.js` — never hard-code backend URLs.
 - **Auth token** is stored and retrieved via `expo-secure-store`. See `CameraScreen.js` for the reference pattern.
-- **Saved shoes state** comes from `SavedShoesContext` — do not maintain a second copy in a screen.
+- **Wishlist state** comes from `SavedShoesContext`; **owned closet state** from `OwnedShoesContext` — do not maintain duplicate copies in screens.
+- **Screen names on disk:** `Dashboard.js`, `Wishlist.js`, `Closet.js` (not the older `ClosetScreen` / `SavedShoesScreen` / `OwnedShoesScreen` names).
 - **Platform-specific code** uses `Platform.OS === 'android'` / `'ios'` checks.
 - New env vars must be prefixed `EXPO_PUBLIC_` to be accessible in JS.
 - Add new empty states using the shared `frontend/styles/emptyState.js` styles.
@@ -157,24 +159,11 @@ Include:
 
 Read this before working on any of the affected areas.
 
-### Unresolved merge conflicts
+### Frontend gaps
 
-Six files currently contain unresolved `<<<<<<` markers and will not compile until fixed. All should be resolved to the **OrsBranch version** of the conflicting sections:
-
-| File | Conflict location |
-|---|---|
-| `frontend/App.js` | Lines 210–287 (duplicate navigation setup) |
-| `frontend/SavedShoesContext.js` | Entire file (in-memory vs. AsyncStorage persistence) |
-| `frontend/constants/attributes.js` | Entire file (two filter attribute lists) |
-| `frontend/screens/CameraScreen.js` | Lines 257–393 (styles + paper size toggle) |
-| `frontend/screens/MeasurementsScreen.js` | Conflicted sections (unresolved merge) |
-| `frontend/screens/RecommendationsScreen.js` | Extensive (two filter structures + card rendering) |
-
-Resolving these is the recommended first task for a new contributor.
-
-### Stub screens
-
-`SavedShoesScreen.js` and `OwnedShoesScreen.js` are empty state placeholders. The `UserCollection` model and `SavedShoesContext` already exist — these screens just need UI and API wiring.
+- Wishlist and closet persist in **AsyncStorage only** — not synced to the backend `UserCollection` model yet.
+- Fit feedback (`feedback.js`) submits locally; no API persistence yet.
+- `frontend/styles/emptyState.js` exists but most screens inline duplicate empty-state styles.
 
 ### Open security findings
 

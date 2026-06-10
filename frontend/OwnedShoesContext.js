@@ -1,3 +1,7 @@
+/**
+ * Owned-shoe closet state: bag-saved from Recommendations or moved from Wishlist.
+ * Persisted in AsyncStorage only. See FRONTEND_FEATURES.md §8.
+ */
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

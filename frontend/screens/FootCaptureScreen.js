@@ -1,3 +1,4 @@
+/** Chooses AR (primary) or paper foot capture path. See FRONTEND_FEATURES.md §3.1. */
 import React from 'react';
 import {
   View,

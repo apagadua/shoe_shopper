@@ -1,3 +1,4 @@
+/** Google sign-in; stores DRF token in SecureStore. See FRONTEND_FEATURES.md §2. */
 import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';

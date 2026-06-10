@@ -2,6 +2,8 @@
 
 Deep dive into the React Native / Expo app: navigation, screens, state, storage, and services.
 
+For setup instructions see [`SETUP.md`](./SETUP.md). For coding conventions see [`frontend/frontend-documents/FRONTEND_STYLE_GUIDE.md`](../frontend/frontend-documents/FRONTEND_STYLE_GUIDE.md). For manual test results see [`frontend/frontend-documents/FRONTEND_TESTING.md`](../frontend/frontend-documents/FRONTEND_TESTING.md). For feature-level code map and data flow see [`frontend/frontend-documents/FRONTEND_FEATURES.md`](../frontend/frontend-documents/FRONTEND_FEATURES.md).
+
 ---
 
 ## Table of Contents
@@ -25,35 +27,43 @@ Deep dive into the React Native / Expo app: navigation, screens, state, storage,
 
 ```
 frontend/
-├── App.js                  ← root navigator + font loading + context providers
-├── SavedShoesContext.js    ← wishlist state (AsyncStorage-backed)
-├── index.js                ← Expo entry point (do not modify)
-├── app.json                ← Expo config: SDK, plugins, android package, EAS project ID
-├── eas.json                ← EAS build profiles (development, production)
+├── App.js                      ← root navigator, fonts, context providers
+├── SavedShoesContext.js          ← wishlist state (AsyncStorage)
+├── OwnedShoesContext.js          ← owned / closet state (AsyncStorage)
+├── index.js                    ← Expo entry point
+├── app.json                    ← Expo config, plugins, EAS project ID
+├── eas.json                    ← EAS build profiles
 ├── package.json
+├── frontend-documents/         ← style guide + manual QA report
 ├── screens/
 │   ├── WelcomeScreen.js
 │   ├── LoginScreen.js
-│   ├── ClosetScreen.js
-│   ├── FootCaptureScreen.js
-│   ├── CameraScreen.js         ← most complex screen (~503 lines)
-│   ├── MeasurementsScreen.js
-│   ├── RecommendationsScreen.js ← largest screen (~1009 lines)
+│   ├── Dashboard.js            ← tab home (foot profile + previews)
+│   ├── Wishlist.js             ← saved shoes
+│   ├── Closet.js               ← owned shoes
+│   ├── RecommendationsScreen.js
 │   ├── ProfileScreen.js
-│   ├── SavedShoesScreen.js     ← stub
-│   └── OwnedShoesScreen.js     ← stub
+│   ├── FootCaptureScreen.js    ← AR vs paper method chooser
+│   ├── CameraScreen.js         ← paper photo capture
+│   ├── ARFootCaptureScreen.js  ← AR instructions
+│   ├── ARCameraScreen.js       ← ARCore capture + upload
+│   ├── MeasurementsScreen.js
+│   └── feedback.js             ← Fit Feedback sliders (exports FeedbackScreen)
 ├── services/
-│   └── auth.js             ← Google Sign-In + token exchange
+│   ├── auth.js                 ← Google Sign-In + token exchange
+│   └── devMockMeasurement.js   ← dev-only mock scan helper
 ├── config/
-│   └── api.js              ← platform-aware API_BASE_URL
+│   └── api.js                  ← platform-aware API_BASE_URL
 ├── constants/
-│   └── attributes.js       ← filter attribute definitions
+│   └── attributes.js           ← recommendation filter attributes
 ├── utils/
-│   └── shoeSize.js         ← Brannock formula helpers
+│   └── shoeSize.js             ← Brannock formula helpers
 ├── styles/
-│   └── emptyState.js       ← reusable empty state styles
-├── components/             ← empty; no shared components extracted yet
-└── assets/                 ← images, icons, splash screen
+│   └── emptyState.js           ← shared empty-state styles (screens often inline their own)
+├── plugins/
+│   └── withARCore.js           ← Android ARCore native wiring
+├── components/                 ← empty; no shared components extracted yet
+└── assets/                     ← icons, splash, logo, scan reference images
 ```
 
 ---
@@ -64,25 +74,30 @@ frontend/
 
 ```
 Stack Navigator (root)
-├── Welcome          WelcomeScreen.js   — hero + feature carousel
-├── Login            LoginScreen.js     — Google Sign-In button
-└── MainTabs         Bottom Tab Navigator
-    ├── Closet tab   (Stack)
-    │   ├── ClosetHome      ClosetScreen.js
-    │   ├── SavedShoes      SavedShoesScreen.js  ← stub
-    │   ├── OwnedShoes      OwnedShoesScreen.js  ← stub
-    │   ├── FootCapture     FootCaptureScreen.js
-    │   ├── Camera          CameraScreen.js
-    │   └── Measurements    MeasurementsScreen.js
-    ├── Recommendations tab (Stack)
-    │   └── RecommendationsHome  RecommendationsScreen.js
-    └── Profile tab  (Stack)
-        └── ProfileHome     ProfileScreen.js
+├── Welcome              WelcomeScreen.js
+├── Login                LoginScreen.js
+├── MainTabs             Bottom Tab Navigator
+│   ├── Closet tab       ClosetStackNavigator
+│   │   ├── ClosetHome       Dashboard.js
+│   │   ├── SavedShoes       Wishlist.js
+│   │   ├── OwnedShoes       Closet.js
+│   │   ├── Feedback         feedback.js
+│   │   ├── FootCapture      FootCaptureScreen.js
+│   │   ├── Camera           CameraScreen.js
+│   │   ├── ARFootCapture    ARFootCaptureScreen.js
+│   │   ├── ARCamera         ARCameraScreen.js
+│   │   └── Measurements     MeasurementsScreen.js
+│   ├── Recommendations tab
+│   │   └── RecommendationsHome  RecommendationsScreen.js
+│   └── Profile tab
+│       └── ProfileHome          ProfileScreen.js
+├── FootCapture, Camera, ARFootCapture, ARCamera, Measurements, Recommendations
+│   (also registered on root stack for certain flows)
 ```
 
-**Tab bar** is hidden on FootCapture, Camera, and Measurements screens. Style: beige background (`#FFFBF5`), brown border, brown active tint (`#C28A5B`).
+**Tab bar** is hidden when the Closet stack is on `FootCapture`, `Camera`, `ARFootCapture`, `ARCamera`, or `Measurements`. Style: background `#FFFBF5`, border `#E2D4C0`, active tint `#C28A5B`.
 
-**Auth gate:** On app load, `App.js` checks `expo-secure-store` for a saved token. If found, it skips to `MainTabs`; otherwise it starts at `Welcome`.
+**Auth gate:** On launch, `App.js` reads `authToken` from `expo-secure-store`. If present → `MainTabs`; otherwise → `Welcome`.
 
 ---
 
@@ -90,159 +105,99 @@ Stack Navigator (root)
 
 ### WelcomeScreen
 
-- Hero header: "Find Your Perfect Fit"
-- 3-step feature carousel (Upload Photo → AI Measurement → Smart Recommendations)
-- "Get Started" button → navigates to Login
-
----
+- Hero: "Find Your Perfect Fit"
+- 3-step horizontal carousel (Upload Photo → AI Measurement → Smart Recommendations)
+- **Get Started** → Login
 
 ### LoginScreen
 
-- Single "Continue with Google" button
-- Calls `googleSignIn()` (native Google picker) → gets `idToken`
-- Calls `signInWithGoogle(idToken)` → POST `/api/auth/google/` → gets `{ key }`
-- Saves `key` to `expo-secure-store`
-- Navigates to `MainTabs`
+- **Continue with Google** → `googleSignIn()` → `signInWithGoogle(idToken)` → POST `/api/auth/google/`
+- Saves DRF token to SecureStore → `navigation.replace('MainTabs')`
 
----
+### Dashboard (`ClosetHome`)
 
-### ClosetScreen
+- Personalized greeting from `/api/profile/`
+- **Your Foot Profile** card: length, width, typical US size from `/api/measurements/latest/`
+- **Update Measurements** → FootCapture
+- Horizontal previews: Recommended For You, Wishlist, My Closet (each **View All** deep-links)
 
-- Shows the user's latest foot measurements and estimated shoe size
-- Fetches `GET /api/measurements/latest/` on every screen focus (`useFocusEffect`)
-- Converts inches → cm for display
-- Calls `getBestSize(length_in)` from `utils/shoeSize.js` for the size label
-- Three action buttons: Saved Shoes, Owned Shoes, Capture Foot Photo
+### Wishlist (`SavedShoes` route)
 
----
+- Lists shoes from `SavedShoesContext` (excludes items already in owned closet)
+- Heart / bag actions, fit badges, **View details** (opens `product_url`)
+- Bag moves item to My Closet with `returnToWishlistOnRemove: true`
+
+### Closet (`OwnedShoes` route)
+
+- Lists owned shoes from `OwnedShoesContext`
+- **Fit Feedback** → `feedback.js` with `route.params.shoe`
 
 ### FootCaptureScreen
 
-- Instruction screen shown before the camera
-- Displays a mockup diagram of the capture setup
-- 4-point tips list (paper orientation, sock, phone height, lighting)
-- "Open camera" button → navigates to CameraScreen
-- "Skip for now" button (only shown when arriving from onboarding flow)
-
----
+- **Primary:** AR method → `ARFootCapture`
+- **Secondary:** Paper method (reference image, **Take Photo**, **Pick from gallery**)
+- **Skip for now** when `fromOnboarding` is set
 
 ### CameraScreen
 
-The most complex screen (~504 lines). Three phases: `camera` → `preview` → `processing`.
-
-**Sensors:**
+Paper capture flow. Phases: `camera` → `preview` → `processing`.
 
 | Sensor | Behavior |
 |---|---|
-| Accelerometer | Updates every 200 ms; computes tilt from gravity vector; warns if >10° and blocks capture |
-| Light sensor (Android only) | Warns if ambient lux < 50; guidance only, not blocking |
+| Accelerometer | Updates every 200 ms; blocks capture if tilt > 10° |
+| Light sensor (Android only) | Warns if lux < 50; guidance only |
 
-**Paper size toggle:** Letter (8.5" × 11") or A4 (210 mm × 297 mm). Sent as `paper_size` in the upload.
+Paper size toggle (Letter / A4) sent as `paper_size`. Gallery pick via `expo-image-picker`. POST multipart to `/api/foot/measure/` → Measurements.
 
-**Capture flow:**
-1. User taps capture button → camera takes photo → enters `preview` phase
-2. User taps "Use this photo" → enters `processing` phase
-3. `FormData` POST to `/api/foot/measure/`:
-   ```js
-   const form = new FormData();
-   form.append('image', { uri, type: 'image/jpeg', name: 'foot.jpg' });
-   form.append('paper_size', paperSize);
-   ```
-4. Auth token read from `expo-secure-store` and added to `Authorization: Token <key>` header
-5. On success → navigate to `MeasurementsScreen` with `{ measurements: responseData }`
-6. On error → show error message in preview phase, allow retake
+### ARFootCaptureScreen / ARCameraScreen
 
-**Known issue:** No fetch timeout — a slow or dropped network connection will hang indefinitely. See `SECURITY_REVIEW.md` M4.
-
----
+AR path: instructions → live ARCore preview → capture → preview → upload with `measurement_method: arcore` and `ar_snapshot` JSON. Accelerometer tilt + floor-plane detection gate capture. Falls back to paper method when ARCore unavailable.
 
 ### MeasurementsScreen
 
-- Receives `route.params.measurements` from CameraScreen (the raw API response)
-- Displays length, width, area in both inches and cm
-- **Size estimation:**
-  - `getBestSize(length_in)` — single best Brannock size (men's only)
-  - `getSizeRange(length_in)` — plausible range (±0.5" tolerance)
-- Navigation: "Go to My Closet" (onboarding) or "See Recommendations" (post-capture)
-- Measurements are **not** persisted locally — they are re-fetched from the API when needed (e.g. by ClosetScreen)
-
----
+- Displays length, width, area; `getBestSize` / `getSizeRange` for US men's sizes
+- Onboarding CTA → `MainTabs`; otherwise → Recommendations or back to Dashboard
 
 ### RecommendationsScreen
 
-The largest screen (~1010 lines). Fully wired to the live API.
-
-**Data fetching:** `useFocusEffect` → `GET /api/recommendations/?sub_type=<optional>`
-
-**Filter drawer** (animated right-slide panel):
-- **Browse by:** Function (use case) or Silhouette (style)
-- **Function categories:** Athletic, Casual, Work, Formal
-- **Silhouette categories:** Boot, Sneaker, Slip-on, Dress Shoe
-- **Attribute filters:** Waterproof, Vegan, Slip Resistant, Safety Toe, Wide Available
-- Draft/apply workflow: filter changes only commit when user taps "Apply filters"
-- Filters are applied client-side against the API response
-
-**Shoe cards:**
-- Brand name + heart icon (toggles `SavedShoesContext`)
-- Model name
-- Fit score badge (color-coded by status: PERFECT=green, GOOD=light green, ACCEPTABLE=orange, MARGINAL=red, POOR=dark red, REJECTED=gray)
-- Shoe image or placeholder box
-- Function/style/attribute tag chips
-- "View details" button → opens `product_url` in browser (if available)
-
-**Toast:** "Added/Removed from Saved Shoes" (1.8s auto-dismiss)
-
-**Empty states:** no measurement yet, fetch error, no results after filtering
-
----
+- `useFocusEffect` → GET `/api/recommendations/`
+- Animated filter drawer: browse by function or silhouette, category/subcategory, attribute toggles (draft → **Apply filters**)
+- Shoe cards with fit badges, heart (wishlist), bag (closet), toasts, **View details**
+- Hides `REJECTED` fits and shoes already saved/owned
 
 ### ProfileScreen
 
-- Avatar display with "Change photo" button (UI only — not implemented)
-- **Delete account:** Alert confirmation → `DELETE /api/auth/delete/` → clear token → Google sign-out → navigate to Welcome
-- **Sign out:** Clear token + Google sign-out → navigate to Welcome
-- **Backend smoke test:** Parallel fetch to `/api/health/` + `/api/shoes/` → shows connection status, shoe count, first 3 brands
+- Gradient hero, display name edit (PATCH `/api/profile/`)
+- **Delete account** (DELETE `/api/auth/delete/`) and **Sign out**
+- No backend smoke-test UI in the current build
 
----
+### FeedbackScreen (`feedback.js`)
 
-### SavedShoesScreen *(stub)*
-
-Empty state placeholder. `UserCollection` model and `SavedShoesContext` already exist — the screen just needs its UI and API wiring.
-
----
-
-### OwnedShoesScreen *(stub)*
-
-Same situation as SavedShoesScreen.
+- Length and width fit sliders (−5…+5)
+- Submit shows thank-you toast and navigates back (local-only; not persisted to API yet)
 
 ---
 
 ## 4. State Management
 
-The app uses React hooks (`useState`, `useEffect`, `useFocusEffect`) for local screen state and a single Context for cross-screen state.
+Local screen state uses React hooks (`useState`, `useEffect`, `useFocusEffect`, `useMemo`, `useCallback`). Cross-screen shoe lists use context providers (both wrapped in `App.js`):
 
-### SavedShoesContext (`frontend/SavedShoesContext.js`)
+### SavedShoesContext
 
-Manages the user's wishlist (heart-saved shoes from RecommendationsScreen).
+Wishlist. AsyncStorage key `savedShoes`. Exposes `{ savedMap, savedShoes, toggleSaved, isSaved }`.
 
-**Note:** This file currently has unresolved merge conflicts with two implementations:
+### OwnedShoesContext
 
-- **HEAD version:** In-memory array (`savedShoes`), no persistence, exposes `{ savedShoes, toggleSaved(shoe), isSaved(id) }`
-- **OrsBranch version:** `AsyncStorage`-backed map under the key `savedShoes`, exposes `{ savedMap, toggleSaved(shoe), isSaved(id) }` where `savedMap` is `{ [shoe.id]: shoe }`
+Owned closet. AsyncStorage key `ownedShoes`. Exposes `{ ownedMap, ownedShoes, toggleOwned, isOwned }`.
 
-Resolve to the OrsBranch version per the guidance in [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-**Usage:**
+Shoes are stored as maps keyed by `id`. Wishlist ↔ closet moves use a `returnToWishlistOnRemove` flag on the shoe object.
 
 ```js
 import { useSavedShoes } from '../SavedShoesContext';
+import { useOwnedShoes } from '../OwnedShoesContext';
 
 const { isSaved, toggleSaved } = useSavedShoes();
-
-// In a shoe card:
-<TouchableOpacity onPress={() => toggleSaved(shoe)}>
-  <Ionicons name={isSaved(shoe.id) ? 'heart' : 'heart-outline'} />
-</TouchableOpacity>
+const { isOwned, toggleOwned } = useOwnedShoes();
 ```
 
 ---
@@ -252,11 +207,17 @@ const { isSaved, toggleSaved } = useSavedShoes();
 ### `frontend/services/auth.js`
 
 ```js
-googleSignIn()              // triggers native Google picker → returns idToken
-signInWithGoogle(idToken)   // POST /api/auth/google/ → returns { key }
+googleSignIn()              // native Google picker → idToken
+signInWithGoogle(idToken)   // POST /api/auth/google/ → { key }
 ```
 
-Configure `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `frontend/.env`.
+Requires `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `frontend/.env`.
+
+### `frontend/services/devMockMeasurement.js`
+
+`ensureDevMockMeasurementIfNeeded()` — dev-only POST to `/api/dev/mock-measurement/` when `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1`. Called from Dashboard on focus.
+
+Most other API calls (`profile`, `recommendations`, `foot/measure`) are inline in screens today. New endpoints should follow the `auth.js` pattern: `API_BASE_URL`, throw `Error` with a useful message.
 
 ---
 
@@ -264,65 +225,58 @@ Configure `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `frontend/.env`.
 
 ### `frontend/config/api.js`
 
-Exports a single `API_BASE_URL` string. Platform-aware:
-
 ```js
 // Android emulator → http://10.0.2.2:8000
 // iOS simulator    → http://127.0.0.1:8000
 // Override         → process.env.EXPO_PUBLIC_API_URL
 ```
 
-Always import from here — never hard-code backend URLs in screens.
-
 ### `frontend/utils/shoeSize.js`
 
-Brannock formula helpers (men's sizes only — no women's formula in the frontend):
-
 ```js
-getBestSize(lengthIn)       // → string, nearest US men's half-size (e.g. "9.5")
-getSizeRange(lengthIn)      // → string[], sizes within ±0.5" tolerance (e.g. ["8.5", "9", "9.5"])
-sizeToLength(size)          // → float, inverse formula
+getBestSize(lengthIn)    // nearest US men's half-size string
+getSizeRange(lengthIn)   // plausible sizes within ±0.5" tolerance
 ```
-
-Formula (men's / unisex only): `size = 3 × lengthIn − 22`
-
-The women's formula (`3 × lengthIn − 20.5`) exists only in the backend fit algorithm (`backend/services/fit_algorithm.py`).
 
 ### `frontend/constants/attributes.js`
 
-Defines the `ATTRIBUTE_FILTERS` array used by the filter drawer in `RecommendationsScreen`. Each entry has `key`, `label`.
+`ATTRIBUTE_FILTERS` — waterproof, vegan, slip resistant, safety toe, wide available.
 
 ---
 
 ## 7. Storage Strategy
 
-| Data | Storage | Key / Source |
+| Data | Storage | Key / source |
 |---|---|---|
 | Auth token | `expo-secure-store` | `authToken` |
-| Latest measurements | API (not persisted locally) | `GET /api/measurements/latest/` on every screen focus |
-| Saved shoes (wishlist) | `AsyncStorage` (OrsBranch) | `savedShoes` |
+| Wishlist | `AsyncStorage` | `savedShoes` |
+| Owned shoes | `AsyncStorage` | `ownedShoes` |
+| Latest measurements | API (not cached locally) | `GET /api/measurements/latest/` (Dashboard) |
 
-`expo-secure-store` is hardware-backed on Android (uses the Android Keystore) and uses iOS Keychain on iOS. Use it for any sensitive value.
+Measurements from a fresh scan are passed via `route.params` to `MeasurementsScreen`. They are not written to AsyncStorage.
 
-`AsyncStorage` is plaintext key-value storage. Suitable for non-sensitive data like shoe lists.
-
-**Note:** Measurements are fetched from the API each time — they are not cached in AsyncStorage. `ClosetScreen` calls `GET /api/measurements/latest/` via `useFocusEffect`, and `MeasurementsScreen` receives measurements via `route.params` from `CameraScreen`.
+**Note:** Wishlist/closet are local-only today — not synced to the backend `UserCollection` model.
 
 ---
 
 ## 8. Styling
 
-Styles are defined inline with `StyleSheet.create` at the bottom of each screen file. There is no global theme file yet.
+`StyleSheet.create` at the bottom of each screen. No global theme file.
 
-Common colors in use:
-- Background: `#FFFBF5` (warm off-white)
-- Primary accent: `#C28A5B` (warm brown)
-- Text: `#1A1A1A` (near-black)
-- Muted text: `#888` (gray)
+Common palette:
 
-**`frontend/styles/emptyState.js`** exports shared styles for empty-state UI (icon, title, subtitle). Use this whenever adding a new empty state instead of defining your own.
+| Role | Hex |
+|---|---|
+| Page background | `#F5EFE6`, `#FCFAF7`, `#FAF9F6` |
+| Card surface | `#FFFBF5` |
+| Card border | `#E2D4C0` |
+| Primary accent | `#C28A5B` |
+| Primary text | `#2F2A25` |
+| Muted text | `#6B5F52` |
 
-Font: **Outfit** (loaded via `expo-font` in `App.js`). Weights: Regular (400), Medium (500), SemiBold (600), Bold (700).
+Font: **Outfit** (`Outfit_400Regular`, `Outfit_600SemiBold`) loaded in `App.js`. Headers and Profile use `fontFamily`; other screens use system font + `fontWeight`.
+
+`frontend/styles/emptyState.js` exports shared empty-state styles; most screens duplicate the same values inline today.
 
 ---
 
@@ -330,105 +284,86 @@ Font: **Outfit** (loaded via `expo-font` in `App.js`). Weights: Regular (400), M
 
 ### Authenticated API call
 
-Every request to a protected endpoint follows this pattern (CameraScreen is the reference):
-
 ```js
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../config/api';
 
 const token = await SecureStore.getItemAsync('authToken');
 const response = await fetch(`${API_BASE_URL}/api/some-endpoint/`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Token ${token}`,
-    'Content-Type': 'application/json',
-  },
+  headers: { Authorization: `Token ${token}` },
 });
-const data = await response.json();
 ```
 
-Note: the token format is `Token <key>` (DRF format), not `Bearer`.
+Token format is `Token <key>` (DRF), not `Bearer`.
 
 ### Fetch on screen focus
 
-Use `useFocusEffect` (from `@react-navigation/native`) instead of `useEffect` when data should refresh every time the user navigates back to a screen:
-
 ```js
-import { useFocusEffect } from '@react-navigation/native';
-
 useFocusEffect(
-  React.useCallback(() => {
-    fetchData();
+  useCallback(() => {
+    let cancelled = false;
+    (async () => { /* fetch; if (cancelled) return; */ })();
+    return () => { cancelled = true; };
   }, [])
 );
 ```
 
-### Platform-specific sensor code
+### Cross-tab navigation
 
 ```js
-import { Platform } from 'react-native';
-
-if (Platform.OS === 'android') {
-  // Android-only: LightSensor
-}
+navigation.getParent()?.navigate('Recommendations', { screen: 'RecommendationsHome' });
 ```
 
 ---
 
 ## 10. Native Modules & Build Requirements
 
-This app uses native modules that **do not work in Expo Go**. A custom dev client (EAS build) is required:
+Native modules **do not work in Expo Go**. Use an EAS development build:
 
-| Module | Purpose | Requires dev client |
-|---|---|---|
-| `expo-camera` | Camera feed + photo capture | Yes |
-| `expo-sensors` | Accelerometer + light sensor | Yes |
-| `@react-native-google-signin/google-signin` | Native Google Sign-In | Yes |
+| Module | Purpose |
+|---|---|
+| `expo-camera` | Paper photo capture |
+| `expo-sensors` | Accelerometer + Android light sensor |
+| `expo-image-picker` | Gallery pick on Foot Capture / Camera |
+| `@react-native-google-signin/google-signin` | Google Sign-In |
+| ARCore (via `plugins/withARCore.js`) | AR foot measurement on Android |
 
-See [`SETUP.md`](./SETUP.md#6-android-dev-client-build-one-time) for the one-time build process.
+Rebuild the dev client when native dependencies or `app.json` plugins change. JS/UI changes hot-reload via Metro.
 
-You only need to rebuild the dev client when:
-- A new native dependency is added
-- `app.json` plugins are changed
-- Native config (android package name, permissions) changes
-
-For all other changes (UI, logic, styles), Metro hot-reload handles it with no rebuild.
+See [`SETUP.md`](./SETUP.md#6-android-dev-client-build-one-time).
 
 ---
 
 ## 11. NPM Scripts
 
-Run from the `frontend/` directory:
+Run from `frontend/`:
 
 | Script | Command | Use |
 |---|---|---|
-| `npm start` | `expo start --tunnel` | Physical device or different-network testing |
+| `npm start` | `expo start --tunnel` | Tunnel mode (physical devices) |
 | `npm run android` | `expo start --lan` | Android emulator on same machine |
 | `npm run ios` | `expo start --ios` | iOS simulator (Mac only) |
-| `npm run web` | `expo start --web` | Web preview (limited — no native modules) |
+| `npm run web` | `expo start --web` | Web preview (no native modules) |
+
+Daily dev with the dev client: `npx expo start --dev-client`.
 
 ---
 
 ## 12. Package Dependencies
 
-Key dependencies and why they're there:
-
-| Package | Version | Purpose |
-|---|---|---|
-| `react` | 19.1.0 | Required by Expo SDK 54 |
-| `react-native` | 0.81.5 | Mobile framework |
-| `expo` | ~54.0.0 | Expo SDK |
-| `@react-navigation/native` | — | Navigation core |
-| `@react-navigation/native-stack` | — | Stack navigator |
-| `@react-navigation/bottom-tabs` | — | Tab bar |
-| `expo-camera` | — | Camera feed + capture |
-| `expo-sensors` | — | Accelerometer + light sensor |
-| `expo-secure-store` | — | Hardware-backed token storage |
-| `@react-native-async-storage/async-storage` | — | Plaintext key-value storage |
-| `@react-native-google-signin/google-signin` | — | Native Google Sign-In |
-| `expo-font` | — | Load Outfit font |
-| `@expo/vector-icons` | — | Ionicons |
-| `expo-linear-gradient` | — | Gradient backgrounds |
-| `react-native-safe-area-context` | — | Safe area insets |
-| `react-native-svg` | — | SVG rendering |
-| `expo-image-picker` | — | (installed; not yet used) |
+| Package | Purpose |
+|---|---|
+| `expo` ~54 | Expo SDK |
+| `react` 19.1.0 | Required by SDK 54 |
+| `react-native` 0.81.5 | Mobile framework |
+| `@react-navigation/*` | Stack + bottom tabs |
+| `expo-camera` | Camera capture |
+| `expo-sensors` | Accelerometer, light sensor |
+| `expo-secure-store` | Auth token |
+| `@react-native-async-storage/async-storage` | Wishlist / closet |
+| `@react-native-google-signin/google-signin` | Google Sign-In |
+| `@expo-google-fonts/outfit` | Outfit font |
+| `expo-linear-gradient` | Profile hero gradient |
+| `expo-image-picker` | Gallery selection |
+| `expo-dev-client` | Custom development build |
+| `@expo/vector-icons` | Ionicons (and Feather/FontAwesome5 on Welcome) |

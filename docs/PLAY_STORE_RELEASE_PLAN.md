@@ -52,15 +52,13 @@ For production:
 - Add `SECURE_SSL_REDIRECT=True`, `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`, `SECURE_HSTS_SECONDS` (start with a small value, raise after verification), `SECURE_PROXY_SSL_HEADER` if behind a TLS-terminating proxy.
 - Install and configure structured logging.
 
-### 2.3 Remove debug surface from ProfileScreen (blocker)
+### 2.3 Fit feedback is local-only (blocker for claims, not navigation)
 
-[frontend/screens/ProfileScreen.js:137-148](../frontend/screens/ProfileScreen.js#L137) renders a visible "Backend Smoke Test" card that prints `API_BASE_URL`, status, and shoe previews. This is production-visible today. Gate behind `__DEV__` or remove for production builds.
+[frontend/screens/feedback.js](../frontend/screens/feedback.js) captures length/width slider input and shows a thank-you toast, but does **not** POST to the backend. Safe for v1 if marketing copy does not claim feedback is saved or used for personalization.
 
-### 2.4 OwnedShoesScreen is a stub (blocker)
+### 2.4 Wishlist / closet not server-synced (documentation)
 
-[frontend/screens/OwnedShoesScreen.js](../frontend/screens/OwnedShoesScreen.js) renders an empty state with no data binding. Either implement real functionality or remove the entry point from navigation for v1. Reviewers reject apps with non-functional features reachable from the UI.
-
-(Note: `SavedShoesScreen` is real and works — the original plan flagged it incorrectly.)
+[frontend/screens/Wishlist.js](../frontend/screens/Wishlist.js) and [frontend/screens/Closet.js](../frontend/screens/Closet.js) are fully functional in-app via AsyncStorage. Data is **not** backed by `UserCollection` on the server — account deletion still removes server-side user data, but wishlist/closet will not restore on a new device. State this accurately in the privacy policy if needed.
 
 ### 2.5 Account deletion verification
 
@@ -226,7 +224,7 @@ Do not bury the flow. Current path (Profile → Delete account) is fine in princ
 The product measures feet, which invites medical-adjacent language. Avoid any claim that implies medical grade, diagnostic use, or precision beyond what the Roboflow model delivers. "Fit guidance" is safe; "accurate measurement" is borderline; "medical-grade" is a rejection.
 
 ### 7.6 Broken or placeholder features in screenshots
-Do not screenshot OwnedShoesScreen until it ships. Every flow visible in the listing must be functional in the submitted build.
+Every flow visible in store screenshots must work in the submitted build (Dashboard, Recommendations, Wishlist, My Closet, foot scan, Profile).
 
 ### 7.7 Google Sign-In on the signed build
 Google Sign-In fails silently if the SHA-1 registered in Google Cloud does not match the keystore that signed the installed build. After enrolling in Play App Signing (§4.2), register the Play-issued signing key's SHA-1 — otherwise reviewers will see a login failure.
@@ -257,8 +255,8 @@ A reviewer-style pass before the first upload. Each must be true.
 - [ ] `DJANGO_ALLOWED_HOSTS` contains only the production hostname
 - [ ] `EXPO_PUBLIC_API_URL` in the EAS production profile points at the production backend
 - [ ] AndroidManifest contains no unused sensitive permissions (verified via `aapt2 dump permissions`)
-- [ ] ProfileScreen smoke-test card removed or gated behind `__DEV__`
-- [ ] OwnedShoesScreen either implemented or removed from navigation
+- [ ] Fit feedback copy does not over-promise server-side learning until API is wired
+- [ ] Privacy policy mentions local-only wishlist/closet if applicable
 - [ ] Account deletion tested end-to-end; all user-linked rows removed
 - [ ] Crash reporting live in both backend and app
 - [ ] Privacy policy URL live and accurate
@@ -294,5 +292,5 @@ Before starting on §2, decide these. Each answer changes downstream work.
 - **Photo retention in logs / crash reports** — we confirm photos are not persisted by the measurement handler, but once Sentry is wired up (§2.8), must confirm no crash payload ever contains an uploaded image. Policy: strip multipart bodies from all error capture.
 - **Domain** — is one registered? We need it for privacy policy, account-deletion URL, and API hostname. Subdomains are fine (`api.`, `www.`).
 - **Marketing site vs single privacy page** — minimum viable is a single static page hosting the privacy policy and deletion policy. A full marketing site is nice-to-have, not required.
-- **OwnedShoesScreen** — implement for v1 or cut from navigation? Affects the listing (screenshots, description) either way.
+- **UserCollection sync** — sync wishlist/closet to the backend for v1, or ship local-only and document it?
 - **iOS / App Store** — out of scope here, but worth deciding early whether we are shipping parallel or Android-first.

@@ -320,7 +320,9 @@ Prefer adding new business logic as service functions rather than bloating API v
 
 ## Known Stubs / Incomplete Features
 
-- `components/` directory — mostly empty; no shared UI components extracted yet
+- `Wishlist.js` and `Closet.js` — wishlist/owned lists; `SavedShoesContext.js` / `OwnedShoesContext.js` (AsyncStorage, not backend-synced)
+- `components/` — shared UI (`AppLogo`, `ShoeCardKeyFacts`, etc.) extracted from screens
+- Recommendations — wired to `GET /api/recommendations/`; fit feedback UI in `feedback.js` is local-only (no API POST yet)
 - Avatar/photo change in ProfileScreen — UI present, not implemented
 - Paper size auto-detection uses IP geolocation as fallback (may be unreliable)
 - No comprehensive automated frontend test suite — manual verification required for UI changes

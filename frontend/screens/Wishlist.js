@@ -1,3 +1,4 @@
+/** Wishlist (SavedShoesContext). Move-to-closet sets returnToWishlistOnRemove. See FRONTEND_FEATURES.md §8. */
 import React from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
 import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
 
+// Backend fit_status → badge color (same map as RecommendationsScreen).
 const FIT_STATUS_COLOR = {
   PERFECT: '#2E7D32',
   GOOD: '#558B2F',

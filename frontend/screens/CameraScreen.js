@@ -1,3 +1,8 @@
+/**
+ * Paper foot capture: live camera with accelerometer tilt gating and Android light hints.
+ * Navigates to PhotoPreviewScreen for upload to POST /api/foot/measure/.
+ * See FRONTEND_FEATURES.md §3.2 and §5.1.
+ */
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,

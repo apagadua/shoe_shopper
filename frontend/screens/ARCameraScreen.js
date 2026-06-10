@@ -1,3 +1,8 @@
+/**
+ * AR foot capture: ARCore preview, accelerometer tilt + floor-plane detection,
+ * snapshot upload with ar_snapshot JSON to POST /api/foot/measure/.
+ * See FRONTEND_FEATURES.md §3.3 and §5.2.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,

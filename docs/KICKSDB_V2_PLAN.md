@@ -518,7 +518,7 @@ Grepped `shoe_image_url`, `product_url`, `price_usd`, `colorway`, `kicks_id` acr
 **Frontend** — only `RecommendationsScreen.js` references these fields (lines 299, 300, 314, 315, 333, 334). No other screen reads them.
 
 - **`SavedShoesContext.js`** — stores the entire shoe object verbatim; agnostic to field shape. No changes needed.
-- **`SavedShoesScreen.js`** — reads `shoe.name`, `shoe.typicalSize`, `shoe.lengthCm`, `shoe.widthCm`, `shoe.functionPath`, `shoe.attributes`. These field names do **not** match what `RecommendationsScreen` actually saves (it saves the recommendation item, which has `model`, `brand`, `fit_*`, etc.). **This screen is already broken** — it was built against mock data. Pre-existing bug, not introduced by this change, not our problem to fix here. The context also exports `savedMap` but `SavedShoesScreen` destructures `savedShoes` — that's a second pre-existing bug. Flag and move on.
+- **`Wishlist.js`** (route `SavedShoes`) — reads the same recommendation item shape saved by `RecommendationsScreen` (`brand`, `model`, `fit_*`, `price_usd`, etc.). Uses `savedMap` from `SavedShoesContext`. No changes needed for field renames in this plan.
 
 **Backend** — references are in:
 - `backend/models/__init__.py` (field definitions — kept, no longer written by new sync)
@@ -531,7 +531,7 @@ Grepped `shoe_image_url`, `product_url`, `price_usd`, `colorway`, `kicks_id` acr
 
 ### `ShoeSerializer` decision
 
-`ShoeSerializer` (used only by `GET /api/shoes/` → a debug/utility endpoint called from `ProfileScreen` smoke test) is **left as-is**. It continues to return `colorway`, `sku`, `price_usd`, `shoe_image_url`, `product_url` from the legacy `Shoe` fields. After the new sync runs, these will become stale on any previously-synced shoes, but the endpoint is not user-facing and the test in `ProfileScreen` only checks for a successful response, not field values.
+`ShoeSerializer` (used only by `GET /api/shoes/` → a debug/utility endpoint, not called from the current app UI) is **left as-is**. It continues to return `colorway`, `sku`, `price_usd`, `shoe_image_url`, `product_url` from the legacy `Shoe` fields. After the new sync runs, these may become stale on previously-synced shoes, but the endpoint is not user-facing in the mobile app today.
 
 Only `RecommendationSerializer` is updated to use the new `colorway_options` shape.
 
@@ -544,4 +544,4 @@ Only `RecommendationSerializer` is updated to use the new `colorway_options` sha
 - **Images hosted on GOAT CDN** — will 404 if GOAT removes the product. Re-hosting to Supabase Storage is a future hardening step.
 - **No delta sync** — full re-query every run. Request budget per sync ≈ (# shoes × (1 + avg colorways)). At 50 shoes × 15 colorways = ~800 requests. Weekly = ~3,200/mo. Starter tier (50k/mo) has ample headroom.
 - **GOAT listing only** — no StockX or other retailer fallback. Buy links are always GOAT.
-- **SavedShoesScreen pre-existing bug** — unrelated to this change, but flagged: it reads field names (`shoe.name`, `shoe.typicalSize`) that don't match what `RecommendationsScreen` saves, and destructures `savedShoes` from a context that exports `savedMap`. Fixing this is out of scope for V2.
+- **Wishlist field shape** — `Wishlist.js` already uses the recommendation API item shape; no SavedShoesScreen stub remains.

@@ -1,3 +1,7 @@
+/**
+ * Scored shoe list from GET /api/recommendations/ (backend fit algorithm).
+ * Client-side filter drawer; fit_status color badges. See FRONTEND_FEATURES.md §4, §6, §7.
+ */
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
@@ -59,6 +63,7 @@ function getCategoriesAndSubcategories(path, selectedCategory) {
   return { categories, subcategories };
 }
 
+// Maps backend fit_status to badge colors — see FRONTEND_FEATURES.md §6.1.
 const FIT_STATUS_COLOR = {
   PERFECT:    '#2E7D32',
   GOOD:       '#558B2F',
