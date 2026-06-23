@@ -1,428 +1,275 @@
-# Backend — Shoe Shopper
+# Shoe Shopper — Backend Reference
 
-Deep dive into the Django REST API: project layout, models, endpoints, serializers, and services.
-
----
-
-## Table of Contents
-
-1. [Project Layout](#1-project-layout)
-2. [Django Configuration](#2-django-configuration)
-3. [Database Models](#3-database-models)
-4. [API Endpoints](#4-api-endpoints)
-5. [Serializers](#5-serializers)
-6. [Services](#6-services)
-7. [Environment Variables](#7-environment-variables)
-8. [Running Locally](#8-running-locally)
-9. [Management Commands](#9-management-commands)
-10. [Python Dependencies](#10-python-dependencies)
+> **Audience:** engineers working on the Django backend.
+> **Scope:** configuration, request lifecycle, app structure, the view/service
+> layers, management commands, external integrations, and security posture.
+> The measurement → recommendation walkthrough lives in
+> [`END_TO_END_FLOW.md`](./END_TO_END_FLOW.md) and is not repeated here.
+>
+> Written by reading the source. Where it contradicts older notes, the **code**
+> wins (see Appendix B).
 
 ---
 
-## 1. Project Layout
+## 1. Stack & layout
+
+- **Django + DRF**, token auth, `backend` as the single installed app.
+- **CV** via Roboflow (HTTP); **color extraction** via Pillow.
+- **Two data-access paths** (see §7): the Django ORM (Postgres/SQLite) for the
+  main app, and a **separate Supabase client** used only by the
+  tolerance/feedback services. Both may point at the same database.
 
 ```
-shoe_shopper_dev/          ← repo root (also Django project root)
-├── manage.py
-├── .env                   ← secrets — never commit
-├── shoeshopper/           ← Django project config
-│   ├── settings.py        ← all settings, reads from .env
-│   ├── urls.py            ← mounts /api/ → backend/api/urls.py
-│   ├── asgi.py
-│   └── wsgi.py
-└── backend/               ← the single Django app
-    ├── api/
-    │   ├── views.py       ← all 7 API view classes
-    │   ├── urls.py        ← URL patterns for /api/
-    │   └── serializers.py ← 3 DRF serializer classes
-    ├── models/
-    │   └── __init__.py    ← all 8 models defined here (do not split)
-    ├── services/
-    │   └── fit_algorithm.py  ← shoe scoring engine (see COMPUTER_VISION.md)
-    ├── migrations/        ← auto-generated, always commit
-    ├── management/
-    │   └── commands/
-    │       └── seed_demo_data.py
-    ├── utils/             ← placeholder (empty)
-    ├── roboflow/          ← placeholder (empty; Roboflow logic is in views.py)
-    ├── requirements.txt
-    ├── admin.py
-    └── apps.py
+shoeshopper/          Django project config (settings, urls, wsgi/asgi)
+backend/
+  api/                views.py, urls.py, serializers.py   (HTTP layer)
+  models/__init__.py  all ORM models (single file by convention)
+  services/           fit, AR, tolerance, feedback, color, supabase client
+  management/commands/ catalog sync, seed, audit commands
+  migrations/         0001–0013
+  tests/              ar_measurement, color_extraction, tolerance_learning
 ```
 
 ---
 
-## 2. Django Configuration
+## 2. Configuration (`shoeshopper/settings.py`)
 
-**File:** `shoeshopper/settings.py`
+### 2.1 DRF defaults — apply to every view unless overridden
 
-Key settings and where they come from:
-
-| Setting | Source | Notes |
+| Setting | Value | Effect |
 |---|---|---|
-| `SECRET_KEY` | `DJANGO_SECRET_KEY` env var | Required in production |
-| `DEBUG` | `DJANGO_DEBUG` env var | Defaults to `"1"` — **set to `"0"` in production** |
-| `ALLOWED_HOSTS` | `DJANGO_ALLOWED_HOSTS` env var | CSV string; defaults to `127.0.0.1,localhost` |
-| `DATABASES` | `DATABASE_URL` env var | Blank → SQLite; set for PostgreSQL |
-| `REST_FRAMEWORK` auth | — | `TokenAuthentication` + `IsAuthenticated` by default |
-
-**URL routing** (`shoeshopper/urls.py`):
-
-```python
-/api/   →   backend.api.urls
-/admin/ →   Django admin
-```
-
----
-
-## 3. Database Models
-
-All models live in `backend/models/__init__.py`. Do not create separate model files — keep everything in this one file.
-
-### Profile
-
-Extends Django's built-in `User` with a 1-to-1 relationship.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | OneToOneField(User) | Primary relation |
-| `display_name` | TextField | nullable |
-| `avatar_url` | TextField | nullable |
-| `created_at` / `updated_at` | DateTimeField | auto-managed |
-
-### GuestSession
-
-Tracks anonymous usage sessions (not currently wired in the frontend).
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | UUIDField | primary key |
-| `created_at` / `last_accessed` / `expires_at` | DateTimeField | — |
-
-Index on `expires_at` for expiry lookups.
-
-### Measurement
-
-Stores the result of a foot photo analysis.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK(User, null=True) | Mutually exclusive with guest_session |
-| `guest_session` | FK(GuestSession, null=True) | — |
-| `status` | CharField choices | `uploaded` / `processing` / `complete` / `error` |
-| `image_url` | TextField | blank (image not currently stored) |
-| `image_width_px` / `image_height_px` | IntegerField | nullable; original image dimensions |
-| `length_in` | DecimalField | nullable |
-| `width_in` | DecimalField | nullable |
-| `toebox_length_in` | DecimalField | nullable |
-| `toebox_width_in` | DecimalField | nullable |
-| `area_sq_in` | DecimalField | nullable |
-| `perimeter_in` | DecimalField | nullable (not currently populated) |
-| `paper_type` | CharField choices | `letter` / `a4` |
-| `confidence` | DecimalField | Roboflow detection confidence |
-| `algorithm_version` | TextField | e.g. `"1.5"` |
-| `error_message` | TextField | populated if status=error |
-| `created_at` / `updated_at` | DateTimeField | auto-managed |
-
-Constraints: dimensions must be positive. DB-level CHECK enforced that exactly one of `user` / `guest_session` is set.
-
-Indexes: `(user, created_at)`, `(guest_session, created_at)`, `status`.
-
-### Shoe
-
-The shoe catalog. Each row is a shoe model (not a specific size — sizes are in `ShoeSize`).
-
-| Field | Type | Notes |
-|---|---|---|
-| `brand` | TextField | e.g. `"Nike"` |
-| `model` | TextField | e.g. `"Air Zoom Pegasus 40"` |
-| `gender` | CharField choices | `women` / `men` / `unisex` / `kids` / `unknown` |
-| `function_tags` | ArrayField(TextField) | e.g. `["Athletic", "Running", "Road"]` — see COMPUTER_VISION.md for tag routes |
-| `style_tags` | ArrayField(TextField) | e.g. `["sneaker"]` |
-| `attributes_json` | JSONField | e.g. `{"waterproof": true, "vegan": false}` |
-| `insole_length_in` | DecimalField | inches; used by fit algorithm |
-| `insole_width_in` | DecimalField | inches; used by fit algorithm |
-| `insole_area_sq_in` | DecimalField | sq inches; nullable |
-| `insole_perimeter_in` | DecimalField | inches; nullable |
-| `insole_toebox_length_in` | DecimalField | inches; nullable |
-| `insole_toebox_width_in` | DecimalField | inches; nullable |
-| `toe_shape` | CharField | `round` / `almond` / `chisel` / `pointed` |
-| `cap_type` | CharField | `none` / `steel` / `composite` |
-| `shoe_image_url` | TextField | nullable |
-| `product_url` | TextField | nullable |
-| `price_usd` | DecimalField | nullable |
-| `created_at` / `updated_at` | DateTimeField | auto-managed |
-
-Indexes: `(brand, model)`, GIN indexes on `function_tags` and `style_tags` for array containment queries.
-
-### ShoeSize
-
-Available sizes for a given shoe.
-
-| Field | Type | Notes |
-|---|---|---|
-| `shoe` | FK(Shoe) | — |
-| `us_size` | DecimalField | e.g. `10.0`, `10.5` |
-| `width` | CharField choices | `narrow` / `regular` / `wide` / `extra_wide` |
-| `is_available` | BooleanField | `True` = in stock |
-| `created_at` | DateTimeField | — |
-
-Unique constraint: `(shoe, us_size, width)`. Index: `(shoe, us_size, width, is_available)`.
-
-### UserCollection
-
-Tracks shoes a user has saved (wishlist) or owns. The model exists but **no frontend screens are wired to it yet** — `SavedShoesScreen` and `OwnedShoesScreen` are stubs.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK(User) | — |
-| `shoe` | FK(Shoe) | — |
-| `type` | CharField choices | `wishlist` / `owned` |
-| `size` | TextField | nullable; user-recorded size, e.g. `"10.5W"` |
-| `color` | TextField | nullable |
-| `notes` | TextField | nullable |
-| `created_at` / `updated_at` | DateTimeField | auto-managed |
-
-Unique constraint: `(user, shoe, type)`.
-
-### Recommendation
-
-Persists a recommendation run so results can be replayed or audited.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK(User) | — |
-| `shoe` | FK(Shoe) | — |
-| `measurement` | FK(Measurement, null=True) | — |
-| `run_id` | UUIDField | Groups a single run together |
-| `rank` | IntegerField | 1 = best match; DB check constraint enforces > 0 |
-| `score` | DecimalField | nullable; algorithm produces 0–100 |
-| `algorithm_version` | CharField | — |
-| `created_at` | DateTimeField | — |
-
-Unique constraint: `(user, run_id, rank)`.
-
-### TrainingImage
-
-Stores foot photo metadata for future ML training.
-
-| Field | Type | Notes |
-|---|---|---|
-| `user` | FK(User, null=True) | nullable for anonymized data |
-| `image_url` | TextField | — |
-| `label_json` | JSONField | Roboflow-format annotation |
-| `in_dataset` | BooleanField | Whether this image is in a training set |
-| `created_at` | DateTimeField | — |
-
----
-
-## 4. API Endpoints
-
-All endpoints are under `/api/`. Full URL routing lives in `backend/api/urls.py`.
-
-### GET `/api/health/`
-
-- **Auth:** None
-- **Response:** `{ "status": "ok", "shoe_count": <int> }`
-- **Purpose:** Liveness check + quick inventory count.
-
----
-
-### GET `/api/shoes/`
-
-- **Auth:** None
-- **Response:** Array of shoe objects with nested sizes (see `ShoeSerializer`)
-- **Ordering:** `brand`, `model`
-
----
-
-### POST `/api/auth/google/`
-
-- **Auth:** None
-- **Request body:** `{ "id_token": "<Google ID token from mobile app>" }`
-- **Flow:**
-  1. Verify the ID token against Google's public keys using `google.oauth2.id_token`
-  2. Extract `email`, `given_name`, `family_name`, `picture`
-  3. `get_or_create` Django User by email
-  4. `get_or_create` Profile
-  5. `get_or_create` DRF Token
-- **Response:** `{ "key": "<DRF auth token>" }`
-
----
-
-### DELETE `/api/auth/delete/`
-
-- **Auth:** Token required
-- **Action:** `request.user.delete()` — cascading hard delete of all user data
-- **Response:** 204 No Content
-- **Note:** This is permanent and instant. See `SECURITY_REVIEW.md` finding L4 for the planned soft-delete improvement.
-
----
-
-### POST `/api/foot/measure/`
-
-- **Auth:** Token required
-- **Request:** `multipart/form-data` with:
-  - `image` — JPEG, PNG, or WebP file (max 10 MB)
-  - `paper_size` — `"letter"` or `"a4"` (optional, defaults to `"letter"`)
-- **Process:** Sends image to Roboflow, parses predictions, computes foot dimensions. See [`COMPUTER_VISION.md`](./COMPUTER_VISION.md) for the full pipeline.
-- **Response:**
-  ```json
-  {
-    "id": 42,
-    "length_in": 10.23,
-    "width_in": 3.71,
-    "toebox_length_in": 2.10,
-    "toebox_width_in": 3.45,
-    "area_sq_in": 28.4,
-    "ppi": 118.5,
-    "paper_size": "letter"
-  }
-  ```
-- **Common 400 causes:** Roboflow did not detect the paper class (poor lighting, tilt, paper out of frame).
-
----
-
-### GET `/api/measurements/latest/`
-
-- **Auth:** Token required
-- **Response:** Most recent `COMPLETE` measurement for the authenticated user, or 404.
-- **Fields:** `id`, `length_in`, `width_in`, `area_sq_in`, `paper_size`, `created_at`
-
----
-
-### GET `/api/recommendations/`
-
-- **Auth:** Token required
-- **Query params:** `sub_type` (optional) — activity sub-type modifier for the scoring algorithm (e.g. `"marathon"`, `"clay_court"`)
-- **Process:**
-  1. Fetch user's latest `COMPLETE` measurement
-  2. Fetch all `Shoe` objects with `prefetch_related('sizes')`
-  3. For each shoe with `insole_length` + `insole_width`: run `score_shoe(foot, shoe_data, sub_type)`
-  4. For each shoe without insole data: mark as `UNSCORED`, still estimate size
-  5. Sort: scored (descending by score) → UNSCORED → REJECTED
-- **Response:**
-  ```json
-  {
-    "measurement_id": 42,
-    "algorithm_version": "1.5",
-    "has_toebox_data": true,
-    "results": [ { ...RecommendationSerializer fields... } ]
-  }
-  ```
-
-See [`COMPUTER_VISION.md`](./COMPUTER_VISION.md) for scoring details and [`BACKEND.md#5-serializers`](#5-serializers) for the response shape.
-
----
-
-## 5. Serializers
-
-**File:** `backend/api/serializers.py`
-
-### ShoeSizeSerializer
-
-Fields: `id`, `us_size`, `width`, `is_available`
-
-### ShoeSerializer
-
-Fields: `id`, `brand`, `model`, `gender`, `price_usd`, `shoe_image_url`, `product_url`, `sizes` (nested `ShoeSizeSerializer`, many=True, read_only)
-
-### RecommendationSerializer
-
-Input is a dict (not a model instance) assembled by `RecommendationsView`. Output fields:
-
-| Field | Source |
+| Authentication | `TokenAuthentication` only | No session auth on the API; header `Authorization: Token <key>` |
+| Permission | `IsAuthenticated` | **Auth-by-default**; public views must set `AllowAny` explicitly |
+| Throttle | `UserRateThrottle`, `20/min` | Keyed by user id when authenticated, by IP when anonymous |
+
+### 2.2 Database selection (priority order)
+
+1. `DATABASE_URL` set → PostgreSQL (parsed; `sslmode` from `DB_SSLMODE`,
+   default `require`). The Supabase prod path.
+2. else `DB_HOST` set → PostgreSQL from discrete `DB_*` settings.
+3. else → SQLite (`db.sqlite3` in the project root) — the dev fallback.
+
+> A `DATABASE_URL` exported in the shell overrides the project `.env` — clear it
+> to return to SQLite.
+
+### 2.3 Other notable settings
+
+- `DEBUG` (from `DJANGO_DEBUG`) defaults to **True**; set it off in production.
+- `ENABLE_DEV_MOCK_MEASUREMENT` gates `/api/dev/mock-measurement/` when debug is
+  off.
+- `ROBOFLOW_MODEL_ID` must be the **direct segmentation model**
+  (e.g. `shoe-shopper/23`). The fallback (`{workspace}/{project}`) points at the
+  *workflow*, which filters out `Wall Base` and breaks the AR wall path.
+- `LOGGING`: the `backend` logger → console at `INFO`, no propagation.
+- **No CORS middleware is installed.** Clients are native apps, so CORS isn't
+  needed; a browser client would require adding `django-cors-headers`.
+- CSRF middleware is present but irrelevant to token auth (token auth is
+  CSRF-exempt).
+
+### 2.4 Environment variables (names only)
+
+Read from the environment at startup. **Names and purposes only — never commit
+the values.** The canonical list with examples lives in the project `.env` /
+`CLAUDE.md`.
+
+| Variable | Purpose |
 |---|---|
-| `id`, `brand`, `model`, `gender`, `price_usd`, `shoe_image_url`, `product_url` | From `shoe` (Shoe model) |
-| `sizes` | Nested ShoeSizeSerializer |
-| `function_tags`, `style_tags`, `attributes_json` | From `shoe` |
-| `fit_score` | From `fit["total_score"]` |
-| `fit_status` | From `fit["status"]` — `PERFECT / GOOD / ACCEPTABLE / MARGINAL / POOR / REJECTED / UNSCORED` |
-| `fit_status_label` | Human-readable label |
-| `fit_profile` | Tolerance profile used (e.g. `ROAD_RUNNING`) |
-| `fit_flags` | Array of descriptive flags (e.g. `["SPORT_TIGHT_FIT"]`) |
-| `fit_dimensions` | Per-dimension breakdown: clearance, zone, points |
-| `reject_reason` | Populated when `fit_status == REJECTED` |
-| `recommended_size` | Closest available size to `estimated_us_size` |
-| `estimated_us_size` | Brannock formula result |
+| `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` | Core Django |
+| `DATABASE_URL`, `DB_SSLMODE` (or `DB_HOST`/`DB_NAME`/…) | DB connection |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID` | Verify Google ID tokens |
+| `ROBOFLOW_API_KEY`, `ROBOFLOW_WORKSPACE`, `ROBOFLOW_PROJECT`, `ROBOFLOW_MODEL_ID` | CV inference |
+| `ENABLE_DEV_MOCK_MEASUREMENT` | Enable the dev mock route off-debug |
+| `SUPABASE_URL`, `SUPABASE_KEY` | Supabase client for feedback/tolerance (separate from the ORM) |
 
 ---
 
-## 6. Services
+## 3. Request lifecycle
 
-### `backend/services/fit_algorithm.py`
+```
+HTTPS request
+  → Django middleware (security, sessions, common, CSRF, auth, messages, clickjacking)
+  → shoeshopper/urls.py  →  path("api/", include("backend.api.urls"))
+  → DRF APIView: TokenAuthentication → IsAuthenticated (unless AllowAny) → throttle 20/min
+  → view method → service functions → ORM (and/or Roboflow / Supabase)
+  → JSON Response
+```
 
-The shoe scoring engine. See [`COMPUTER_VISION.md`](./COMPUTER_VISION.md) for a full walkthrough. Briefly:
-
-- `score_shoe(foot_data, shoe_data, sub_type=None)` → returns a fit dict
-- `estimate_us_size(length_in, gender)` → returns a float (Brannock formula)
-- Shoes are scored 0–100 with possible hard-reject outcomes
+All API views are class-based `APIView` subclasses in `backend/api/views.py`.
 
 ---
 
-## 7. Environment Variables
+## 4. The HTTP layer (`backend/api/`)
 
-Stored in `.env` at the repo root. Never commit this file.
+### 4.1 Views
 
-| Variable | Required | Default | Description |
+| View | Route | Permission | Notes |
 |---|---|---|---|
-| `DJANGO_SECRET_KEY` | Yes (prod) | — | Django secret key |
-| `DJANGO_DEBUG` | No | `"1"` | `"1"` = debug on, `"0"` = off. **Must be `"0"` in production.** |
-| `DJANGO_ALLOWED_HOSTS` | No | `"127.0.0.1,localhost"` | Comma-separated hostnames |
-| `GOOGLE_CLIENT_ID` | Yes | — | Google OAuth Web Client ID |
-| `ROBOFLOW_API_KEY` | Yes | — | Roboflow API key |
-| `ROBOFLOW_WORKSPACE` | Yes | `""` (empty) | Roboflow workspace slug (set to `armaanai`) |
-| `ROBOFLOW_PROJECT` | Yes | `""` (empty) | Roboflow project slug (set to `foot-measuring`) |
-| `DATABASE_URL` | No | — | PostgreSQL URL; blank = SQLite |
-| `DB_SSLMODE` | No | `require` | SSL mode for PostgreSQL |
+| `HealthView` | `GET /health/` | AllowAny | `{status, shoe_count}` |
+| `ShoeListView` | `GET /shoes/` | AllowAny | `prefetch_related("sizes")`, ordered brand/model |
+| `GoogleLoginView` | `POST /auth/google/` | AllowAny | Google token → DRF token; creates User+Profile on first login |
+| `DeleteAccountView` | `DELETE /auth/delete/` | Token | `request.user.delete()` (cascades) |
+| `ProfileView` | `GET/PATCH /profile/` | Token | Display name only; PATCH trims to 200 chars |
+| `FootMeasureView` | `POST /foot/measure/` | Token | Validates upload, branches paper vs AR, calls Roboflow + services |
+| `MeasurementUploadView` | `POST /measurements/upload/` | AllowAny | Stores image + creates `GuestSession`; **no inference** |
+| `LatestMeasurementView` | `GET /measurements/latest/` | Token | Latest `complete` measurement (404 if none) |
+| `RecommendationsView` | `GET /recommendations/` | Token | Live-scores all active shoes; reads optional `sub_type` query param |
+| `DevMockMeasurementView` | `POST /dev/mock-measurement/` | Token + gated | 404 unless `DEBUG` or `ENABLE_DEV_MOCK_MEASUREMENT` |
+| `ProxyImageView` | `GET /proxy-image/` | AllowAny | Host-restricted CDN proxy (`converse.com`, `demandware.static`) |
+
+Upload validation in `FootMeasureView.post` (before branching): ≤ 10 MB, MIME ∈
+{jpeg, png, webp}. Measurement/AR internals: `END_TO_END_FLOW.md` §5–6.
+
+### 4.2 Serializers
+
+- `ShoeSerializer` / `ShoeSizeSerializer` — catalog output for `/shoes/`.
+- `RecommendationSerializer` — a plain `Serializer` (not ModelSerializer) that
+  flattens the `{shoe, fit, colorway_options}` dict from `RecommendationsView`
+  into one card object (brand/model, fit score/status/profile, per-dimension
+  breakdown, recommended size, colorway options).
+- `MeasurementSerializer` / `MeasurementUploadSerializer` — guest upload path.
 
 ---
 
-## 8. Running Locally
+## 5. Models (`backend/models/__init__.py`)
 
-```bash
-# From repo root, with venv active
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
-```
+All models live in one file by convention; migrations are committed alongside
+changes. Compact reference (full fields in source):
 
-For Windows PowerShell with explicit environment variables (useful when switching between SQLite and Supabase):
+| Model | Role | Key constraints |
+|---|---|---|
+| `Profile` | 1:1 with `User` | — |
+| `GuestSession` | Anonymous owner of guest measurements | UUID pk, `expires_at` |
+| `Measurement` | Foot dimensions + status | Owner is user **xor** guest (`chk_measurement_owner`); positive-value checks |
+| `Shoe` | Catalog base | `is_active`; GIN indexes on tag arrays; unique `sku`, `kicks_id` |
+| `ShoeSize` | Per-size **insole** geometry (scoring inputs) | unique `(shoe, us_size, width)` |
+| `ShoeColorway` | Color variant | unique `goat_id`; dominant color + palette |
+| `ShoeColorwaySize` | Live price/availability per colorway+size | unique `(colorway, us_size)` |
+| `UserCollection` | Wishlist/owned (server side) | unique `(user, shoe, type)` |
+| `Recommendation` | Persisted reco runs | unique `(user, run_id, rank)` — **table exists but unused by the live endpoint** |
+| `TrainingImage` | ML training data | — |
+| `UserFeedback` | Fit feedback (UUID pk) | drives tolerance learning (§6) |
+| `ToleranceHistory` | Versioned learned tolerances (`tolerances` table) | one `active` row by convention (no DB constraint) |
 
-```powershell
-$env:DATABASE_URL = 'postgresql://...'
-$env:DB_SSLMODE = 'require'
-$env:DJANGO_ALLOWED_HOSTS = '127.0.0.1,localhost,10.0.2.2'
-python manage.py runserver 0.0.0.0:8000
-```
-
----
-
-## 9. Management Commands
-
-### `seed_demo_data`
-
-Populates the database with sample shoes and sizes for local testing.
-
-```bash
-python manage.py seed_demo_data
-```
+> **Schema note:** insole dimensions live on **`ShoeSize`**, not `Shoe`
+> (moved in migration 0007). They are the shoe-side inputs to the fit
+> algorithm; recommendation quality depends on them plus live
+> `ShoeColorwaySize`.
 
 ---
 
-## 10. Python Dependencies
+## 6. Services (`backend/services/`)
 
-**File:** `backend/requirements.txt`
+| Module | Purpose | Source |
+|---|---|---|
+| `fit_algorithm.py` | `score_shoe`, `estimate_us_size`, status labels, tolerance profiles, CV bias constants | pure |
+| `ar_measurement.py` | Ray-cast Roboflow points to the floor plane; pairwise + wall-seam math (NumPy) | pure |
+| `color_extraction.py` | Derive `dominant_color_hex` + palette from a colorway image (Pillow); neutral vs accent share thresholds | fetches image |
+| `tolerance_learning.py` | Severity-weighted feedback → width/length signals → shifted tolerance bands (`K=0.05`) | pure |
+| `feedback_service.py` | Fetch feedback rows newer than a timestamp | **Supabase** |
+| `tolerance_storage.py` | Load the single active tolerance set / save a new active version | **Supabase** |
+| `supabase_client.py` | `create_client(SUPABASE_URL, SUPABASE_KEY)` singleton | — |
 
-| Package | Purpose |
+> **Tolerance/feedback loop is built but not wired.** No feedback API endpoint
+> exists; the live `score_shoe` uses the **static** profiles in
+> `fit_algorithm.py`. `feedback_service`/`tolerance_storage` reach Supabase
+> **directly**, bypassing the ORM. See `END_TO_END_FLOW.md` §11.
+
+---
+
+## 7. Data access: two parallel paths
+
+The most important architectural caveat for new contributors:
+
+1. **Django ORM** → Postgres (`DATABASE_URL`) or SQLite. Used by every view,
+   model, and catalog command.
+2. **Supabase Python client** (`supabase_client.py`) → reached via
+   `SUPABASE_URL`/`SUPABASE_KEY`, used **only** by `feedback_service` and
+   `tolerance_storage` for the `user_feedback` and `tolerances` tables.
+
+In a Supabase-backed prod deployment both may point at the **same** database,
+but through different drivers and credentials — they share no connection
+pooling, query logging, or migration awareness. Keep new feedback/tolerance
+work on whichever path already owns that table.
+
+---
+
+## 8. Management commands (`backend/management/commands/`)
+
+Catalog/data pipeline (see the `/sync-shoes` skill and `END_TO_END_FLOW.md` §9):
+
+| Command | Purpose |
 |---|---|
-| `django` | Web framework |
-| `djangorestframework` | REST API |
-| `psycopg2-binary` | PostgreSQL driver |
-| `python-dotenv` | Load `.env` file |
-| `google-auth` | Verify Google ID tokens |
-| `requests` | HTTP calls to Roboflow |
-| `scikit-learn` | ML utilities (fit algorithm) |
-| `joblib` | Model serialization |
-| `nltk` | NLP utilities (installed; reserved for future use) |
+| `export_shoes_for_sync` | Emit a per-shoe work queue for the browser sync routine; excludes GOAT-managed shoes; routes scrape method (chrome vs pullmd) |
+| `apply_shoe_sync` | Apply scraped payload JSON: upsert colorways/sizes, set `Shoe.is_active` by record status (`--dry-run`, `--shoe-id`) |
+| `seed_kicks` | Refresh GOAT colorways via the `goat_id` slug (kicks.dev); roll up cheapest available price to the shoe |
+| `probe_kicks_api` | Diagnostic probe of the kicks.dev GOAT search endpoint |
+| `backfill_colorway_colors` | Populate `dominant_color_hex`/palette via `color_extraction` |
+| `show_sync_status` | Human/JSON report of sync state per shoe (`--stale-only`, `--json`); reads via the Django ORM (`Shoe.objects.prefetch_related(...)`) |
+| `dev_backfill_shoe_insoles` | **Dev-only:** placeholder insole dims so scoring runs (else everything is `UNSCORED`) |
+| `seed_demo_data` | **Dev-only:** idempotent local demo seed |
 
-Note: `DATABASE_URL` is parsed using Python's built-in `urllib.parse.urlparse` — no `dj-database-url` package is required.
+---
+
+## 9. External integrations
+
+| Service | Used by | Notes |
+|---|---|---|
+| **Roboflow** | `FootMeasureView` | `POST serverless.roboflow.com/{ROBOFLOW_MODEL_ID}`, `confidence=0.25`, 30 s timeout; returns labeled polygons |
+| **Google Identity** | `GoogleLoginView` | `verify_oauth2_token`, 120 s clock skew |
+| **Supabase** | tolerance/feedback services | direct client, separate from ORM (catalog commands like `show_sync_status` use the ORM, not this client) |
+| **kicks.dev (GOAT)** | `seed_kicks`, `probe_kicks_api` | colorway price/availability refresh |
+| **CDN proxy** | `ProxyImageView` | host-restricted to Converse/Demandware; adds browser `Referer` |
+
+---
+
+## 10. Security posture
+
+- **Auth-by-default** (`IsAuthenticated`); public routes opt out explicitly.
+- **Rate limiting**: 20 req/min per user/IP globally.
+- **Upload hardening**: size cap (10 MB), MIME allow-list, and for AR a 64 KB
+  cap on `ar_snapshot` *before* `json.loads`, plus structural validation.
+- **Proxy is not open**: `ProxyImageView` rejects URLs outside its host
+  allow-list — do not generalize it.
+- **`DEBUG` defaults on**; ensure `DJANGO_DEBUG` is off and real
+  `DJANGO_SECRET_KEY` / `DJANGO_ALLOWED_HOSTS` are set in production.
+- Account deletion is a hard cascade delete.
+
+---
+
+## 11. Tests
+
+`backend/tests/` targets the pure-function services with the most math/edge
+cases: `test_ar_measurement.py`, `test_color_extraction.py`,
+`test_tolerance_learning.py`. **Verify current status before relying on these —
+they are not run in CI.** In particular, `test_tolerance_learning.py` is **stale
+against the current `tolerance_learning.py`**: its feedback rows use
+`total_score`/`severity` keys (the service now reads `fit_score`/
+`severity_rating`) and it calls `compute_tolerances(..., count=1)` (the signature
+is now `(..., old_feedback_count, new_feedback_count)`), so it errors as written.
+The view layer and Supabase-backed services have no automated tests — verify
+those manually.
+
+---
+
+## Appendix A — Key files
+
+| Area | File |
+|---|---|
+| Settings / URLs | `shoeshopper/settings.py`, `shoeshopper/urls.py`, `backend/api/urls.py` |
+| Views / serializers | `backend/api/views.py`, `backend/api/serializers.py` |
+| Models | `backend/models/__init__.py` |
+| Services | `backend/services/*.py` |
+| Commands | `backend/management/commands/*.py` |
+
+## Appendix B — Discrepancies with older notes
+
+1. **Insole dimensions are on `ShoeSize`, not `Shoe`** (migration 0007). The
+   prior version of this doc listed them on `Shoe`.
+2. **Model/view counts grew**: 12 models and 11 views (colorway, feedback, and
+   tolerance models were added). `UserCollection` is real, not a stub.
+3. **No CORS middleware** is configured, despite `CLAUDE.md` listing CORS.
+4. **`SUPABASE_URL` / `SUPABASE_KEY`** are real backend env vars (used by the
+   Supabase client) but are absent from the `CLAUDE.md` env table.
+5. **`Recommendation` rows are never written** by the live endpoint; scoring is
+   computed per request.
+6. **The feedback/tolerance loop is not wired** to any endpoint or live scoring.

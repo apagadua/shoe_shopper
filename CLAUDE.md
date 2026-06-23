@@ -253,6 +253,34 @@ npx expo start --dev-client
 
 ---
 
+## Testing
+
+```bash
+venv\Scripts\python.exe -m pytest backend/tests                       # run suite
+venv\Scripts\python.exe -m pytest backend/tests --cov=backend         # with coverage
+```
+
+- Config: `pytest.ini` (uses `shoeshopper/test_settings.py`) + `.coveragerc`
+- Requires `pytest`, `pytest-django`, `pytest-cov` in the venv
+- Tests run on **in-memory SQLite with `--no-migrations`** — two reasons:
+  1. Migration `0009` creates the colorway tables via `SeparateDatabaseAndState`
+     with no database ops (they were created directly in Supabase), so a fresh
+     `migrate` fails at `0012` on any empty database.
+  2. `ArrayField` emits Postgres-only SQL (`%s::text[]`); `test_settings.py`
+     swaps it for `JSONField` before models load so Shoe rows can be written.
+     Don't add array-specific lookups (`__contains` etc.) to tested code paths
+     without revisiting this shim.
+- External services are always mocked: Roboflow (`backend.api.views.http_requests.post`),
+  Google token verify, Supabase (module stub in `test_supabase_services.py`).
+- AR geometry tests use a synthetic straight-down camera (see
+  `backend/tests/conftest.py: make_ar_snapshot`) where 1 sensor pixel = 1 mm
+  on the floor at the default 0.7 m height.
+- Coverage scope excludes migrations, tests, and `management/commands/`
+  (external-API sync/seed scripts). Backend coverage is ~99%.
+- No frontend test infra exists (no jest); manual verification for UI changes.
+
+---
+
 ## Branch Strategy
 
 - **`main`** — stable, use for PRs
