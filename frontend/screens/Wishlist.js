@@ -11,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
+import { animateListChange } from '../utils/listAnimations';
 import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
 
 const FIT_STATUS_COLOR = {
@@ -69,7 +71,10 @@ export default function Wishlist() {
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     style={styles.iconButton}
-                    onPress={() => toggleSaved(item)}
+                    onPress={() => {
+                      animateListChange();
+                      toggleSaved(item);
+                    }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons
@@ -81,6 +86,7 @@ export default function Wishlist() {
                   <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => {
+                      animateListChange();
                       const ownedNow = isOwned(item.id);
                       if (ownedNow) {
                         toggleOwned(item);
@@ -118,7 +124,7 @@ export default function Wishlist() {
               )}
 
               {item.shoe_image_url ? (
-                <Image source={{ uri: item.shoe_image_url }} style={styles.shoeImage} resizeMode="contain" />
+                <Image source={{ uri: resolveImageUrl(item.shoe_image_url) }} style={styles.shoeImage} resizeMode="contain" />
               ) : (
                 <View style={styles.shoePhotoPlaceholder}>
                   <Ionicons name="image-outline" size={32} color="#B0A499" />

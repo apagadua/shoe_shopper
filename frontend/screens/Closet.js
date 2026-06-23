@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
+import { animateListChange } from '../utils/listAnimations';
 import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
 
 const FIT_STATUS_COLOR = {
@@ -69,6 +71,7 @@ export default function Closet({ navigation }) {
                   <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => {
+                      animateListChange();
                       const owned = isOwned(item.id);
                       if (!owned) {
                         toggleOwned({ ...item, returnToWishlistOnRemove: false });
@@ -108,7 +111,7 @@ export default function Closet({ navigation }) {
               )}
 
               {item.shoe_image_url ? (
-                <Image source={{ uri: item.shoe_image_url }} style={styles.shoeImage} resizeMode="contain" />
+                <Image source={{ uri: resolveImageUrl(item.shoe_image_url) }} style={styles.shoeImage} resizeMode="contain" />
               ) : (
                 <View style={styles.shoePhotoPlaceholder}>
                   <Ionicons name="image-outline" size={32} color="#B0A499" />

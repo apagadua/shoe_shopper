@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { API_BASE_URL } from '../config/api';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
 import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement';
 import { getBestSize } from '../utils/shoeSize';
 import { useSavedShoes } from '../SavedShoesContext';
@@ -75,20 +76,6 @@ function firstNameFromDisplayName(displayName) {
   const t = (displayName || '').trim();
   if (!t) return '';
   return t.split(/\s+/)[0];
-}
-
-/**
- * Resolve an image URL, routing Converse / Demandware CDN URLs through the
- * backend proxy so the server can attach the required browser headers.
- * The React Native Image component (Fresco on Android) does not reliably
- * forward custom headers set on the source prop.
- */
-function resolveImageUrl(uri) {
-  if (!uri) return null;
-  if (uri.includes('converse.com') || uri.includes('demandware.static')) {
-    return `${API_BASE_URL}/api/proxy-image/?url=${encodeURIComponent(uri)}`;
-  }
-  return uri;
 }
 
 export default function Dashboard({ navigation }) {

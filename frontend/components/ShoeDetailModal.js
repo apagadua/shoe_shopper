@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { API_BASE_URL } from '../config/api';
+import { resolveImageUrl } from '../utils/resolveImageUrl';
 import ShoeCardKeyFacts from './ShoeCardKeyFacts';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -55,14 +55,6 @@ const COLOR_SWATCH_MAP = {
   charcoal: '#4A4A4A',
   teal: '#3D8E8B',
 };
-
-function resolveImageUrl(uri) {
-  if (!uri) return null;
-  if (uri.includes('converse.com') || uri.includes('demandware.static')) {
-    return `${API_BASE_URL}/api/proxy-image/?url=${encodeURIComponent(uri)}`;
-  }
-  return uri;
-}
 
 function getColorSwatch(colorName = '') {
   const normalized = String(colorName).toLowerCase();

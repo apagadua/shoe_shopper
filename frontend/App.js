@@ -190,6 +190,8 @@ function MainTabs() {
         const hideTabBar = stackRoute && HIDE_TAB_BAR_SCREENS.includes(stackRoute.name);
         return {
           headerShown: false,
+          // Cross-fade between tabs instead of an instant hard cut.
+          animation: 'fade',
           sceneStyle: { backgroundColor: '#FCFAF7' },
           tabBarStyle: hideTabBar ? { display: 'none' } : TAB_BAR_STYLE_VISIBLE,
           tabBarActiveTintColor: '#C28A5B',
@@ -243,7 +245,14 @@ export default function App() {
       .catch(() => setInitialRoute('Welcome'));
   }, []);
 
-  if (!fontsLoaded || initialRoute === null) {
+  const appReady = fontsLoaded && initialRoute !== null;
+
+  // Hide the splash screen as a side effect, not during render.
+  useEffect(() => {
+    if (appReady) SplashScreen.hideAsync();
+  }, [appReady]);
+
+  if (!appReady) {
     return (
       <View style={styles.loadingContainer}>
         <AppLogo size="lg" style={styles.loadingLogo} />
@@ -251,8 +260,6 @@ export default function App() {
       </View>
     );
   }
-
-  SplashScreen.hideAsync();
 
   return (
     <OwnedShoesProvider>
