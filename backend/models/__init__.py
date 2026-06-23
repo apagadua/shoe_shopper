@@ -192,6 +192,7 @@ class ShoeColorway(models.Model):
     sku = models.TextField(null=True, blank=True)
     name = models.TextField()
     image_url = models.TextField(null=True, blank=True)
+    gallery_image_urls = models.JSONField(default=list, blank=True)
     product_url = models.TextField(null=True, blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     dominant_color_hex = models.CharField(max_length=7, null=True, blank=True)

@@ -152,6 +152,7 @@ class Command(BaseCommand):
         """
         name            = _colorway_name(detail)
         new_image_url   = detail.get("image_url") or cw.image_url
+        gallery_image_urls = detail.get("images") or []
         new_product_url = detail.get("link") or cw.product_url
         sku             = detail.get("sku") or cw.sku
 
@@ -206,6 +207,7 @@ class Command(BaseCommand):
                     name=name,
                     sku=sku,
                     image_url=new_image_url,
+                    gallery_image_urls=gallery_image_urls,
                     product_url=new_product_url,
                     last_synced_at=run_started,
                 )
