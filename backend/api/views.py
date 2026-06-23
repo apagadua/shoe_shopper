@@ -8,6 +8,7 @@ import os
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import urlparse
 
 from PIL import Image
 
@@ -1273,11 +1274,27 @@ class ProxyImageView(APIView):
     Only whitelisted CDN hostnames are permitted.
     """
     permission_classes = [AllowAny]
-    ALLOWED_HOSTS = ('converse.com', 'demandware.static')
+    # Suffix-matched against the request URL's hostname (not a substring of the
+    # whole URL) so crafted URLs like http://169.254.169.254/?x=converse.com
+    # or http://converse.com.attacker.com/ cannot pass the check (SSRF guard).
+    # Converse's Demandware images are served from www.converse.com (the
+    # "demandware.static" token lives in the URL path, not the host), so the
+    # converse.com rule already covers them.
+    ALLOWED_HOSTS = ('converse.com',)
+
+    def _host_allowed(self, url):
+        parsed = urlparse(url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        host = parsed.hostname or ''
+        return any(
+            host == allowed or host.endswith('.' + allowed)
+            for allowed in self.ALLOWED_HOSTS
+        )
 
     def get(self, request):
         url = request.GET.get('url', '')
-        if not url or not any(h in url for h in self.ALLOWED_HOSTS):
+        if not url or not self._host_allowed(url):
             return HttpResponse(status=400)
         try:
             resp = http_requests.get(
@@ -1304,11 +1321,16 @@ class ProxyImageView(APIView):
                 logger.warning(
                     'ProxyImageView upstream %s for %s', resp.status_code, url
                 )
-            return HttpResponse(
+            proxied = HttpResponse(
                 resp.content,
                 content_type=resp.headers.get('Content-Type', 'image/jpeg'),
                 status=resp.status_code,
             )
+            if resp.status_code == 200:
+                # CDN images are immutable per URL — let the device image
+                # cache hold them so repeat views skip this proxy entirely.
+                proxied['Cache-Control'] = 'public, max-age=86400'
+            return proxied
         except Exception as exc:
             logger.warning('ProxyImageView error fetching %s: %s', url, exc)
             return HttpResponse(status=502)
