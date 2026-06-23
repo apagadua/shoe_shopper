@@ -296,5 +296,46 @@ class TestExtractColorPaletteHex(unittest.TestCase):
         self.assertRegex(result, r"^#[0-9A-F]{6}$")
 
 
+class TestFetchImageEdgeCases(unittest.TestCase):
+    def test_non_image_content_type_returns_none(self):
+        from backend.services.color_extraction import _fetch_image
+
+        mock_resp = MagicMock()
+        mock_resp.headers = {"Content-Type": "text/html"}
+        with patch("backend.services.color_extraction.requests.get", return_value=mock_resp):
+            self.assertIsNone(_fetch_image("https://media.goat.com/x.jpg"))
+
+    def test_oversized_body_returns_none(self):
+        from backend.services.color_extraction import MAX_CONTENT_LENGTH, _fetch_image
+
+        mock_resp = MagicMock()
+        mock_resp.headers = {"Content-Type": "image/jpeg"}
+        mock_resp.raw.read.return_value = b"x" * (MAX_CONTENT_LENGTH + 1)
+        with patch("backend.services.color_extraction.requests.get", return_value=mock_resp):
+            self.assertIsNone(_fetch_image("https://media.goat.com/x.jpg"))
+
+
+class TestMergeSimilarPaletteEntries(unittest.TestCase):
+    def test_close_colors_merge_counts(self):
+        from backend.services.color_extraction import _merge_similar_palette_entries
+
+        entries = [((200, 30, 30), 50), ((205, 35, 28), 20), ((30, 30, 200), 10)]
+        merged = _merge_similar_palette_entries(entries)
+        self.assertEqual(merged, [((200, 30, 30), 70), ((30, 30, 200), 10)])
+
+
+class TestPaletteAlgorithmFailure(unittest.TestCase):
+    def test_palette_exception_returns_empty_list(self):
+        img = _make_image(20, 20, (100, 100, 100))
+        with patch(
+            "backend.services.color_extraction._fetch_image", return_value=img
+        ), patch(
+            "backend.services.color_extraction.color_palette_from_image",
+            side_effect=RuntimeError("kmeans exploded"),
+        ):
+            result = extract_color_palette_hex("https://media.goat.com/x.jpg")
+        self.assertEqual(result, [])
+
+
 if __name__ == "__main__":
     unittest.main()

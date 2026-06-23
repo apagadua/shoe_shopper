@@ -1,0 +1,16 @@
+# Coverage scope: application code under backend/.
+# Omitted:
+#   - migrations (declarative, no logic)
+#   - tests themselves
+#   - management commands (one-off data sync/seed scripts driven by external
+#     APIs — Kicks/GOAT/Supabase; not exercised in unit tests)
+[run]
+source = backend
+omit =
+    backend/migrations/*
+    backend/tests/*
+    backend/management/*
+
+[report]
+show_missing = True
+precision = 1
