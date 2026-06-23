@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shoe Shopper — Promo</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF4E9; --cream2:#F5EAD7; --paper:#FFFFFF;
+    --orange:#D9883F; --orange-d:#9A6645; --terra:#C28A5B;
+    --slate:#A6B4C6; --ink:#2F2A25; --muted:#6B5F52; --border:#E2D4C0; --green:#2E7D32;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{background:#1c1814; font-family:'Outfit',system-ui,sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; overflow:hidden; color:var(--ink)}
+  .frame{position:relative; width:min(96vw,1280px); aspect-ratio:16/9; background:var(--cream);
+    border-radius:18px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  body.cap .frame{width:1280px; border-radius:0; box-shadow:none}
+  body.cap{background:var(--cream)}
+  .scene{position:absolute; inset:0; opacity:0; display:flex; align-items:center; justify-content:center; will-change:opacity}
+  .progress{position:absolute; left:0; top:0; height:4px; width:0; background:var(--orange); z-index:40}
+  body.cap .progress{display:none}
+  .controls{position:absolute; bottom:14px; right:18px; z-index:40; display:flex; gap:8px}
+  body.cap .controls{display:none}
+  .controls button{font-family:inherit; font-size:13px; color:var(--muted); background:rgba(255,255,255,.7);
+    border:1px solid var(--border); border-radius:20px; padding:6px 14px; cursor:pointer}
+
+  .lockup{display:flex; flex-direction:column; align-items:center; gap:26px}
+  .logo-img{width:520px; height:auto; filter:drop-shadow(0 8px 24px rgba(154,102,69,.18))}
+  .tagline{font-size:46px; font-weight:700; color:var(--orange-d); letter-spacing:.5px}
+  .underline{width:0; height:6px; background:var(--slate); border-radius:6px}
+
+  .hook{text-align:center; padding:0 8%}
+  .hook h1{font-size:76px; font-weight:800; line-height:1.04; color:var(--ink)}
+  .hook h1 .hl{color:var(--orange)}
+  .hook p{margin-top:18px; font-size:28px; color:var(--muted); font-weight:400}
+
+  .step{display:flex; align-items:center; justify-content:center; gap:80px; width:100%; padding:0 7%}
+  .step .copy{max-width:46%}
+  .badge{display:inline-flex; align-items:center; gap:12px; font-weight:700; color:var(--orange-d); font-size:22px; margin-bottom:16px}
+  .badge .num{width:54px; height:54px; border-radius:50%; background:var(--orange); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:26px}
+  .step h2{font-size:50px; font-weight:800; line-height:1.06; color:var(--ink)}
+  .step p{margin-top:16px; font-size:23px; color:var(--muted); line-height:1.5}
+
+  .phone{position:relative; width:300px; aspect-ratio:9/19; background:#2b2620; border-radius:38px; padding:13px; box-shadow:0 22px 50px rgba(47,42,37,.35)}
+  .screen{position:relative; width:100%; height:100%; background:var(--cream); border-radius:26px; overflow:hidden}
+  .sbar{height:26px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:11px; color:var(--muted)}
+  .stage{position:absolute; inset:26px 0 0; display:flex; align-items:center; justify-content:center}
+  .reticle{position:absolute; inset:14% 10%; border:2px dashed rgba(217,136,63,.6); border-radius:14px}
+  .paper{width:64%; aspect-ratio:8.5/11; background:var(--paper); border:1px solid var(--border); border-radius:6px;
+    transform:rotate(-7deg); box-shadow:0 8px 18px rgba(0,0,0,.12); display:flex; align-items:center; justify-content:center}
+  .capture-btn{position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; border-radius:50%; background:#fff; border:4px solid var(--orange)}
+  .foot{width:48%; height:auto}
+  .scanline{position:absolute; left:6%; right:6%; height:3px; background:var(--orange); border-radius:3px; box-shadow:0 0 12px rgba(217,136,63,.8)}
+  .chip{position:absolute; background:#fff; border:1px solid var(--border); border-radius:11px; padding:7px 11px; font-size:13px; color:var(--ink); box-shadow:0 6px 14px rgba(0,0,0,.1)}
+  .chip b{color:var(--orange-d); font-size:16px}
+  .chip.c1{top:30%; right:6%} .chip.c2{top:50%; left:6%} .chip.c3{top:70%; right:8%}
+  .rec-head{padding:12px 16px 4px; font-weight:700; font-size:15px; color:var(--ink)}
+  .rec-list{padding:6px 12px; display:flex; flex-direction:column; gap:12px}
+  .card{background:#fff; border:1px solid var(--border); border-radius:15px; padding:9px; display:flex; align-items:center; gap:9px; box-shadow:0 4px 10px rgba(0,0,0,.05)}
+  .card .thumb{width:54px; height:42px; border-radius:9px; background:#fff; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; flex:0 0 auto; overflow:hidden}
+  .card .thumb img{width:100%; height:100%; object-fit:contain}
+  .card .meta{flex:1; min-width:0}
+  .card .meta .t{font-weight:700; font-size:12.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .card .meta .s{font-size:11.5px; color:var(--muted)}
+  .fit{font-size:11px; font-weight:700; color:#fff; background:var(--green); border-radius:20px; padding:3px 8px; flex:0 0 auto}
+  .outro{display:flex; flex-direction:column; align-items:center; gap:24px; text-align:center}
+  .outro .logo-img{width:380px}
+  .features{display:flex; gap:42px; color:var(--muted); font-size:18px; font-weight:600}
+  .features div{display:flex; flex-direction:column; align-items:center; gap:8px}
+  .features svg{width:34px; height:auto; stroke:var(--orange); fill:none; stroke-width:2}
+  .cta{font-size:24px; font-weight:700; color:#fff; background:var(--orange); border-radius:30px; padding:15px 40px; box-shadow:0 10px 24px rgba(217,136,63,.4)}
+</style>
+</head>
+<body>
+  <div class="frame" id="frame">
+    <div class="progress" id="progress"></div>
+
+    <section class="scene" data-dur="4600">
+      <div class="lockup">
+        <img class="logo-img" src="../frontend/assets/ShoeShopper Logo.png" alt="Shoe Shopper" />
+        <div class="tagline">Find Your Perfect Fit</div>
+        <div class="underline"></div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="3400">
+      <div class="hook">
+        <h1>Shoes that <span class="hl">actually fit.</span></h1>
+        <p>No tape measure. No size charts. No more guessing.</p>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="4400">
+      <div class="step">
+        <div class="copy">
+          <div class="badge"><span class="num">1</span> SNAP IT</div>
+          <h2>Place your foot on a sheet of paper</h2>
+          <p>Open the camera, line up the guides, and tap once. The paper sets the scale.</p>
+        </div>
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>Capture</span></div>
+          <div class="stage">
+            <div class="reticle"></div>
+            <div class="paper">
+              <svg class="foot" viewBox="0 0 60 110"><path d="M30 4 C19 4 15 15 15 28 C15 41 11 56 11 76 C11 96 19 106 30 106 C41 106 49 96 49 76 C49 56 45 41 45 28 C45 15 41 4 30 4 Z" fill="#C28A5B"/><circle cx="20" cy="14" r="4" fill="#C28A5B"/><circle cx="27" cy="9" r="4.4" fill="#C28A5B"/><circle cx="34" cy="9" r="4.4" fill="#C28A5B"/><circle cx="40" cy="14" r="4" fill="#C28A5B"/></svg>
+            </div>
+            <div class="capture-btn"></div>
+          </div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="4400">
+      <div class="step">
+        <div class="copy">
+          <div class="badge"><span class="num">2</span> MEASURE IT</div>
+          <h2>AI reads your exact dimensions</h2>
+          <p>Length, width, and footprint area — computed to the inch in seconds.</p>
+        </div>
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>Measuring…</span></div>
+          <div class="stage">
+            <svg class="foot" viewBox="0 0 60 110"><path d="M30 4 C19 4 15 15 15 28 C15 41 11 56 11 76 C11 96 19 106 30 106 C41 106 49 96 49 76 C49 56 45 41 45 28 C45 15 41 4 30 4 Z" fill="none" stroke="#C28A5B" stroke-width="2.5" stroke-dasharray="4 3"/></svg>
+            <div class="scanline"></div>
+            <div class="chip c1">Length <b>10.4&#8243;</b></div>
+            <div class="chip c2">Width <b>4.1&#8243;</b></div>
+            <div class="chip c3">Area <b>32 in&sup2;</b></div>
+          </div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="4600">
+      <div class="step">
+        <div class="copy">
+          <div class="badge"><span class="num">3</span> MATCH IT</div>
+          <h2>Shoes ranked by how well they fit you</h2>
+          <p>Every pair scored against your measurements — across brands, sizes, and colorways.</p>
+        </div>
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>For You</span></div>
+          <div class="rec-head">Recommended For You</div>
+          <div class="rec-list">
+            <div class="card"><div class="thumb"><img src="assets/airmax1.png" alt="Nike Air Max 1"></div><div class="meta"><div class="t">Nike Air Max 1</div><div class="s">US 10.5 &middot; $150</div></div><div class="fit">98%</div></div>
+            <div class="card"><div class="thumb"><img src="assets/nb550.png" alt="New Balance 550"></div><div class="meta"><div class="t">New Balance 550</div><div class="s">US 10.5 &middot; $120</div></div><div class="fit">95%</div></div>
+            <div class="card"><div class="thumb"><img src="assets/samba.png" alt="Adidas Samba"></div><div class="meta"><div class="t">Adidas Samba</div><div class="s">US 10 &middot; $100</div></div><div class="fit">91%</div></div>
+          </div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="4600">
+      <div class="outro">
+        <img class="logo-img" src="../frontend/assets/ShoeShopper Logo.png" alt="Shoe Shopper" />
+        <div class="features">
+          <div><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>Photo scan</div>
+          <div><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg>To-the-inch</div>
+          <div><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg>Save &amp; match</div>
+        </div>
+        <div class="cta">Find Your Perfect Fit</div>
+      </div>
+    </section>
+
+    <div class="controls"><button id="replay">↻ Replay</button></div>
+  </div>
+
+<script>
+(function(){
+  var EASE='cubic-bezier(.2,.8,.25,1)';
+  var scenes=[].slice.call(document.querySelectorAll('.scene'));
+  var durs=scenes.map(function(s){return Number(s.dataset.dur)});
+  var starts=[], acc=0;
+  durs.forEach(function(d){ starts.push(acc); acc+=d; });
+  var TOTAL=acc, FADE=380;
+  var bar=document.getElementById('progress');
+
+  function q(sc,sel){ return [].slice.call(sc.querySelectorAll(sel)); }
+  var anims=[]; // {a, scene}
+  function mk(sceneIdx, els, kf, opt){
+    (els.length!==undefined?els:[els]).forEach(function(el,i){
+      var o=Object.assign({fill:'both', easing:EASE}, opt);
+      if(o.stagger){ o=Object.assign({},o); o.delay=(o.delay||0)+i*o.stagger; delete o.stagger; }
+      var a=el.animate(kf,o); a.pause(); a.currentTime=0;
+      anims.push({a:a, scene:sceneIdx});
+    });
+  }
+  var POP=[{opacity:0,transform:'scale(.7)'},{opacity:1,transform:'scale(1.04)',offset:.6},{opacity:1,transform:'scale(1)'}];
+  var RISE=[{opacity:0,transform:'translateY(28px)'},{opacity:1,transform:'translateY(0)'}];
+  var FADEIN=[{opacity:0},{opacity:1}];
+
+  // scene 0 — intro
+  mk(0, q(scenes[0],'.logo-img'), POP, {duration:900});
+  mk(0, q(scenes[0],'.tagline'), RISE, {duration:800, delay:400});
+  mk(0, q(scenes[0],'.underline'), [{width:'0px'},{width:'220px'}], {duration:900, delay:700});
+  // scene 1 — hook
+  mk(1, q(scenes[1],'h1'), RISE, {duration:800});
+  mk(1, q(scenes[1],'p'), RISE, {duration:800, delay:350});
+  // scenes 2-4 — steps
+  [2,3,4].forEach(function(si){
+    mk(si, q(scenes[si],'.copy>*'), RISE, {duration:700, stagger:120});
+    mk(si, q(scenes[si],'.phone'), POP, {duration:800, delay:100});
+  });
+  // scene 2 capture ring
+  mk(2, q(scenes[2],'.capture-btn'), [{boxShadow:'0 0 0 0 rgba(217,136,63,.55)'},{boxShadow:'0 0 0 26px rgba(217,136,63,0)'}], {duration:1600, delay:1000, iterations:Infinity, easing:'ease-out'});
+  // scene 3 scan + chips
+  mk(3, q(scenes[3],'.scanline'), [{top:'8%'},{top:'84%'}], {duration:1800, delay:300, iterations:Infinity, direction:'alternate', easing:'ease-in-out'});
+  mk(3, q(scenes[3],'.chip'), POP, {duration:600, delay:700, stagger:300});
+  // scene 4 cards
+  mk(4, q(scenes[4],'.card'), RISE, {duration:600, delay:350, stagger:250});
+  // scene 5 — outro
+  mk(5, q(scenes[5],'.logo-img'), POP, {duration:900});
+  mk(5, q(scenes[5],'.features'), FADEIN, {duration:1000, delay:500});
+  mk(5, q(scenes[5],'.cta'), [{transform:'scale(1)'},{transform:'scale(1.06)',offset:.5},{transform:'scale(1)'}], {duration:1400, delay:600, iterations:Infinity, easing:'ease-in-out'});
+
+  function clamp01(x){ return x<0?0:x>1?1:x; }
+  function render(t){
+    if(t>=TOTAL) t=t%TOTAL;
+    for(var k=0;k<scenes.length;k++){
+      var s=starts[k], e=s+durs[k];
+      var op=clamp01(Math.min((t-s)/FADE,(e-t)/FADE,1));
+      scenes[k].style.opacity=op;
+      scenes[k].style.pointerEvents='none';
+    }
+    var idx=0; for(var i=0;i<starts.length;i++){ if(t>=starts[i]) idx=i; }
+    var local=t-starts[idx];
+    for(var j=0;j<anims.length;j++){
+      var rec=anims[j];
+      rec.a.currentTime = (rec.scene===idx) ? local : 0;
+    }
+    bar.style.width=(t/TOTAL*100)+'%';
+  }
+
+  var params=new URLSearchParams(location.search);
+  window.__TOTAL=TOTAL;
+  window.__seek=render;
+
+  if(params.get('capture')==='1'){
+    document.body.classList.add('cap');
+    render(0);
+  } else {
+    var t0=performance.now();
+    function loop(){ render((performance.now()-t0)%TOTAL); requestAnimationFrame(loop); }
+    requestAnimationFrame(loop);
+    document.getElementById('replay').onclick=function(){ t0=performance.now(); };
+  }
+})();
+</script>
+</body>
+</html>
