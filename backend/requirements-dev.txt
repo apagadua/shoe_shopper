@@ -1,0 +1,5 @@
+# Test/dev tooling — not needed in production images.
+pytest==9.0.3
+pytest-django==4.12.0
+pytest-cov==7.1.0
+coverage==7.14.1

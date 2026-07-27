@@ -1,4 +1,3 @@
-import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';
 import {
@@ -16,8 +15,8 @@ import {
 } from 'react-native';
 import { CommonActions, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { API_BASE_URL } from '../config/api';
+import { authorizedFetch } from '../services/http';
+import { signOutLocal } from '../services/auth';
 import AppLogo from '../components/AppLogo';
 
 const ACCENT = '#C28A5B';
@@ -45,14 +44,7 @@ export default function ProfileScreen({ navigation }) {
   const loadProfile = useCallback(async () => {
     setLoadState('loading');
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-      if (!token) {
-        setLoadState('error');
-        return;
-      }
-      const res = await fetch(`${API_BASE_URL}/api/profile/`, {
-        headers: { Authorization: `Token ${token}` },
-      });
+      const res = await authorizedFetch('/api/profile/');
       if (!res.ok) {
         setLoadState('error');
         return;
@@ -80,14 +72,9 @@ export default function ProfileScreen({ navigation }) {
     if (!canSave) return;
     setSaving(true);
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-      if (!token) throw new Error('Session expired. Please sign in again.');
-      const res = await fetch(`${API_BASE_URL}/api/profile/`, {
+      const res = await authorizedFetch('/api/profile/', {
         method: 'PATCH',
-        headers: {
-          Authorization: `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: nameInput }),
       });
       if (!res.ok) {
@@ -107,8 +94,7 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const signOutAndReset = async () => {
-    await SecureStore.deleteItemAsync('authToken');
-    await GoogleSignin.signOut();
+    await signOutLocal();
     const root = navigation.getParent()?.getParent();
     root?.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }));
   };
@@ -128,12 +114,7 @@ export default function ProfileScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await SecureStore.getItemAsync('authToken');
-              if (!token) throw new Error('Session expired. Please sign in again.');
-              const res = await fetch(`${API_BASE_URL}/api/auth/delete/`, {
-                method: 'DELETE',
-                headers: { Authorization: `Token ${token}` },
-              });
+              const res = await authorizedFetch('/api/auth/delete/', { method: 'DELETE' });
               if (!res.ok) throw new Error('Failed to delete account');
               await signOutAndReset();
             } catch (err) {

@@ -2,12 +2,28 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
+
+# Refuse to start a non-debug server on the known dev key. (The test suite
+# imports this module without a .env — test_settings.py sets a deterministic
+# DJANGO_SECRET_KEY env var before importing.)
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-only-secret-key"
+    else:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is off"
+        )
 # Allow POST /api/dev/mock-measurement/ when DEBUG is False (e.g. staging) — use sparingly.
 ENABLE_DEV_MOCK_MEASUREMENT = os.getenv("ENABLE_DEV_MOCK_MEASUREMENT", "").lower() in ("1", "true", "yes")
+# Save annotated AR capture images to ar_debug/ — these contain user foot
+# photos, so keep this off outside local debugging sessions.
+AR_DEBUG_IMAGES = os.getenv("AR_DEBUG_IMAGES", "").lower() in ("1", "true", "yes")
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host]
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_ANDROID_CLIENT_ID = os.getenv("GOOGLE_ANDROID_CLIENT_ID", "").strip()
@@ -142,9 +158,13 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Auth tokens older than this are rejected and deleted (client must sign in
+# again). An explicit 0 disables expiry; unset or blank means the default.
+AUTH_TOKEN_MAX_AGE_DAYS = int(os.getenv("AUTH_TOKEN_MAX_AGE_DAYS", "").strip() or "30")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        "backend.api.authentication.ExpiringTokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -152,7 +172,28 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
     ],
+    # "user" is the global default (UserRateThrottle keys anon requests by IP).
+    # The named scopes are applied per-view via ScopedRateThrottle: strict on
+    # the expensive/abusable endpoints (Roboflow calls, auth, uploads), loose
+    # on proxy-image because one recommendations screen loads dozens of images.
     "DEFAULT_THROTTLE_RATES": {
-        "user": "20/min",
+        "user": "60/min",
+        "auth": "10/min",
+        "foot_measure": "10/min",
+        "upload": "10/min",
+        "proxy_image": "300/min",
     },
 }
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    # Opt-in via env: enabling these blindly breaks plain-HTTP health checks
+    # and deployments where TLS terminates at a proxy that isn't forwarding
+    # X-Forwarded-Proto yet.
+    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SECURE_SSL_REDIRECT", "0") == "1"
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "0") or "0")
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+    if os.getenv("DJANGO_TRUST_PROXY_SSL_HEADER", "0") == "1":
+        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

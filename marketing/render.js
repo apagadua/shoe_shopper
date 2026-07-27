@@ -4,9 +4,11 @@ const fs = require('fs');
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const FPS = 30;
-const W = 1280, H = 720;
+const W = 1280, H = 720;   // CSS layout size; SCALE=1.5 → 1920x1080 output
+const SCALE = 1.5;
+const HTML = process.argv[2] || 'promo.html';   // e.g. `node render.js promo_pitch.html`
 const OUT = path.join(__dirname, 'frames');
-const PAGE = 'file://' + path.join(__dirname, 'promo.html').replace(/\\/g, '/') + '?capture=1';
+const PAGE = 'file://' + path.join(__dirname, HTML).replace(/\\/g, '/') + '?capture=1';
 
 (async () => {
   if (fs.existsSync(OUT)) fs.rmSync(OUT, { recursive: true, force: true });
@@ -18,7 +20,7 @@ const PAGE = 'file://' + path.join(__dirname, 'promo.html').replace(/\\/g, '/') 
     args: ['--no-sandbox', '--force-color-profile=srgb', '--hide-scrollbars', '--disable-gpu']
   });
   const page = await browser.newPage();
-  await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
+  await page.setViewport({ width: W, height: H, deviceScaleFactor: SCALE });
   await page.goto(PAGE, { waitUntil: 'networkidle0' });
   await page.evaluate(async () => { await document.fonts.ready; });
   await new Promise(r => setTimeout(r, 400));

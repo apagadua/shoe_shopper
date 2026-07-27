@@ -15,6 +15,7 @@ from PIL import Image
 import requests as http_requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.http import HttpResponse
@@ -24,21 +25,33 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import status
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from backend.api.authentication import token_is_expired
 from backend.api.serializers import (
+    EXTENSION_BY_FORMAT,
     MeasurementSerializer,
     MeasurementUploadSerializer,
     RecommendationSerializer,
     ShoeSerializer,
+    UploadImageField,
 )
 from backend.models import GuestSession, Measurement, Profile, Shoe
 from backend.services.ar_measurement import compute_dimensions as ar_compute_dimensions
 from backend.services.ar_measurement import compute_dimensions_with_wall as ar_compute_dimensions_with_wall
-from backend.services.fit_algorithm import ALGORITHM_VERSION, LENGTH_BIAS_CORRECTION, estimate_us_size, score_shoe, status_label
+from backend.services.fit_algorithm import (
+    ALGORITHM_VERSION,
+    LENGTH_BIAS_CORRECTION,
+    VALID_SUB_TYPES,
+    estimate_us_size,
+    score_shoe,
+    status_label,
+)
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -53,6 +66,13 @@ PAPER_LABELS = {
     'letter': 'US Letter',
     'a4': 'A4',
 }
+
+# Generic client-facing message for AR geometry failures — the specific
+# ValueError text is internal detail and is logged server-side instead.
+AR_MEASUREMENT_FAILED_DETAIL = (
+    "AR measurement failed. Make sure the floor is flat and well-lit, "
+    "then try again."
+)
 
 
 def _pts(pred):
@@ -201,6 +221,12 @@ def _save_ar_debug_image(rotated_img, predictions, label=""):
     with class name + confidence.  Saves as JPEG named:
         ar_debug_<label>_<timestamp>.jpg
     """
+    # These are user foot photos — only persist them when explicitly
+    # debugging, never as a production side effect. Guarded here rather
+    # than at call sites so no future caller can reintroduce saving
+    # biometric images in production.
+    if not (settings.DEBUG or settings.AR_DEBUG_IMAGES):
+        return
     try:
         from PIL import ImageDraw, ImageFont
         import datetime
@@ -256,18 +282,26 @@ def _save_ar_debug_image(rotated_img, predictions, label=""):
 
 class FootMeasureView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "foot_measure"
 
     def post(self, request):
         image_file = request.FILES.get("image")
         if not image_file:
             return Response({"detail": "image field required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
-        ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
-
-        if image_file.size > MAX_UPLOAD_BYTES:
-            return Response({"detail": "Image too large (max 10 MB)"}, status=status.HTTP_400_BAD_REQUEST)
-        if image_file.content_type not in ALLOWED_MIME_TYPES:
+        # Same size cap + Pillow verification as MeasurementUploadView, so a
+        # spoofed content-type header can't smuggle non-image bytes to
+        # Roboflow. The format allowlist keys on the Pillow-detected format.
+        try:
+            image_file = UploadImageField().run_validation(image_file)
+        except (DRFValidationError, DjangoValidationError) as exc:
+            # Direct run_validation surfaces Django's ValidationError (the
+            # serializer layer would normally convert it).
+            messages = exc.detail if isinstance(exc, DRFValidationError) else exc.messages
+            detail = messages[0] if messages else "Invalid image"
+            return Response({"detail": str(detail)}, status=status.HTTP_400_BAD_REQUEST)
+        if (image_file.image.format or "").upper() not in EXTENSION_BY_FORMAT:
             return Response({"detail": "Unsupported image type"}, status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
         measurement_method = request.data.get("measurement_method", "paper").lower()
@@ -419,7 +453,8 @@ class FootMeasureView(APIView):
             return Response({"detail": e.detail}, status=e.http_status)
 
         # Save debug image BEFORE counter-rotation so polygon coords match
-        # the rotated image that was actually sent to Roboflow.
+        # the rotated image that was actually sent to Roboflow. (No-op unless
+        # DEBUG/AR_DEBUG_IMAGES — the guard lives inside the function.)
         _save_ar_debug_image(img_rotated, all_preds, label=str(request.user.id))
 
         # Counter-rotate all polygon points back to sensor space so the
@@ -595,13 +630,13 @@ class FootMeasureView(APIView):
                     except ValueError as exc2:
                         logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc2)
                         return Response(
-                            {"detail": f"AR measurement failed: {exc2}"},
+                            {"detail": AR_MEASUREMENT_FAILED_DETAIL},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
                     logger.warning("AR unprojection failed for user %s: %s", request.user.id, exc)
                     return Response(
-                        {"detail": f"AR measurement failed: {exc}"},
+                        {"detail": AR_MEASUREMENT_FAILED_DETAIL},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -735,8 +770,10 @@ class FootMeasureView(APIView):
         api_key   = settings.ROBOFLOW_API_KEY
 
         if not all([workspace, project, api_key]):
+            # Don't name the vendor in the client-facing message.
+            logger.error("Roboflow credentials are not configured — cannot run measurement")
             raise _RoboflowError(
-                "Roboflow not configured",
+                "Measurement service unavailable. Please try again later.",
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -753,7 +790,14 @@ class FootMeasureView(APIView):
             )
             rf_resp.raise_for_status()
         except http_requests.RequestException as exc:
-            logger.warning("Roboflow request failed for user %s: %s", request.user.id, exc)
+            # Log the exception type only — requests error messages embed the
+            # full request URL, including the ?api_key= query parameter.
+            logger.warning(
+                "Roboflow request failed for user %s: %s (status=%s)",
+                request.user.id,
+                exc.__class__.__name__,
+                getattr(exc.response, "status_code", None),
+            )
             raise _RoboflowError(
                 "Measurement service unavailable. Please try again.",
                 status.HTTP_502_BAD_GATEWAY,
@@ -853,16 +897,26 @@ class FootMeasureView(APIView):
         return foot, dims
 
 
+def _latest_complete_measurement(user):
+    """The measurement recommendations and the measurements screen run on.
+
+    Shared by LatestMeasurementView and RecommendationsView so the two
+    endpoints can never disagree about which measurement is "latest"
+    (the -id tiebreaker matters for same-timestamp rows).
+    """
+    return (
+        Measurement.objects
+        .filter(user=user, status=Measurement.Status.COMPLETE)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+
 class LatestMeasurementView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        measurement = (
-            Measurement.objects
-            .filter(user=request.user, status=Measurement.Status.COMPLETE)
-            .order_by("-created_at")
-            .first()
-        )
+        measurement = _latest_complete_measurement(request.user)
         if measurement is None:
             return Response({"detail": "No measurements found"}, status=status.HTTP_404_NOT_FOUND)
         return Response({
@@ -879,12 +933,7 @@ class RecommendationsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        measurement = (
-            Measurement.objects
-            .filter(user=request.user, status=Measurement.Status.COMPLETE)
-            .order_by("-created_at")
-            .first()
-        )
+        measurement = _latest_complete_measurement(request.user)
         if measurement is None:
             return Response(
                 {"detail": "No measurements found. Scan your foot first."},
@@ -908,6 +957,11 @@ class RecommendationsView(APIView):
         }
 
         sub_type = request.query_params.get("sub_type") or None
+        if sub_type is not None and sub_type.lower() not in VALID_SUB_TYPES:
+            return Response(
+                {"detail": "Invalid sub_type"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         shoes = Shoe.objects.prefetch_related("sizes", "colorways__sizes").filter(is_active=True)
 
@@ -1123,6 +1177,8 @@ class ShoeListView(APIView):
 
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
     def post(self, request):
         token = request.data.get('id_token', '')
@@ -1163,16 +1219,36 @@ class GoogleLoginView(APIView):
                 {'detail': 'No email in token'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Accounts are keyed by email, so an unverified email claim would let
+        # anyone who controls a Google identity *asserting* that address log
+        # into the matching account.
+        if idinfo.get('email_verified') is not True:
+            return Response(
+                {'detail': 'Google account email is not verified'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         with transaction.atomic():
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    'username': email,
-                    'first_name': idinfo.get('given_name', ''),
-                    'last_name': idinfo.get('family_name', ''),
-                },
+            # Keyed on username (unique) rather than email (not unique in
+            # Django's User model) so concurrent first logins can't create
+            # duplicate accounts; username is always set to the email. The
+            # email fallback matches accounts created outside this flow
+            # (admin, createsuperuser) whose username isn't their email —
+            # safe because email_verified was checked above.
+            user = (
+                User.objects.filter(username=email).first()
+                or User.objects.filter(email=email).order_by('id').first()
             )
+            created = False
+            if user is None:
+                user, created = User.objects.get_or_create(
+                    username=email,
+                    defaults={
+                        'email': email,
+                        'first_name': idinfo.get('given_name', ''),
+                        'last_name': idinfo.get('family_name', ''),
+                    },
+                )
             if created:
                 Profile.objects.create(
                     user=user,
@@ -1180,7 +1256,15 @@ class GoogleLoginView(APIView):
                     avatar_url=idinfo.get('picture', ''),
                 )
 
-        user_token, _ = Token.objects.get_or_create(user=user)
+        user_token, token_created = Token.objects.get_or_create(user=user)
+        if not token_created and token_is_expired(user_token):
+            # An expired token would be rejected by authentication anyway —
+            # rotate it so re-login hands back a working credential.
+            # get_or_create (not create) so two concurrent logins rotating
+            # the same expired token share one fresh key instead of the
+            # loser 500ing on the OneToOne constraint.
+            user_token.delete()
+            user_token, _ = Token.objects.get_or_create(user=user)
         return Response({'key': user_token.key})
 
 
@@ -1234,13 +1318,23 @@ class MeasurementUploadView(APIView):
     """
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "upload"
 
     def post(self, request):
         serializer = MeasurementUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # ImageField validation always annotates .image with the Pillow
+        # object, so the detected format is authoritative here.
         image_file = serializer.validated_data["image"]
-        extension = os.path.splitext(image_file.name)[1] or ".jpg"
+        detected_format = (image_file.image.format or "").upper()
+        extension = EXTENSION_BY_FORMAT.get(detected_format)
+        if extension is None:
+            return Response(
+                {"detail": "Unsupported image type"},
+                status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            )
         storage_path = f"measurements/{uuid.uuid4()}{extension}"
         saved_path = default_storage.save(storage_path, image_file)
 
@@ -1274,6 +1368,8 @@ class ProxyImageView(APIView):
     Only whitelisted CDN hostnames are permitted.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "proxy_image"
     # Suffix-matched against the request URL's hostname (not a substring of the
     # whole URL) so crafted URLs like http://169.254.169.254/?x=converse.com
     # or http://converse.com.attacker.com/ cannot pass the check (SSRF guard).
@@ -1281,10 +1377,14 @@ class ProxyImageView(APIView):
     # "demandware.static" token lives in the URL path, not the host), so the
     # converse.com rule already covers them.
     ALLOWED_HOSTS = ('converse.com',)
+    # Redirects are refused (a redirect on the allowed host would otherwise
+    # pivot the proxy to an arbitrary URL) and responses are size-capped so a
+    # bad upstream can't exhaust server memory.
+    MAX_PROXY_BYTES = 5 * 1024 * 1024
 
     def _host_allowed(self, url):
         parsed = urlparse(url)
-        if parsed.scheme not in ('http', 'https'):
+        if parsed.scheme != 'https':
             return False
         host = parsed.hostname or ''
         return any(
@@ -1294,10 +1394,17 @@ class ProxyImageView(APIView):
 
     def get(self, request):
         url = request.GET.get('url', '')
+        # Shoe rows synced before the https-only rule may store http:// CDN
+        # URLs — upgrade them instead of breaking those images; the actual
+        # fetch is always https.
+        if url.startswith('http://'):
+            url = 'https://' + url[len('http://'):]
         if not url or not self._host_allowed(url):
             return HttpResponse(status=400)
         try:
-            resp = http_requests.get(
+            # `with` releases the pooled connection on every exit path,
+            # including the early returns below.
+            with http_requests.get(
                 url,
                 headers={
                     'Referer':          'https://www.converse.com/',
@@ -1315,21 +1422,47 @@ class ProxyImageView(APIView):
                     'sec-fetch-site':   'same-origin',
                 },
                 timeout=10,
-            )
-            # Surface upstream errors clearly rather than silently passing them through.
-            if resp.status_code >= 400:
-                logger.warning(
-                    'ProxyImageView upstream %s for %s', resp.status_code, url
-                )
+                stream=True,
+                allow_redirects=False,
+            ) as resp:
+                if 300 <= resp.status_code < 400:
+                    logger.warning(
+                        'ProxyImageView refused redirect (%s → %s) for %s',
+                        resp.status_code, resp.headers.get('Location', '?'), url,
+                    )
+                    return HttpResponse(status=502)
+                if resp.status_code != 200:
+                    # Surface upstream errors as bare statuses — never relay an
+                    # upstream error body (often HTML) through the proxy.
+                    logger.warning(
+                        'ProxyImageView upstream %s for %s', resp.status_code, url
+                    )
+                    return HttpResponse(status=resp.status_code)
+
+                content_type = resp.headers.get('Content-Type', '')
+                if not content_type.lower().startswith('image/'):
+                    logger.warning(
+                        'ProxyImageView non-image content-type %r for %s', content_type, url
+                    )
+                    return HttpResponse(status=502)
+
+                chunks = []
+                received = 0
+                for chunk in resp.iter_content(64 * 1024):
+                    received += len(chunk)
+                    if received > self.MAX_PROXY_BYTES:
+                        logger.warning('ProxyImageView response too large for %s', url)
+                        return HttpResponse(status=502)
+                    chunks.append(chunk)
+
             proxied = HttpResponse(
-                resp.content,
-                content_type=resp.headers.get('Content-Type', 'image/jpeg'),
-                status=resp.status_code,
+                b''.join(chunks),
+                content_type=content_type,
+                status=200,
             )
-            if resp.status_code == 200:
-                # CDN images are immutable per URL — let the device image
-                # cache hold them so repeat views skip this proxy entirely.
-                proxied['Cache-Control'] = 'public, max-age=86400'
+            # CDN images are immutable per URL — let the device image
+            # cache hold them so repeat views skip this proxy entirely.
+            proxied['Cache-Control'] = 'public, max-age=86400'
             return proxied
         except Exception as exc:
             logger.warning('ProxyImageView error fetching %s: %s', url, exc)

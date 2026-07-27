@@ -36,11 +36,11 @@ export default function ARFootCaptureScreen({ navigation, route }) {
           </View>
           <View style={styles.tip}>
             <Ionicons name="checkmark-circle" size={18} color="#C28A5B" style={styles.tipIcon} />
-            <Text style={styles.tipText}>Good lighting helps — avoid very dark rooms or direct sunlight glare.</Text>
+            <Text style={styles.tipText}>Good lighting helps. Avoid very dark rooms or direct sunlight glare.</Text>
           </View>
           <View style={styles.tip}>
             <Ionicons name="checkmark-circle" size={18} color="#C28A5B" style={styles.tipIcon} />
-            <Text style={styles.tipText}>Wear a light, fitted sock so your foot shape is clear.</Text>
+            <Text style={styles.tipText}>Wear the socks you plan to wear with the shoes: thick for boots, thin for sneakers. A fitted pair traces best.</Text>
           </View>
           <View style={styles.tip}>
             <Ionicons name="checkmark-circle" size={18} color="#C28A5B" style={styles.tipIcon} />

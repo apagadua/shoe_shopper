@@ -85,8 +85,37 @@ class RecommendationSerializer(serializers.Serializer):
     def get_colorway_options(self, obj):  return obj.get("colorway_options", [])
 
 
+# Shared cap for the foot-photo upload endpoints (FootMeasureView and
+# MeasurementUploadView both import this — keep it the single source).
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+# Formats the measurement pipeline supports, mapped to the extension used
+# when storing. Keyed on the Pillow-verified format, never the client's
+# filename or content-type — uploads are untrusted, and a client-chosen
+# extension (.svg/.html) is a stored-XSS vector.
+EXTENSION_BY_FORMAT = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
+
+
+class UploadImageField(serializers.ImageField):
+    """ImageField with the shared size cap checked before Pillow parses.
+
+    The cap runs first so an oversized body is rejected without paying for
+    image decoding; Pillow verification then rejects non-image payloads even
+    when they carry an image content-type.
+    """
+
+    default_error_messages = {
+        "too_large": "Image too large (max 10 MB)",
+    }
+
+    def to_internal_value(self, data):
+        if getattr(data, "size", 0) > MAX_UPLOAD_BYTES:
+            self.fail("too_large")
+        return super().to_internal_value(data)
+
+
 class MeasurementUploadSerializer(serializers.Serializer):
-    image = serializers.FileField()
+    image = UploadImageField()
     image_width_px = serializers.IntegerField(required=False, min_value=1)
     image_height_px = serializers.IntegerField(required=False, min_value=1)
 

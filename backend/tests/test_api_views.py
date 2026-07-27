@@ -87,6 +87,7 @@ class TestGoogleLogin:
     def test_first_login_creates_user_profile_and_token(self, mock_verify, api_client):
         mock_verify.return_value = {
             "email": "new.user@example.com",
+            "email_verified": True,
             "given_name": "New",
             "family_name": "User",
             "name": "New User",
@@ -104,7 +105,7 @@ class TestGoogleLogin:
 
     @patch("backend.api.views.google_id_token.verify_oauth2_token")
     def test_second_login_reuses_user_and_token(self, mock_verify, api_client):
-        mock_verify.return_value = {"email": "repeat@example.com"}
+        mock_verify.return_value = {"email": "repeat@example.com", "email_verified": True}
         first = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
         second = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
         assert first.data["key"] == second.data["key"]
@@ -114,7 +115,7 @@ class TestGoogleLogin:
     @override_settings(GOOGLE_ANDROID_CLIENT_ID="android-client-id")
     @patch("backend.api.views.google_id_token.verify_oauth2_token")
     def test_two_client_ids_passed_as_list(self, mock_verify, api_client):
-        mock_verify.return_value = {"email": "x@example.com"}
+        mock_verify.return_value = {"email": "x@example.com", "email_verified": True}
         api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
         assert mock_verify.call_args.args[2] == ["test-google-client-id", "android-client-id"]
 
@@ -137,6 +138,41 @@ class TestGoogleLogin:
         response = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
         assert response.status_code == 400
         assert response.data["detail"] == "No email in token"
+
+    @pytest.mark.parametrize("verified", [False, None, "true"])
+    @patch("backend.api.views.google_id_token.verify_oauth2_token")
+    def test_unverified_email_rejected_400(self, mock_verify, api_client, verified):
+        idinfo = {"email": "victim@example.com"}
+        if verified is not None:
+            idinfo["email_verified"] = verified
+        mock_verify.return_value = idinfo
+        response = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
+        assert response.status_code == 400
+        assert response.data["detail"] == "Google account email is not verified"
+        assert not User.objects.filter(email="victim@example.com").exists()
+
+    @patch("backend.api.views.google_id_token.verify_oauth2_token")
+    def test_login_matches_existing_user_by_username(self, mock_verify, api_client):
+        # Users are keyed on username (unique); pre-existing accounts from the
+        # old email-keyed flow always had username == email, so both match.
+        existing = User.objects.create_user(username="old@example.com", email="old@example.com")
+        mock_verify.return_value = {"email": "old@example.com", "email_verified": True}
+        response = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
+        assert response.status_code == 200
+        assert response.data["key"] == Token.objects.get(user=existing).key
+        assert User.objects.filter(email="old@example.com").count() == 1
+
+    @patch("backend.api.views.google_id_token.verify_oauth2_token")
+    def test_login_matches_legacy_user_by_email(self, mock_verify, api_client):
+        # Accounts created outside the Google flow (admin, createsuperuser)
+        # can have username != email; the email fallback must claim them
+        # rather than creating a duplicate account with the same email.
+        existing = User.objects.create_user(username="bob", email="bob@example.com")
+        mock_verify.return_value = {"email": "bob@example.com", "email_verified": True}
+        response = api_client.post(reverse(GOOGLE_URL_NAME), {"id_token": "tok"})
+        assert response.status_code == 200
+        assert response.data["key"] == Token.objects.get(user=existing).key
+        assert User.objects.filter(email="bob@example.com").count() == 1
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +309,36 @@ class TestMeasurementUpload:
         response = api_client.post(reverse("measurement-upload"), {}, format="multipart")
         assert response.status_code == 400
 
+    def test_non_image_payload_rejected_400(self, api_client):
+        # Content-type header claims JPEG but the bytes aren't an image —
+        # Pillow-backed validation must reject it (anonymous endpoint).
+        fake = SimpleUploadedFile("evil.html", b"<script>alert(1)</script>", content_type="image/jpeg")
+        response = api_client.post(
+            reverse("measurement-upload"), {"image": fake}, format="multipart"
+        )
+        assert response.status_code == 400
+        assert GuestSession.objects.count() == 0
+
+    def test_hostile_extension_rejected_400(self, api_client):
+        # Even with real JPEG bytes, a non-image extension is refused
+        # (ImageField's extension validator), so nothing is ever stored
+        # under a client-chosen .html/.svg name.
+        image = SimpleUploadedFile("evil.html", make_jpeg_bytes(), content_type="image/jpeg")
+        response = api_client.post(
+            reverse("measurement-upload"), {"image": image}, format="multipart"
+        )
+        assert response.status_code == 400
+
+    def test_stored_extension_comes_from_detected_format_not_filename(self, api_client):
+        # JPEG bytes under a .png name — the stored path must use the
+        # Pillow-detected extension, not the client's.
+        image = SimpleUploadedFile("foot.png", make_jpeg_bytes(), content_type="image/png")
+        response = api_client.post(
+            reverse("measurement-upload"), {"image": image}, format="multipart"
+        )
+        assert response.status_code == 201
+        assert response.data["image_url"].endswith(".jpg")
+
 
 # ---------------------------------------------------------------------------
 # Image proxy
@@ -300,10 +366,22 @@ class TestProxyImage:
         response = api_client.get(reverse("proxy-image"), {"url": url})
         assert response.status_code == 400
 
+    @staticmethod
+    def _mock_response(status_code=200, headers=None, chunks=()):
+        resp = MagicMock(
+            status_code=status_code,
+            headers=headers or {},
+            **{"iter_content.return_value": list(chunks)},
+        )
+        # The view consumes the response as a context manager.
+        resp.__enter__.return_value = resp
+        resp.__exit__.return_value = False
+        return resp
+
     @patch("backend.api.views.http_requests.get")
     def test_success_proxies_content_with_cache_header(self, mock_get, api_client):
-        mock_get.return_value = MagicMock(
-            status_code=200, content=b"imgbytes", headers={"Content-Type": "image/png"}
+        mock_get.return_value = self._mock_response(
+            200, {"Content-Type": "image/png"}, [b"img", b"bytes"]
         )
         response = api_client.get(
             reverse("proxy-image"),
@@ -313,16 +391,64 @@ class TestProxyImage:
         assert response.content == b"imgbytes"
         assert response["Content-Type"] == "image/png"
         assert response["Cache-Control"] == "public, max-age=86400"
+        # Redirect-following must stay off — a redirect on the allowed host
+        # would otherwise pivot the proxy anywhere.
+        assert mock_get.call_args.kwargs["allow_redirects"] is False
 
     @patch("backend.api.views.http_requests.get")
-    def test_upstream_error_passes_through_without_cache(self, mock_get, api_client):
-        mock_get.return_value = MagicMock(status_code=404, content=b"", headers={})
+    def test_legacy_http_url_upgraded_to_https(self, mock_get, api_client):
+        # Shoe rows synced before the https-only rule may store http:// URLs;
+        # the proxy upgrades them and always fetches over https.
+        mock_get.return_value = self._mock_response(
+            200, {"Content-Type": "image/jpeg"}, [b"img"]
+        )
+        response = api_client.get(
+            reverse("proxy-image"),
+            {"url": "http://www.converse.com/img/shoe.jpg"},
+        )
+        assert response.status_code == 200
+        assert mock_get.call_args.args[0] == "https://www.converse.com/img/shoe.jpg"
+
+    @patch("backend.api.views.http_requests.get")
+    def test_upstream_error_passes_status_without_body_or_cache(self, mock_get, api_client):
+        mock_get.return_value = self._mock_response(404, {"Content-Type": "text/html"}, [b"<html>"])
         response = api_client.get(
             reverse("proxy-image"),
             {"url": "https://www.converse.com/on/demandware.static/img.jpg"},
         )
         assert response.status_code == 404
+        assert response.content == b""
         assert not response.has_header("Cache-Control")
+
+    @patch("backend.api.views.http_requests.get")
+    def test_upstream_redirect_rejected_502(self, mock_get, api_client):
+        mock_get.return_value = self._mock_response(302, {"Location": "http://evil.example.com/"})
+        response = api_client.get(
+            reverse("proxy-image"),
+            {"url": "https://www.converse.com/img/shoe.png"},
+        )
+        assert response.status_code == 502
+
+    @patch("backend.api.views.http_requests.get")
+    def test_non_image_content_type_rejected_502(self, mock_get, api_client):
+        mock_get.return_value = self._mock_response(200, {"Content-Type": "text/html"}, [b"<html>"])
+        response = api_client.get(
+            reverse("proxy-image"),
+            {"url": "https://www.converse.com/img/shoe.png"},
+        )
+        assert response.status_code == 502
+
+    @patch("backend.api.views.http_requests.get")
+    def test_oversized_response_rejected_502(self, mock_get, api_client):
+        big_chunk = b"x" * (1024 * 1024)
+        mock_get.return_value = self._mock_response(
+            200, {"Content-Type": "image/jpeg"}, [big_chunk] * 6  # 6 MB > 5 MB cap
+        )
+        response = api_client.get(
+            reverse("proxy-image"),
+            {"url": "https://www.converse.com/img/shoe.png"},
+        )
+        assert response.status_code == 502
 
     @patch("backend.api.views.http_requests.get", side_effect=http_requests.ConnectionError("boom"))
     def test_fetch_exception_502(self, _mock_get, api_client):

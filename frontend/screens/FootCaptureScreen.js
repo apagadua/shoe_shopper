@@ -38,7 +38,7 @@ export default function FootCaptureScreen({ navigation, route }) {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Measure your foot</Text>
       <Text style={styles.subtitle}>
-        Choose a method. AR is faster and requires no paper — just a flat floor and good lighting.
+        Choose a method. AR is faster and requires no paper. Whichever you pick, wear the socks you plan to wear with the shoes.
       </Text>
 
       {/* ── AR method (primary) ── */}

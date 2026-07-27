@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { API_BASE_URL } from '../config/api';
+import { authorizedFetch, fetchWithTimeout, getAuthToken } from '../services/http';
 import { resolveImageUrl } from '../utils/resolveImageUrl';
 import { ensureDevMockMeasurementIfNeeded } from '../services/devMockMeasurement';
 import { getBestSize } from '../utils/shoeSize';
@@ -131,7 +131,7 @@ export default function Dashboard({ navigation }) {
         await ensureDevMockMeasurementIfNeeded();
         if (cancelled) return;
 
-        const token = await SecureStore.getItemAsync('authToken');
+        const token = await getAuthToken();
         if (!token || cancelled) {
           setRecLoading(false);
           setGreetingFirstName(null);
@@ -139,10 +139,12 @@ export default function Dashboard({ navigation }) {
         }
 
         // Fetch profile, latest measurement, and shoe count in parallel.
+        // (This profile fetch doubles as the boot-time token check — a 401
+        // is handled inside authorizedFetch: token cleared, app resets.)
         const [profileResult, measurementResult, healthResult] = await Promise.allSettled([
-          fetch(`${API_BASE_URL}/api/profile/`, { headers: { Authorization: `Token ${token}` } }),
-          fetch(`${API_BASE_URL}/api/measurements/latest/`, { headers: { Authorization: `Token ${token}` } }),
-          fetch(`${API_BASE_URL}/api/health/`),
+          authorizedFetch('/api/profile/'),
+          authorizedFetch('/api/measurements/latest/'),
+          fetchWithTimeout(`${API_BASE_URL}/api/health/`),
         ]);
         if (cancelled) return;
 
@@ -193,9 +195,7 @@ export default function Dashboard({ navigation }) {
         }
 
         try {
-          const rRes = await fetch(`${API_BASE_URL}/api/recommendations/`, {
-            headers: { Authorization: `Token ${token}` },
-          });
+          const rRes = await authorizedFetch('/api/recommendations/');
           if (cancelled) return;
           if (rRes.status === 404) {
             setRecResults([]);

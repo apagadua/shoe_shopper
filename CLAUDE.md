@@ -66,11 +66,11 @@ shoe_shopper_dev/
 | Layer | Choice |
 |---|---|
 | Framework | Django 6.0.2 + Django REST Framework 3.16.1 |
-| Auth | Token auth (`rest_framework.authtoken`) + Google OAuth2 |
+| Auth | Expiring token auth (`backend/api/authentication.py`, built on `rest_framework.authtoken`) + Google OAuth2 |
 | AI / CV | Roboflow (custom `foot-measuring` workflow) |
 | DB (prod) | PostgreSQL via Supabase |
 | DB (dev) | SQLite (`db.sqlite3`) |
-| ML libs | scikit-learn, joblib, nltk |
+| Numeric libs | numpy |
 
 ### Frontend
 | Layer | Choice |
@@ -94,7 +94,7 @@ Backend env is read by `shoeshopper/settings.py`. Frontend public env must use `
 | `GOOGLE_CLIENT_ID` | Backend | Verify Google ID tokens |
 | `GOOGLE_ANDROID_CLIENT_ID` | Backend | Android-specific Google OAuth |
 | `DJANGO_SECRET_KEY` | Backend | Django secret |
-| `DJANGO_DEBUG` | Backend | Debug mode — be careful changing in prod |
+| `DJANGO_DEBUG` | Backend | Debug mode — **defaults OFF**; set `1` for local dev |
 | `DJANGO_ALLOWED_HOSTS` | Backend | Comma-separated allowed hosts |
 | `DATABASE_URL` | Backend | PostgreSQL connection string (blank = SQLite) |
 | `DB_SSLMODE` | Backend | `require` for Supabase |
@@ -102,6 +102,12 @@ Backend env is read by `shoeshopper/settings.py`. Frontend public env must use `
 | `ROBOFLOW_WORKSPACE` | Backend | `armaanai` |
 | `ROBOFLOW_PROJECT` | Backend | `foot-measuring` |
 | `ENABLE_DEV_MOCK_MEASUREMENT` | Backend | Enables `/api/dev/mock-measurement/` route (dev only) |
+| `AR_DEBUG_IMAGES` | Backend | Save annotated AR captures (user foot photos!) to `ar_debug/` — off by default, also on when `DEBUG` |
+| `AUTH_TOKEN_MAX_AGE_DAYS` | Backend | Auth token lifetime in days (default `30`; `0` disables expiry) |
+| `SUPABASE_URL` / `SUPABASE_KEY` | Backend | Supabase client for feedback/tolerance services (`backend/services/supabase_client.py`) |
+| `DJANGO_SECURE_SSL_REDIRECT` | Backend | Prod only: force-redirect HTTP→HTTPS (default off) |
+| `DJANGO_HSTS_SECONDS` | Backend | Prod only: HSTS max-age (default 0 = disabled) |
+| `DJANGO_TRUST_PROXY_SSL_HEADER` | Backend | Prod only: trust `X-Forwarded-Proto` from the TLS-terminating proxy |
 | `EXPO_PUBLIC_API_URL` | Frontend | Override default backend URL |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Frontend | Google OAuth client ID |
 | `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT` | Frontend | Skip real camera; use mock measurement on emulator |
@@ -261,7 +267,8 @@ venv\Scripts\python.exe -m pytest backend/tests --cov=backend         # with cov
 ```
 
 - Config: `pytest.ini` (uses `shoeshopper/test_settings.py`) + `.coveragerc`
-- Requires `pytest`, `pytest-django`, `pytest-cov` in the venv
+- Test tooling is pinned in `backend/requirements-dev.txt` (pytest, pytest-django, pytest-cov, coverage)
+- CI: `.github/workflows/ci.yml` runs `pip check`, `manage.py check`, and the full suite with coverage on pushes to `main`/`OrsBranch` and all PRs
 - Tests run on **in-memory SQLite with `--no-migrations`** — two reasons:
   1. Migration `0009` creates the colorway tables via `SeparateDatabaseAndState`
      with no database ops (they were created directly in Supabase), so a fresh
@@ -357,12 +364,16 @@ Prefer adding new business logic as service functions rather than bloating API v
 
 ## Common Gotchas
 
-- **SQLite vs PostgreSQL**: `db.sqlite3` is committed (dev only). Production uses Supabase. Do not rely on local SQLite schema for production migrations.
+- **SQLite vs PostgreSQL**: `db.sqlite3` is gitignored (local dev only). Production uses Supabase. Do not rely on local SQLite schema for production migrations.
+- **DEBUG defaults off**: `settings.py` refuses to start with the fallback secret key when `DJANGO_DEBUG` is unset — local dev needs `DJANGO_DEBUG=1` (and ideally `DJANGO_SECRET_KEY`) in `.env`.
+- **Google login requires `email_verified`**: ID tokens with an unverified email claim are rejected (account-takeover guard). Test mocks must include `"email_verified": True`.
 - **`DATABASE_URL` shell override**: If set in the shell it overrides `.env`. Clear it when switching back to SQLite.
 - **Expo Go limitations**: Native modules (`expo-camera`, `expo-sensors`, Google Sign-In) require a dev client build — they will NOT work in Expo Go.
 - **Android emulator camera**: The physical camera does not work in most Android emulators. Use `EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT=1` + `ENABLE_DEV_MOCK_MEASUREMENT` on the backend for emulator workflows.
 - **Roboflow inference**: The `foot-measuring` project/workflow must be published in the `armaanai` workspace. Failures often come from unpublished workflows, missing API keys, poor lighting, no paper detection, bad AR tracking, or image orientation.
 - **Token auth header**: Backend expects `Authorization: Token <key>` (DRF format), not `Bearer`.
+- **Tokens expire**: Auth tokens older than `AUTH_TOKEN_MAX_AGE_DAYS` (default 30; explicit `0` disables, blank means default) are deleted on use → 401. Google login rotates an expired token. Frontend: authenticated calls go through `authorizedFetch` (`frontend/services/http.js`) — any 401 clears the stored token and fires `onSessionExpired`, which `App.js` handles by signing out (including the native Google session) and resetting navigation to Welcome. Never hand-roll `Authorization: Token` headers in screens.
+- **Guest-session cleanup**: `python manage.py purge_guest_sessions` deletes expired `GuestSession` rows (cascades to their measurements); `--dry-run` previews. Run it on a schedule in prod.
 - **CORS / ALLOWED_HOSTS**: When testing from a physical device on the same network, add the machine's LAN IP to `DJANGO_ALLOWED_HOSTS`.
 - **Recommendation quality**: Depends heavily on `ShoeSize` insole dimensions and live `ShoeColorwaySize` availability.
 - **ProxyImageView**: Intentionally limited to specific CDN hosts — do not turn it into an open proxy.

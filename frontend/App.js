@@ -1,11 +1,10 @@
-import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import AppLogo, { HeaderLogoCorner } from './components/AppLogo';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Outfit_600SemiBold, Outfit_400Regular } from '@expo-google-fonts/outfit';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer } from '@react-navigation/native';
+import { CommonActions, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -27,8 +26,12 @@ import ProfileScreen from './screens/ProfileScreen';
 import FeedbackScreen from './screens/feedback';
 import { SavedShoesProvider } from './SavedShoesContext';
 import { OwnedShoesProvider } from './OwnedShoesContext';
+import { getAuthToken, onSessionExpired } from './services/http';
+import { signOutLocal } from './services/auth';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
+
+const navigationRef = createNavigationContainerRef();
 
 const RootStack = createNativeStackNavigator();
 const ClosetStack = createNativeStackNavigator();
@@ -240,9 +243,32 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
 
   useEffect(() => {
-    SecureStore.getItemAsync('authToken')
-      .then(token => setInitialRoute(token ? 'MainTabs' : 'Welcome'))
-      .catch(() => setInitialRoute('Welcome'));
+    (async () => {
+      // Boot from local state only — no network call holds the splash
+      // screen. Backend tokens expire (AUTH_TOKEN_MAX_AGE_DAYS), but
+      // Dashboard's first profile fetch doubles as the token check: every
+      // authenticated call goes through authorizedFetch, and a definitive
+      // 401 clears the token and fires onSessionExpired (handled below) —
+      // offline users stay signed in.
+      const token = await getAuthToken();
+      setInitialRoute(token ? 'MainTabs' : 'Welcome');
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Central session expiry (fired by authorizedFetch on any 401, at boot
+    // or mid-session): finish the sign-out — including the native Google
+    // session, so the next sign-in doesn't silently reuse the previous
+    // account — and land on Welcome.
+    const unsubscribe = onSessionExpired(async () => {
+      await signOutLocal();
+      if (navigationRef.isReady()) {
+        navigationRef.dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+        );
+      }
+    });
+    return unsubscribe;
   }, []);
 
   const appReady = fontsLoaded && initialRoute !== null;
@@ -265,7 +291,7 @@ export default function App() {
     <OwnedShoesProvider>
       <SavedShoesProvider>
         <SafeAreaProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
         <RootStack.Navigator
           initialRouteName={initialRoute}

@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../config/api';
+import { authorizedFetch, getAuthToken } from './http';
 
 /**
  * Dev-only: POST a mock foot measurement so Recommendations works without a camera.
@@ -12,16 +11,13 @@ export async function ensureDevMockMeasurementIfNeeded() {
   if (Platform.OS === 'web') return;
   if (process.env.EXPO_PUBLIC_EMULATOR_MOCK_MEASUREMENT !== '1') return;
 
-  const token = await SecureStore.getItemAsync('authToken');
+  const token = await getAuthToken();
   if (!token) return;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/dev/mock-measurement/`, {
+    const res = await authorizedFetch('/api/dev/mock-measurement/', {
       method: 'POST',
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
     if (res.status === 404) return;
     if (!res.ok) {

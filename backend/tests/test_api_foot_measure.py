@@ -5,11 +5,13 @@ AR geometry uses the synthetic straight-down camera from conftest:
 1 sensor pixel == 1 mm on the floor at the default 0.7 m camera height.
 """
 
+import io
 import json
 from unittest.mock import patch
 
 import pytest
 import requests as real_requests
+from PIL import Image as PILImage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -78,10 +80,21 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert "too large" in response.data["detail"]
 
-    def test_unsupported_mime_type_415(self, auth_client):
-        gif = upload_image(name="foot.gif", content_type="image/gif")
+    def test_unsupported_image_format_415(self, auth_client):
+        # A real GIF: Pillow verifies it as an image, but the format is
+        # outside the pipeline's allowlist.
+        buf = io.BytesIO()
+        PILImage.new("RGB", (10, 10)).save(buf, format="GIF")
+        gif = upload_image(name="foot.gif", content=buf.getvalue(), content_type="image/gif")
         response = auth_client.post(reverse(URL_NAME), {"image": gif}, format="multipart")
         assert response.status_code == 415
+
+    def test_spoofed_content_type_rejected_400(self, auth_client):
+        # Content-type header claims JPEG but the bytes aren't an image —
+        # validation keys on the bytes (Pillow), not the client header.
+        fake = upload_image(content=b"<script>alert(1)</script>")
+        response = auth_client.post(reverse(URL_NAME), {"image": fake}, format="multipart")
+        assert response.status_code == 400
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +490,7 @@ class TestArUnprojectionFailures:
 # ---------------------------------------------------------------------------
 
 class TestSaveArDebugImage:
+    @override_settings(AR_DEBUG_IMAGES=True)
     def test_writes_annotated_jpeg(self, tmp_path):
         from PIL import Image
 
@@ -492,6 +506,20 @@ class TestSaveArDebugImage:
         files = list(tmp_path.glob("ar_debug_42_*.jpg"))
         assert len(files) == 1
 
+    def test_noop_when_debug_flags_off(self, tmp_path):
+        # User foot photos must never be persisted unless explicitly
+        # debugging — the guard lives inside the function so every caller
+        # inherits it.
+        from PIL import Image
+
+        from backend.api import views
+
+        img = Image.new("RGB", (200, 200), (40, 40, 40))
+        with patch.object(views, "_AR_DEBUG_DIR", str(tmp_path)):
+            views._save_ar_debug_image(img, [], label="42")
+        assert list(tmp_path.iterdir()) == []
+
+    @override_settings(AR_DEBUG_IMAGES=True)
     def test_failure_is_non_fatal(self, tmp_path):
         from backend.api import views
 

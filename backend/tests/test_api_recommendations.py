@@ -190,6 +190,12 @@ def test_sub_type_query_param_changes_scoring(auth_client, complete_measurement)
     assert marathon["fit_score"] < base["fit_score"]
 
 
+def test_unknown_sub_type_rejected_400(auth_client, complete_measurement):
+    response = auth_client.get(reverse(URL_NAME), {"sub_type": "'; DROP TABLE shoe;--"})
+    assert response.status_code == 400
+    assert response.data["detail"] == "Invalid sub_type"
+
+
 def test_measurement_without_toebox(auth_client, complete_measurement):
     complete_measurement.toebox_length_in = None
     complete_measurement.toebox_width_in = None

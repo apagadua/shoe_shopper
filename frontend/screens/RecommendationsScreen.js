@@ -6,12 +6,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle } from 'react-native-svg';
-import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSavedShoes } from '../SavedShoesContext';
 import { useOwnedShoes } from '../OwnedShoesContext';
 import { ATTRIBUTE_FILTERS } from '../constants/attributes';
 import { API_BASE_URL } from '../config/api';
+import { authorizedFetch, fetchWithTimeout, getAuthToken } from '../services/http';
 import { resolveImageUrl } from '../utils/resolveImageUrl';
 import { animateListChange } from '../utils/listAnimations';
 import ShoeCardKeyFacts from '../components/ShoeCardKeyFacts';
@@ -455,7 +455,7 @@ export default function RecommendationsScreen({ navigation, route }) {
           setLoading(true);
         }
 
-        const token = await SecureStore.getItemAsync('authToken');
+        const token = await getAuthToken();
         if (!token || cancelled) { setLoading(false); return; }
 
         // 2. Fetch shoe count and latest measurement ID in parallel.
@@ -465,10 +465,8 @@ export default function RecommendationsScreen({ navigation, route }) {
         let currentShoeCount = null;
         let latestMeasurementId = null;
         const [healthResult, measurementResult] = await Promise.allSettled([
-          fetch(`${API_BASE_URL}/api/health/`),
-          fetch(`${API_BASE_URL}/api/measurements/latest/`, {
-            headers: { Authorization: `Token ${token}` },
-          }),
+          fetchWithTimeout(`${API_BASE_URL}/api/health/`),
+          authorizedFetch('/api/measurements/latest/'),
         ]);
         try {
           const hRes = healthResult.value;
@@ -494,9 +492,7 @@ export default function RecommendationsScreen({ navigation, route }) {
 
         // 4. Fetch fresh recommendations.
         try {
-          const res = await fetch(`${API_BASE_URL}/api/recommendations/`, {
-            headers: { Authorization: `Token ${token}` },
-          });
+          const res = await authorizedFetch('/api/recommendations/');
           if (cancelled) return;
           if (res.status === 404) {
             setNoMeasurement(true);

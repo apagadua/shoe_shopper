@@ -12,6 +12,21 @@ import copy
 
 ALGORITHM_VERSION = "1.5"
 
+# Every sub_type recognized by score_shoe's Step-4 tolerance adjustments.
+# The API validates the query param against this set before passing it in —
+# keep in sync with the profile/sub_type branches below.
+VALID_SUB_TYPES = frozenset({
+    "marathon",
+    "half_marathon",
+    "thick_socks",
+    "pack_over_55lbs",
+    "olympic_lifting",
+    "hiit",
+    "football_lineman",
+    "clay_court",
+    "comfort_mode",
+})
+
 # ---------------------------------------------------------------------------
 # CV model systematic bias corrections (calibrated from 24 captures, true foot 11.55" × 5.05")
 #   Length: model underestimates by mean −0.508"; correct upward before scoring.

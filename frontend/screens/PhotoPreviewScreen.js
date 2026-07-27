@@ -8,8 +8,7 @@ import {
   ActivityIndicator,
   NativeModules,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../config/api';
+import { authorizedFetch, UPLOAD_TIMEOUT_MS } from '../services/http';
 
 // Needed only to clean up native AR temp files after the user is done.
 const { ARCoreModule } = NativeModules;
@@ -46,8 +45,6 @@ export default function PhotoPreviewScreen({ navigation, route }) {
     setUploading(true);
     setError(null);
     try {
-      const token = await SecureStore.getItemAsync('authToken');
-
       const formData = new FormData();
       const filename = capturedUri.split('/').pop();
       const ext = filename?.split('.').pop()?.toLowerCase() ?? 'jpg';
@@ -61,14 +58,16 @@ export default function PhotoPreviewScreen({ navigation, route }) {
         formData.append('ar_snapshot', JSON.stringify(arSnapshot));
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/foot/measure/`, {
+      const response = await authorizedFetch('/api/foot/measure/', {
         method: 'POST',
-        headers: { Authorization: `Token ${token}` },
         body: formData,
-      });
+      }, UPLOAD_TIMEOUT_MS);
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'Measurement failed');
+      // Parse defensively: proxies/deploys can return HTML error pages, and
+      // .json() throwing before the ok-check would mask the real HTTP error.
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.detail || 'Measurement failed');
+      if (!data) throw new Error('Measurement failed');
 
       // Clean up the native AR temp file — it has been uploaded and is
       // no longer needed. Session teardown is ARCameraScreen's responsibility

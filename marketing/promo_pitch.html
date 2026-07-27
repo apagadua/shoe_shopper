@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Shoe Shopper — Promo</title>
+<title>Shoe Shopper — Investor Pitch</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -139,6 +139,76 @@
   .features div{display:flex; flex-direction:column; align-items:center; gap:8px}
   .features svg{width:34px; height:auto; stroke:var(--orange); fill:none; stroke-width:2}
   .cta{font-size:24px; font-weight:700; color:#fff; background:var(--orange); border-radius:30px; padding:15px 40px; box-shadow:0 10px 24px rgba(217,136,63,.4)}
+
+  /* ---- pitch-deck scenes (investor cut) ---- */
+  .pitchslide{text-align:center; padding:0 9%; display:flex; flex-direction:column; align-items:center}
+  .kicker{font-size:20px; font-weight:700; letter-spacing:4px; color:var(--orange-d); margin-bottom:16px; text-transform:uppercase}
+  .pitchslide h2{font-size:44px; font-weight:800; line-height:1.12; color:var(--ink); max-width:940px}
+  .bigstat{font-size:148px; font-weight:800; color:var(--orange); line-height:1}
+  .src{margin-top:12px; font-size:17px; color:var(--muted); font-style:italic}
+  .sizerow{display:flex; gap:20px; align-items:center; margin-top:30px}
+  .sizechip{background:#fff; border:1px solid var(--border); border-radius:14px; padding:10px 22px; font-weight:700; font-size:22px; color:var(--ink); box-shadow:0 6px 14px rgba(0,0,0,.06)}
+  .sizechip span{display:block; font-size:13px; font-weight:600; color:var(--muted)}
+  .neq{font-size:30px; color:#B3543F; font-weight:700}
+  .fails{display:flex; gap:26px; margin-top:36px}
+  .failcard{width:260px; background:#fff; border:1px solid var(--border); border-radius:18px; padding:22px 18px; box-shadow:0 10px 24px rgba(0,0,0,.06); text-align:left}
+  .failcard svg{width:38px; height:38px; stroke:#B3543F; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; margin-bottom:10px}
+  .failcard b{display:block; font-size:20px; color:var(--ink); margin-bottom:6px}
+  .failcard span{font-size:16px; color:var(--muted); line-height:1.4}
+  .answer{margin-top:36px; font-size:24px; color:var(--muted)}
+  .answer b{color:var(--orange-d)}
+
+  /* buy-it scene: product detail + retailer bottom sheet */
+  .pdp-hero{height:150px; display:flex; align-items:center; justify-content:center; background:#FDFAF3; border-bottom:1px solid var(--cream2)}
+  .pdp-hero img{height:82%; width:auto; object-fit:contain}
+  .pdp-body{padding:12px; display:flex; flex-direction:column; gap:12px}
+  .pdp-body .t{font-weight:700; font-size:15px; color:var(--ink)}
+  .pdp-body .s{font-size:12px; color:var(--muted); margin-top:2px}
+  .buybtn{background:var(--orange); color:#fff; text-align:center; font-weight:700; font-size:13px; border-radius:12px; padding:11px 0; box-shadow:0 6px 14px rgba(217,136,63,.35)}
+  .sheet{position:absolute; left:0; right:0; bottom:0; background:#fff; border-radius:18px 18px 0 0;
+    box-shadow:0 -10px 30px rgba(0,0,0,.18); padding:14px; transform:translateY(105%); z-index:8}
+  .sheet .grab{width:36px; height:4px; border-radius:4px; background:var(--border); margin:0 auto 10px}
+  .sheet .row{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted); padding:5px 2px}
+  .sheet .row b{font-size:13.5px; color:var(--ink)}
+  .aff{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:600; color:var(--green);
+    background:rgba(46,125,50,.1); border-radius:12px; padding:2px 9px; opacity:0}
+  .checkout{margin-top:8px; background:var(--ink); color:#fff; text-align:center; font-weight:700; font-size:13px; border-radius:12px; padding:10px 0}
+
+  /* flywheel scene */
+  .fly{position:relative; width:400px; height:400px; flex:0 0 auto}
+  .flyring{position:absolute; inset:0; transform-origin:50% 50%}
+  .flynode{position:absolute; background:#fff; border:1px solid var(--border); border-radius:14px; padding:9px 16px;
+    font-size:17px; font-weight:700; color:var(--ink); box-shadow:0 8px 18px rgba(0,0,0,.08); white-space:nowrap}
+  .flynode span{display:block; font-size:12.5px; font-weight:600; color:var(--muted)}
+  .flynode.f1{left:50%; top:0; transform:translate(-50%,-20%)}
+  .flynode.f2{right:0; top:50%; transform:translate(22%,-50%)}
+  .flynode.f3{left:50%; bottom:0; transform:translate(-50%,20%)}
+  .flynode.f4{left:0; top:50%; transform:translate(-22%,-50%)}
+  .flycenter{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center;
+    font-weight:800; font-size:21px; line-height:1.25; color:var(--orange-d)}
+  .flycenter span{display:block; font-size:14px; font-weight:600; color:var(--muted)}
+
+  /* business-model scene: three revenue streams with status tags */
+  .revcard{position:relative; width:270px; background:#fff; border:1px solid var(--border); border-radius:18px;
+    padding:26px 18px 20px; box-shadow:0 10px 24px rgba(0,0,0,.06); text-align:left}
+  .revcard svg{width:38px; height:38px; stroke:var(--orange); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; margin-bottom:10px}
+  .revcard b{display:block; font-size:20px; color:var(--ink); margin-bottom:6px}
+  .revcard span{font-size:16px; color:var(--muted); line-height:1.4}
+  .rtag{position:absolute; top:-13px; right:16px; font-size:12.5px; font-weight:700; color:#fff;
+    background:var(--slate); border-radius:14px; padding:3px 12px; letter-spacing:.5px}
+  .rtag.live{background:var(--green)}
+
+  /* roadmap scene */
+  .road{display:flex; gap:26px; margin-top:40px}
+  .roaditem{width:280px; background:#fff; border:1px solid var(--border); border-radius:18px; padding:24px 20px 20px; text-align:left;
+    box-shadow:0 10px 24px rgba(0,0,0,.06); position:relative}
+  .roaditem .rnum{position:absolute; top:-15px; left:18px; background:var(--slate); color:#fff; font-size:13px; font-weight:700; border-radius:14px; padding:3px 12px}
+  .roaditem b{display:block; font-size:20px; color:var(--ink); margin-bottom:6px}
+  .roaditem span{font-size:15.5px; color:var(--muted); line-height:1.45}
+
+  /* pitch close */
+  .tagline2{font-size:30px; font-weight:700; color:var(--orange-d)}
+  .team{font-size:19px; color:var(--muted); font-weight:600; letter-spacing:.5px}
 </style>
 </head>
 <body>
@@ -152,22 +222,61 @@
     </div>
     <div class="progress" id="progress"></div>
 
-    <section class="scene" data-dur="4600">
+    <section class="scene" data-dur="4200">
       <div class="lockup kb">
         <img class="logo-img" data-asset="logo" alt="Shoe Shopper" />
-        <div class="tagline">Find Your Perfect Fit</div>
+        <div class="tagline">Find Your Perfect Fit. Every Time.</div>
         <div class="underline"></div>
       </div>
     </section>
 
-    <section class="scene" data-dur="3400">
+    <section class="scene" data-dur="6400">
+      <div class="pitchslide kb">
+        <div class="kicker">The Problem</div>
+        <div class="bigstat"><span id="cntRet">0</span>%</div>
+        <h2>of e-commerce shoppers returned shoes</h2>
+        <p class="src">Source: Capital One Shopping Research</p>
+        <div class="sizerow">
+          <div class="sizechip">US 10<span>Brand A</span></div>
+          <div class="neq">&ne;</div>
+          <div class="sizechip">US 10<span>Brand B</span></div>
+          <div class="neq">&ne;</div>
+          <div class="sizechip">US 10<span>Brand C</span></div>
+        </div>
+        <p class="answer">A size isn't a measurement. Every brand and model fits differently.</p>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="6600">
+      <div class="pitchslide kb">
+        <div class="kicker">Today's Options</div>
+        <h2>Every current fix falls short</h2>
+        <div class="fails">
+          <div class="failcard">
+            <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1"/><path d="M7 9v3M11 9v3M15 9v3"/></svg>
+            <b>Measure at home</b><span>Ruler-and-paper guides are error-prone and tedious</span>
+          </div>
+          <div class="failcard">
+            <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+            <b>Buy 3, return 2</b><span>Bracketing sizes is costly for shoppers and retailers</span>
+          </div>
+          <div class="failcard">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            <b>Brand tools</b><span>Existing solutions are brand-locked or require an in-person visit</span>
+          </div>
+        </div>
+        <p class="answer">The gap: a <b>free, accurate, at-home</b> fit tool that works across every brand.</p>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="3000">
       <div class="hook kb">
         <h1><span class="w">Shoes</span> <span class="w">that</span> <span class="w hl">actually&nbsp;fit.</span></h1>
         <p>Your foot, measured in AR. No tape measure, no size charts, no guessing.</p>
       </div>
     </section>
 
-    <section class="scene" data-dur="5200">
+    <section class="scene" data-dur="6400">
       <div class="step kb">
         <div class="copy">
           <div class="badge"><span class="num">1</span> SCAN IT</div>
@@ -214,7 +323,7 @@
       </div>
     </section>
 
-    <section class="scene" data-dur="4400">
+    <section class="scene" data-dur="5200">
       <div class="step kb">
         <div class="copy">
           <div class="badge"><span class="num">2</span> MEASURE IT</div>
@@ -234,7 +343,7 @@
       </div>
     </section>
 
-    <section class="scene" data-dur="7200">
+    <section class="scene" data-dur="7800">
       <div class="step kb">
         <div class="copy">
           <div class="badge"><span class="num">3</span> MATCH IT</div>
@@ -285,16 +394,101 @@
       </div>
     </section>
 
-    <section class="scene" data-dur="4600">
+    <section class="scene" data-dur="6800">
+      <div class="step kb">
+        <div class="copy">
+          <div class="badge"><span class="num">4</span> BUY IT</div>
+          <h2>We match.<br>Retailers sell.</h2>
+          <p>We never hold stock or process a payment. Every match deep-links to a partner retailer&rsquo;s site, where checkout happens, and affiliate tracking earns a commission on each pair sold. Zero inventory or fulfillment risk.</p>
+        </div>
+        <div class="phone"><div class="screen">
+          <div class="sbar"><span>9:41</span><span>Shoe Details</span></div>
+          <div class="pdp-hero"><img data-asset="am1escape" alt="Nike Air Max 1 Escape"></div>
+          <div class="pdp-body">
+            <div>
+              <div class="t">Nike Air Max 1 &lsquo;Escape&rsquo;</div>
+              <div class="s">Your size: US 10 &middot; 98% fit</div>
+            </div>
+            <div class="buybtn">View Details &nearr;</div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="row"><span>partner retailer</span><span class="aff">affiliate tracked &#10003;</span></div>
+            <div class="row"><b>Nike Air Max 1 &lsquo;Escape&rsquo;</b><b>$150</b></div>
+            <div class="row"><span>Size US 10 &middot; In stock</span></div>
+            <div class="checkout">Continue on partner site</div>
+          </div>
+          <div class="finger"></div>
+        </div></div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="6800">
+      <div class="pitchslide kb">
+        <div class="kicker">Business Model</div>
+        <h2>Three revenue streams</h2>
+        <div class="fails">
+          <div class="revcard"><div class="rtag live">built in</div>
+            <svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1.5-1.5"/></svg>
+            <b>Affiliate commerce</b><span>Commission on every pair bought via our affiliate-tracked links. Checkout happens on the partner retailer&rsquo;s site</span>
+          </div>
+          <div class="revcard"><div class="rtag">next</div>
+            <svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+            <b>Brand partnerships</b><span>Sponsored placement and direct catalog integrations with shoe companies</span>
+          </div>
+          <div class="revcard"><div class="rtag">planned</div>
+            <svg viewBox="0 0 24 24"><path d="M4 20v-7M9 20V6M14 20v-10M19 20v-4"/><path d="M2 20h20"/></svg>
+            <b>Retail fit insights</b><span>Aggregated, anonymized sizing analytics that help retailers reduce returns</span>
+          </div>
+        </div>
+        <p class="answer">Zero inventory, and the fit-data flywheel makes every stream stronger.</p>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="6400">
+      <div class="step kb">
+        <div class="copy">
+          <div class="badge">THE MOAT</div>
+          <h2>Every scan makes it smarter</h2>
+          <p>Real-world feedback tunes the algorithm&rsquo;s fit tolerances over time, building proprietary data no competitor can replicate. More users, better matches, fewer returns.</p>
+        </div>
+        <div class="fly">
+          <svg class="flyring" viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="150" fill="none" stroke="#D9883F" stroke-width="2.5" stroke-dasharray="10 12" opacity=".75"/>
+            <g fill="none" stroke="#D9883F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="194,42 208,50 194,58"/>
+              <polyline points="194,42 208,50 194,58" transform="rotate(90 200 200)"/>
+              <polyline points="194,42 208,50 194,58" transform="rotate(180 200 200)"/>
+              <polyline points="194,42 208,50 194,58" transform="rotate(270 200 200)"/>
+            </g>
+          </svg>
+          <div class="flynode f1">Scan<span>foot in AR</span></div>
+          <div class="flynode f2">Match<span>ranked by fit</span></div>
+          <div class="flynode f3">Confirm<span>fit feedback</span></div>
+          <div class="flynode f4">Learn<span>tolerances refined</span></div>
+          <div class="flycenter">Fit-data moat<span>grows with every user</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="6200">
+      <div class="pitchslide kb">
+        <div class="kicker">Roadmap</div>
+        <h2>The app is fully functional.<br>Here&rsquo;s the path to launch.</h2>
+        <div class="road">
+          <div class="roaditem"><div class="rnum">1</div><div class="rtag live">in development</div><b>Virtual try-on</b><span>AR preview of any shoe on your foot before you buy</span></div>
+          <div class="roaditem"><div class="rnum">2</div><div class="rtag">next</div><b>Brand partnerships</b><span>True insole dimensions sourced directly from manufacturers</span></div>
+          <div class="roaditem"><div class="rnum">3</div><div class="rtag">planned</div><b>App launch</b><span>Android first, iOS to follow. Free for every shopper</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" data-dur="5600">
       <div class="outro kb">
         <img class="logo-img" data-asset="logo" alt="Shoe Shopper" />
-        <div class="mantra">Scan &middot; Measure &middot; Match</div>
-        <div class="features">
-          <div><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>AR scan</div>
-          <div><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg>Smart sizing</div>
-          <div><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg>Save &amp; match</div>
-        </div>
-        <div class="cta">Find Your Perfect Fit</div>
+        <div class="tagline2">Find Your Perfect Fit. Every Time.</div>
+        <div class="team">Alyssa Pagaduan &middot; Or Zait-Givon &middot; Tyler Weng</div>
+        <div class="cta">Let&rsquo;s build it together</div>
       </div>
     </section>
 
@@ -357,42 +551,59 @@
     mk(si, q(sc,'.kb'), [{transform:'scale(1)'},{transform:'scale(1.03)'}], {duration:durs[si], easing:'linear'});
   });
 
+  // pitch scene order:
+  // 0 intro · 1 problem · 2 options · 3 hook · 4 scan · 5 measure · 6 match
+  // 7 buy · 8 business model · 9 flywheel · 10 roadmap · 11 close
+
   // scene 0 — intro
   mk(0, q(scenes[0],'.logo-img'), POP, {duration:900});
   mk(0, q(scenes[0],'.tagline'), RISE, {duration:800, delay:400});
-  mk(0, q(scenes[0],'.underline'), [{width:'0px'},{width:'220px'}], {duration:900, delay:700});
-  // scene 1 — hook, word by word
-  mk(1, q(scenes[1],'h1 .w'), RISE, {duration:650, stagger:140});
-  mk(1, q(scenes[1],'p'), RISE, {duration:800, delay:550});
-  // scenes 2-4 — steps
-  [2,3,4].forEach(function(si){
+  mk(0, q(scenes[0],'.underline'), [{width:'0px'},{width:'260px'}], {duration:900, delay:700});
+  // scene 1 — the problem: return-rate stat counts up, size chips disagree
+  mk(1, q(scenes[1],'.kicker'), RISE, {duration:600});
+  mk(1, q(scenes[1],'.bigstat'), POP, {duration:800, delay:250});
+  mk(1, q(scenes[1],'h2'), RISE, {duration:700, delay:500});
+  mk(1, q(scenes[1],'.src'), FADEIN, {duration:700, delay:900});
+  mk(1, q(scenes[1],'.sizechip'), POP, {duration:500, delay:1700, stagger:260});
+  mk(1, q(scenes[1],'.neq'), POP, {duration:400, delay:1950, stagger:260});
+  mk(1, q(scenes[1],'.answer'), RISE, {duration:700, delay:2700});
+  // scene 2 — why today's fixes fail
+  mk(2, q(scenes[2],'.kicker'), RISE, {duration:600});
+  mk(2, q(scenes[2],'h2'), RISE, {duration:700, delay:200});
+  mk(2, q(scenes[2],'.failcard'), RISE, {duration:650, delay:700, stagger:260});
+  mk(2, q(scenes[2],'.answer'), RISE, {duration:700, delay:2300});
+  // scene 3 — hook, word by word
+  mk(3, q(scenes[3],'h1 .w'), RISE, {duration:650, stagger:140});
+  mk(3, q(scenes[3],'p'), RISE, {duration:800, delay:550});
+  // step scenes — copy + phone entrance
+  [4,5,6,7].forEach(function(si){
     mk(si, q(scenes[si],'.copy>*'), RISE, {duration:700, stagger:120});
     mk(si, q(scenes[si],'.phone'), POP, {duration:800, delay:100});
   });
-  // scene 2 — AR capture: grid rises, wall seam locks, heel confirmed,
+  // scene 4 — AR capture: grid rises, wall seam locks, heel confirmed,
   // AI traces the foot polygon, then length/width lines draw edge-to-edge
   var DRAW=[{strokeDashoffset:'100'},{strokeDashoffset:'0'}];
-  mk(2, q(scenes[2],'.argrid'), FADEIN, {duration:800, delay:200});
-  mk(2, q(scenes[2],'.arpill'), [{opacity:0,transform:'translateX(-50%) translateY(-6px)'},{opacity:1,transform:'translateX(-50%) translateY(0)'}], {duration:600, delay:400});
-  mk(2, q(scenes[2],'.seam'), DRAW, {duration:600, delay:500, easing:'ease-out'});
-  mk(2, q(scenes[2],'.arlabel.heel'), POP, {duration:450, delay:1000});
-  mk(2, q(scenes[2],'.foutline'), DRAW, {duration:900, delay:1150, easing:'ease-in-out'});
-  mk(2, q(scenes[2],'.lenline'), DRAW, {duration:700, delay:1950, easing:'ease-out'});
-  mk(2, q(scenes[2],'.lentick'), FADEIN, {duration:250, delay:2550});
-  mk(2, q(scenes[2],'.arlabel.len'), POP, {duration:450, delay:2600});
-  mk(2, q(scenes[2],'.widline'), DRAW, {duration:600, delay:2800, easing:'ease-out'});
-  mk(2, q(scenes[2],'.widtick'), FADEIN, {duration:250, delay:3300});
-  mk(2, q(scenes[2],'.arlabel.wid'), POP, {duration:450, delay:3350});
-  mk(2, q(scenes[2],'.capture-btn'), [{boxShadow:'0 0 0 0 rgba(217,136,63,.55)'},{boxShadow:'0 0 0 26px rgba(217,136,63,0)'}], {duration:1600, delay:1000, iterations:Infinity, easing:'ease-out'});
-  // scene 3 scan + chips
-  mk(3, q(scenes[3],'.scanline'), [{top:'8%'},{top:'84%'}], {duration:1800, delay:300, iterations:Infinity, direction:'alternate', easing:'ease-in-out'});
-  mk(3, q(scenes[3],'.chip'), POP, {duration:600, delay:700, stagger:300});
-  // scene 4 — recommendations as a real session: cards land, fit bars fill,
+  mk(4, q(scenes[4],'.argrid'), FADEIN, {duration:800, delay:200});
+  mk(4, q(scenes[4],'.arpill'), [{opacity:0,transform:'translateX(-50%) translateY(-6px)'},{opacity:1,transform:'translateX(-50%) translateY(0)'}], {duration:600, delay:400});
+  mk(4, q(scenes[4],'.seam'), DRAW, {duration:600, delay:500, easing:'ease-out'});
+  mk(4, q(scenes[4],'.arlabel.heel'), POP, {duration:450, delay:1000});
+  mk(4, q(scenes[4],'.foutline'), DRAW, {duration:900, delay:1150, easing:'ease-in-out'});
+  mk(4, q(scenes[4],'.lenline'), DRAW, {duration:700, delay:1950, easing:'ease-out'});
+  mk(4, q(scenes[4],'.lentick'), FADEIN, {duration:250, delay:2550});
+  mk(4, q(scenes[4],'.arlabel.len'), POP, {duration:450, delay:2600});
+  mk(4, q(scenes[4],'.widline'), DRAW, {duration:600, delay:2800, easing:'ease-out'});
+  mk(4, q(scenes[4],'.widtick'), FADEIN, {duration:250, delay:3300});
+  mk(4, q(scenes[4],'.arlabel.wid'), POP, {duration:450, delay:3350});
+  mk(4, q(scenes[4],'.capture-btn'), [{boxShadow:'0 0 0 0 rgba(217,136,63,.55)'},{boxShadow:'0 0 0 26px rgba(217,136,63,0)'}], {duration:1600, delay:1000, iterations:Infinity, easing:'ease-out'});
+  // scene 5 scan + chips
+  mk(5, q(scenes[5],'.scanline'), [{top:'8%'},{top:'84%'}], {duration:1800, delay:300, iterations:Infinity, direction:'alternate', easing:'ease-in-out'});
+  mk(5, q(scenes[5],'.chip'), POP, {duration:600, delay:700, stagger:300});
+  // scene 6 — recommendations as a real session: cards land, fit bars fill,
   // then a "finger" swipes the colorway carousel twice (swatch ring + colorway
   // name follow each swipe) and taps the heart to save the shoe to the wishlist
-  mk(4, q(scenes[4],'.card'), RISE, {duration:600, delay:350, stagger:250});
-  q(scenes[4],'.bar i').forEach(function(el,i){
-    mk(4, el, [{width:'0%'},{width:el.dataset.fit+'%'}], {duration:900, delay:900+i*250, easing:'ease-out'});
+  mk(6, q(scenes[6],'.card'), RISE, {duration:600, delay:350, stagger:250});
+  q(scenes[6],'.bar i').forEach(function(el,i){
+    mk(6, el, [{width:'0%'},{width:el.dataset.fit+'%'}], {duration:900, delay:900+i*250, easing:'ease-out'});
   });
   var D4=7200; function o4(ms){ return ms/D4; }
   // NOTE: these full-scene choreographies must use effect-level easing 'linear'
@@ -400,7 +611,7 @@
   // goes on the keyframe that starts each movement instead
   var LIN={duration:D4, easing:'linear'};
   // colorway carousel: two swipes, each timed to the finger drag below
-  mk(4, q(scenes[4],'.cw-track'), [
+  mk(6, q(scenes[6],'.cw-track'), [
     {transform:'translateX(0%)', offset:0},
     {transform:'translateX(0%)', offset:o4(2050), easing:EASE},
     {transform:'translateX(-33.333%)', offset:o4(2550)},
@@ -409,7 +620,7 @@
     {transform:'translateX(-66.667%)', offset:1}
   ], LIN);
   // finger: drag left, drag left again, then tap the heart
-  mk(4, q(scenes[4],'.finger'), [
+  mk(6, q(scenes[6],'.finger'), [
     {opacity:0,   transform:'translate(195px,105px) scale(1)', offset:0},
     {opacity:0,   transform:'translate(195px,105px) scale(1)', offset:o4(1500)},
     {opacity:.95, transform:'translate(195px,105px) scale(1)', offset:o4(1700), easing:EASE},
@@ -427,27 +638,62 @@
     {opacity:0,   transform:'translate(229px,69px) scale(1)',  offset:1}
   ], LIN);
   // active-swatch ring + colorway name track the carousel position
-  var swRings=q(scenes[4],'.swp i'), cwNames=q(scenes[4],'.cwname span');
-  mk(4, swRings[0], [{opacity:0,offset:0},{opacity:1,offset:o4(600)},{opacity:1,offset:o4(2450)},{opacity:0,offset:o4(2700)},{opacity:0,offset:1}], LIN);
-  mk(4, swRings[1], [{opacity:0,offset:0},{opacity:0,offset:o4(2450)},{opacity:1,offset:o4(2700)},{opacity:1,offset:o4(3850)},{opacity:0,offset:o4(4100)},{opacity:0,offset:1}], LIN);
-  mk(4, swRings[2], [{opacity:0,offset:0},{opacity:0,offset:o4(3850)},{opacity:1,offset:o4(4100)},{opacity:1,offset:1}], LIN);
-  mk(4, cwNames[0], [{opacity:1,offset:0},{opacity:1,offset:o4(2450)},{opacity:0,offset:o4(2700)},{opacity:0,offset:1}], LIN);
-  mk(4, cwNames[1], [{opacity:0,offset:0},{opacity:0,offset:o4(2450)},{opacity:1,offset:o4(2700)},{opacity:1,offset:o4(3850)},{opacity:0,offset:o4(4100)},{opacity:0,offset:1}], LIN);
-  mk(4, cwNames[2], [{opacity:0,offset:0},{opacity:0,offset:o4(3850)},{opacity:1,offset:o4(4100)},{opacity:1,offset:1}], LIN);
+  var swRings=q(scenes[6],'.swp i'), cwNames=q(scenes[6],'.cwname span');
+  mk(6, swRings[0], [{opacity:0,offset:0},{opacity:1,offset:o4(600)},{opacity:1,offset:o4(2450)},{opacity:0,offset:o4(2700)},{opacity:0,offset:1}], LIN);
+  mk(6, swRings[1], [{opacity:0,offset:0},{opacity:0,offset:o4(2450)},{opacity:1,offset:o4(2700)},{opacity:1,offset:o4(3850)},{opacity:0,offset:o4(4100)},{opacity:0,offset:1}], LIN);
+  mk(6, swRings[2], [{opacity:0,offset:0},{opacity:0,offset:o4(3850)},{opacity:1,offset:o4(4100)},{opacity:1,offset:1}], LIN);
+  mk(6, cwNames[0], [{opacity:1,offset:0},{opacity:1,offset:o4(2450)},{opacity:0,offset:o4(2700)},{opacity:0,offset:1}], LIN);
+  mk(6, cwNames[1], [{opacity:0,offset:0},{opacity:0,offset:o4(2450)},{opacity:1,offset:o4(2700)},{opacity:1,offset:o4(3850)},{opacity:0,offset:o4(4100)},{opacity:0,offset:1}], LIN);
+  mk(6, cwNames[2], [{opacity:0,offset:0},{opacity:0,offset:o4(3850)},{opacity:1,offset:o4(4100)},{opacity:1,offset:1}], LIN);
   // heart tap: fill pops in, button bounces, toast confirms the save
-  mk(4, q(scenes[4],'.hfill'), FADEIN, {duration:220, delay:4760});
-  mk(4, q(scenes[4],'.heartbtn'), [{transform:'scale(1)'},{transform:'scale(1.3)',offset:.45},{transform:'scale(1)'}], {duration:400, delay:4740});
-  mk(4, q(scenes[4],'.toast'), [
+  mk(6, q(scenes[6],'.hfill'), FADEIN, {duration:220, delay:4760});
+  mk(6, q(scenes[6],'.heartbtn'), [{transform:'scale(1)'},{transform:'scale(1.3)',offset:.45},{transform:'scale(1)'}], {duration:400, delay:4740});
+  mk(6, q(scenes[6],'.toast'), [
     {opacity:0, transform:'translateY(-6px)'},
     {opacity:1, transform:'translateY(0)', offset:.15},
     {opacity:1, transform:'translateY(0)', offset:.82},
     {opacity:0, transform:'translateY(-4px)'}
   ], {duration:1900, delay:4900});
-  // scene 5 — outro
-  mk(5, q(scenes[5],'.logo-img'), POP, {duration:900});
-  mk(5, q(scenes[5],'.mantra'), RISE, {duration:700, delay:400});
-  mk(5, q(scenes[5],'.features'), FADEIN, {duration:1000, delay:600});
-  mk(5, q(scenes[5],'.cta'), [{transform:'scale(1)'},{transform:'scale(1.06)',offset:.5},{transform:'scale(1)'}], {duration:1400, delay:700, iterations:Infinity, easing:'ease-in-out'});
+  // scene 7 — buy-it: finger taps View Details, retailer sheet slides up
+  var D7=5600; function o7(ms){ return ms/D7; }
+  mk(7, q(scenes[7],'.finger'), [
+    {opacity:0,   transform:'translate(122px,320px) scale(1)', offset:0},
+    {opacity:0,   transform:'translate(122px,320px) scale(1)', offset:o7(800)},
+    {opacity:.95, transform:'translate(122px,320px) scale(1)', offset:o7(1000), easing:EASE},
+    {opacity:.95, transform:'translate(122px,237px) scale(1)', offset:o7(1400)},
+    {opacity:.95, transform:'translate(122px,237px) scale(.78)', offset:o7(1600)},
+    {opacity:.95, transform:'translate(122px,237px) scale(1)',  offset:o7(1780)},
+    {opacity:0,   transform:'translate(122px,237px) scale(1)',  offset:o7(2200)},
+    {opacity:0,   transform:'translate(122px,237px) scale(1)',  offset:1}
+  ], {duration:D7, easing:'linear'});
+  mk(7, q(scenes[7],'.buybtn'), [{transform:'scale(1)'},{transform:'scale(.95)',offset:.5},{transform:'scale(1)'}], {duration:300, delay:1600});
+  mk(7, q(scenes[7],'.sheet'), [{transform:'translateY(105%)'},{transform:'translateY(0)'}], {duration:550, delay:1850});
+  mk(7, q(scenes[7],'.aff'), POP, {duration:450, delay:2600});
+  mk(7, q(scenes[7],'.checkout'), [{transform:'scale(1)'},{transform:'scale(1.04)',offset:.5},{transform:'scale(1)'}], {duration:1300, delay:2900, iterations:Infinity, easing:'ease-in-out'});
+  // scene 8 — business model: three revenue-stream cards with status tags
+  mk(8, q(scenes[8],'.kicker'), RISE, {duration:600});
+  mk(8, q(scenes[8],'h2'), RISE, {duration:700, delay:200});
+  mk(8, q(scenes[8],'.revcard'), RISE, {duration:650, delay:700, stagger:280});
+  mk(8, q(scenes[8],'.rtag'), POP, {duration:450, delay:1500, stagger:280});
+  mk(8, q(scenes[8],'.answer'), RISE, {duration:700, delay:2500});
+  // scene 9 — flywheel: nodes land around a slowly turning ring
+  mk(9, q(scenes[9],'.copy>*'), RISE, {duration:700, stagger:120});
+  mk(9, q(scenes[9],'.fly'), POP, {duration:800, delay:150});
+  mk(9, q(scenes[9],'.flyring'), [{transform:'rotate(0deg)'},{transform:'rotate(150deg)'}], {duration:6400, easing:'linear'});
+  q(scenes[9],'.flynode').forEach(function(el,i){
+    mk(9, el, [{opacity:0},{opacity:1}], {duration:450, delay:700+i*300});
+  });
+  mk(9, q(scenes[9],'.flycenter'), FADEIN, {duration:700, delay:2100});
+  // scene 10 — roadmap
+  mk(10, q(scenes[10],'.kicker'), RISE, {duration:600});
+  mk(10, q(scenes[10],'h2'), RISE, {duration:700, delay:200});
+  mk(10, q(scenes[10],'.roaditem'), RISE, {duration:650, delay:800, stagger:320});
+  mk(10, q(scenes[10],'.rtag'), POP, {duration:450, delay:1600, stagger:320});
+  // scene 11 — close: logo, tagline, team, ask
+  mk(11, q(scenes[11],'.logo-img'), POP, {duration:900});
+  mk(11, q(scenes[11],'.tagline2'), RISE, {duration:700, delay:400});
+  mk(11, q(scenes[11],'.team'), RISE, {duration:700, delay:700});
+  mk(11, q(scenes[11],'.cta'), [{transform:'scale(1)'},{transform:'scale(1.06)',offset:.5},{transform:'scale(1)'}], {duration:1400, delay:900, iterations:Infinity, easing:'ease-in-out'});
 
   function clamp01(x){ return x<0?0:x>1?1:x; }
   function easeOut(p){ return 1-Math.pow(1-p,3); }
@@ -460,11 +706,12 @@
       el.textContent=fmt(to*p);
     }});
   }
-  counter(3, document.getElementById('cntLen'), 10.4, 800, 2000, function(v){return v.toFixed(1)});
-  counter(3, document.getElementById('cntWid'), 4.1, 1100, 2300, function(v){return v.toFixed(1)});
-  counter(3, document.getElementById('cntArea'), 32, 1400, 2600, function(v){return String(Math.round(v))});
-  q(scenes[4],'.fit .cnt').forEach(function(el,i){
-    counter(4, el, Number(el.dataset.fit), 900+i*250, 1800+i*250, function(v){return String(Math.round(v))});
+  counter(1, document.getElementById('cntRet'), 18, 450, 1500, function(v){return String(Math.round(v))});
+  counter(5, document.getElementById('cntLen'), 10.4, 800, 2000, function(v){return v.toFixed(1)});
+  counter(5, document.getElementById('cntWid'), 4.1, 1100, 2300, function(v){return v.toFixed(1)});
+  counter(5, document.getElementById('cntArea'), 32, 1400, 2600, function(v){return String(Math.round(v))});
+  q(scenes[6],'.fit .cnt').forEach(function(el,i){
+    counter(6, el, Number(el.dataset.fit), 900+i*250, 1800+i*250, function(v){return String(Math.round(v))});
   });
 
   function render(t){
